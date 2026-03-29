@@ -1,0 +1,104 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+  engineType    = "library"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+  USER
+}
+
+enum EmployeeType {
+  TRASH_COLLECTOR
+  WASTE_COLLECTOR
+}
+
+enum BinType {
+  CONTAINER_LARGE
+  CONTAINER_SMALL
+  WASTE_POINT
+}
+
+enum WasteCategory {
+  DOMESTIC
+  ELECTRONIC
+  PLASTIC
+  GLASS
+  PAPER
+  GENERAL
+}
+
+enum RequestStatus {
+  PENDING
+  ON_ROUTE
+  COLLECTED
+  CANCELLED
+}
+
+model User {
+  id            String          @id @default(uuid())
+  email         String          @unique
+  password      String
+  role          Role            @default(USER)
+  employeeType  EmployeeType?
+  regionId      String?
+  region        Region?         @relation(fields: [regionId], references: [id])
+  wasteRequests WasteRequest[]
+  collections   CollectionLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Region {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  users     User[]
+  bins      Bin[]
+  createdAt DateTime @default(now())
+}
+
+model Bin {
+  id                String          @id @default(uuid())
+  type              BinType
+  wasteCategory     WasteCategory   @default(GENERAL)
+  latitude          Float
+  longitude         Float
+  capacityVolume    Float
+  predictedFullness Float           @default(0.0)
+  regionId          String
+  region            Region          @relation(fields: [regionId], references: [id])
+  logs              CollectionLog[]
+  createdAt         DateTime        @default(now())
+}
+
+model CollectionLog {
+  id             String   @id @default(uuid())
+  binId          String
+  bin            Bin      @relation(fields: [binId], references: [id])
+  employeeId     String
+  employee       User     @relation(fields: [employeeId], references: [id])
+  emptiedAt      DateTime @default(now())
+  actualFullness Float
+}
+
+model WasteRequest {
+  id                 String        @id @default(uuid())
+  userId             String
+  user               User          @relation(fields: [userId], references: [id])
+  wasteType          WasteCategory
+  note               String?
+  latitude           Float
+  longitude          Float
+  status             RequestStatus @default(PENDING)
+  assignedEmployeeId String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+}
