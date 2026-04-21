@@ -42,6 +42,12 @@ enum RequestStatus {
   CANCELLED
 }
 
+enum TransactionType {
+  EARNED
+  SPENT
+  REFUNDED
+}
+
 model User {
   id            String          @id @default(uuid())
   email         String          @unique
@@ -52,9 +58,51 @@ model User {
   region        Region?         @relation(fields: [regionId], references: [id])
   wasteRequests WasteRequest[]
   collections   CollectionLog[]
+  wallet        Wallet?
+  transactions  Transaction[]
+  redemptions   Redemption[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Wallet {
+  id        String   @id @default(uuid())
+  balance   Int      @default(0)
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  updatedAt DateTime @updatedAt
+}
+
+model Transaction {
+  id          String          @id @default(uuid())
+  amount      Int
+  type        TransactionType
+  description String?
+  userId      String
+  user        User            @relation(fields: [userId], references: [id])
+  createdAt   DateTime        @default(now())
+}
+
+model Reward {
+  id          String       @id @default(uuid())
+  title       String
+  description String
+  coinCost    Int
+  stock       Int          @default(100)
+  redemptions Redemption[]
+  createdAt   DateTime     @default(now())
+}
+
+model Redemption {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  rewardId  String
+  reward    Reward   @relation(fields: [rewardId], references: [id])
+  code      String   @unique // Kullanıcının kasada göstereceği dijital kod
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
 }
 
 model Region {
@@ -99,6 +147,9 @@ model WasteRequest {
   longitude          Float
   status             RequestStatus @default(PENDING)
   assignedEmployeeId String?
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
+  weight             Float?
+  earnedCoins        Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
