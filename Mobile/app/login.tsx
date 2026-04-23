@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
-  KeyboardAvoidingView, 
-  Platform, 
-  ScrollView 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView
 } from 'react-native';
 import { router } from 'expo-router';
 
@@ -21,12 +21,12 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={{ flex: 1 }} 
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView 
-        contentContainerStyle={styles.scrollContainer} 
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.container}>
@@ -65,7 +65,7 @@ export default function LoginScreen() {
             </TouchableOpacity>
 
             {/* ŞİFREMİ UNUTTUM - Sağa yapışık ve görünür */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.forgotPasswordContainer}
               onPress={() => router.push('/forgot-password' as any)}
             >
@@ -74,13 +74,13 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.buttonRow}>
-            <TouchableOpacity 
-              style={[styles.baseButton, styles.loginButton]} 
+            <TouchableOpacity
+              style={[styles.baseButton, styles.loginButton]}
               onPress={handleLogin}
             >
               <Text style={styles.loginButtonText}>Giriş Yap</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={[styles.baseButton, styles.registerButton]}
               onPress={() => router.push('/register' as any)}
