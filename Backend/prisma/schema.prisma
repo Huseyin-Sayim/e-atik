@@ -5,49 +5,25 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
-}
-
-enum Role {
-  ADMIN
-  EMPLOYEE
-  USER
-}
-
-enum EmployeeType {
-  TRASH_COLLECTOR
-  WASTE_COLLECTOR
-}
-
-enum BinType {
-  CONTAINER_LARGE
-  CONTAINER_SMALL
-  WASTE_POINT
-}
-
-enum WasteCategory {
-  DOMESTIC
-  ELECTRONIC
-  PLASTIC
-  GLASS
-  PAPER
-  GENERAL
-}
-
-enum RequestStatus {
-  PENDING
-  ON_ROUTE
-  COLLECTED
-  CANCELLED
 }
 
 model User {
   id            String          @id @default(uuid())
+  fullName      String
+  city          String
+  district      String
   email         String          @unique
   password      String
-  role          Role            @default(USER)
-  employeeType  EmployeeType?
+  role          String          @default("USER")
+  profileType   String?
+  employeeType  String?
+  
+  // Şifre sıfırlama için alanlar
+  resetCode       String?
+  resetCodeExpiry DateTime?
+
   regionId      String?
   region        Region?         @relation(fields: [regionId], references: [id])
   wasteRequests WasteRequest[]
@@ -67,8 +43,8 @@ model Region {
 
 model Bin {
   id                String          @id @default(uuid())
-  type              BinType
-  wasteCategory     WasteCategory   @default(GENERAL)
+  type              String
+  wasteCategory     String          @default("GENERAL")
   latitude          Float
   longitude         Float
   capacityVolume    Float
@@ -93,11 +69,11 @@ model WasteRequest {
   id                 String        @id @default(uuid())
   userId             String
   user               User          @relation(fields: [userId], references: [id])
-  wasteType          WasteCategory
+  wasteType          String
   note               String?
   latitude           Float
   longitude          Float
-  status             RequestStatus @default(PENDING)
+  status             String        @default("PENDING")
   assignedEmployeeId String?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
