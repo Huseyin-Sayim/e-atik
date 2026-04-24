@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,17 +7,116 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  ScrollView
+  ScrollView,
+  Alert
 } from 'react-native';
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
+import DatabaseService from '../database/DatabaseService';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const handleLogin = () => {
-    console.log('Giriş yapılıyor:', { email, password, rememberMe });
+  useEffect(() => {
+    checkSession();
+  }, []);
+
+  const checkSession = async () => {
+    try {
+      const sessionData = await AsyncStorage.getItem('userSession');
+      if (sessionData) {
+        const parsedSession = JSON.parse(sessionData);
+        const expiry = parsedSession.expiry;
+        const profileType = parsedSession.profileType;
+        const now = new Date().getTime();
+
+        // Eğer oturum süresi dolmamışsa (30 gün) otomatik giriş yap
+        if (now < expiry) {
+          console.log('[OTURUM KONTROLÜ] Geçerli bir oturum bulundu, yönlendiriliyor...');
+          if (profileType === 'kisisel') {
+            router.replace('/(tabs)');
+          } else if (profileType === 'kurumsal') {
+            router.replace('/main-kurumsal');
+          } else {
+            router.replace('/profile-selection');
+          }
+        } else {
+          // Süresi dolmuşsa temizle
+          await AsyncStorage.removeItem('userSession');
+        }
+      }
+    } catch (error) {
+      console.error('Oturum kontrolü sırasında hata:', error);
+    }
+  };
+
+  const handleLogin = async () => {
+    setErrorMessage('');
+
+    if (!email || !password) {
+      setErrorMessage('Lütfen e-posta ve şifre alanlarının ikisini de doldurun.');
+      return;
+    }
+
+    try {
+      let isValidUser;
+      try {
+        isValidUser = await DatabaseService.loginUser(email, password);
+      } catch (err: any) {
+        setErrorMessage(err.message || 'Böyle bir hesap bulunamadı veya şifre hatalı, lütfen kayıt olun.');
+        return;
+      }
+
+      Alert.alert('Başarılı', 'Giriş Başarılı, Hoşgeldiniz!');
+
+      console.log('Giriş yapılıyor:', { email, password, rememberMe });
+
+      // "Beni Hatırla" seçiliyse 30 günlük oturum kaydet
+      if (rememberMe) {
+        const thirtyDaysInMillis = 30 * 24 * 60 * 60 * 1000;
+        const expiryDate = new Date().getTime() + thirtyDaysInMillis;
+
+        const sessionData = {
+          email: email,
+          profileType: isValidUser.profileType,
+          expiry: expiryDate
+        };
+
+        await AsyncStorage.setItem('userSession', JSON.stringify(sessionData));
+        console.log('[OTURUM KAYDEDİLDİ] 30 gün boyunca açık kalacak.');
+      } else {
+        // Seçili değilse eski kayıt varsa temizle
+        await AsyncStorage.removeItem('userSession');
+      }
+
+      // Profil seçimi veya diğer ekranlar için güncel email bilgisini sakla
+      await AsyncStorage.setItem('currentUserEmail', email);
+
+      const isFirstLogin = isValidUser.isFirstLogin === true;
+
+      if (isFirstLogin) {
+        console.log('[YÖNLENDİRME] Kullanıcı ilk kez giriş yapıyor. Profil seçimine yönlendiriliyor...');
+        router.replace('/profile-selection');
+      } else {
+        console.log('[YÖNLENDİRME] Kullanıcı daha önce giriş yapmış. Profil tipine göre ana sayfaya yönlendiriliyor...');
+        if (isValidUser.profileType === 'kisisel') {
+          router.replace('/(tabs)');
+        } else if (isValidUser.profileType === 'kurumsal') {
+          router.replace('/main-kurumsal');
+        } else {
+          router.replace('/profile-selection');
+        }
+      }
+
+    } catch (error) {
+      console.error('Oturum kaydedilirken veya giriş yaparken hata:', error);
+      Alert.alert('Hata', 'Giriş işlemi sırasında bir sorun oluştu.');
+    }
   };
 
   return (
@@ -42,14 +141,24 @@ export default function LoginScreen() {
             autoCapitalize="none"
           />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Şifre"
-            placeholderTextColor="#999"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="Şifre"
+              placeholderTextColor="#999"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+            />
+            <TouchableOpacity
+              style={styles.eyeIcon}
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              <Ionicons name={showPassword ? "eye-off" : "eye"} size={24} color="#999" />
+            </TouchableOpacity>
+          </View>
+
+          {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
           <View style={styles.row}>
             {/* BENİ HATIRLA - Hitbox sadece içerik kadar */}
@@ -123,6 +232,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9f9f9',
     color: '#000',
   },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#eee',
+    borderRadius: 12,
+    backgroundColor: '#f9f9f9',
+    marginBottom: 16,
+  },
+  passwordInput: {
+    flex: 1,
+    padding: 15,
+    fontSize: 16,
+    color: '#000',
+  },
+  eyeIcon: {
+    padding: 10,
+    marginRight: 5,
+  },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -195,5 +323,11 @@ const styles = StyleSheet.create({
     color: '#2e7d32',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  errorText: {
+    color: '#d32f2f',
+    fontSize: 14,
+    marginBottom: 16,
+    textAlign: 'center',
   },
 });

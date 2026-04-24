@@ -1,22 +1,43 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { useState } from 'react';
+import DatabaseService from '../database/DatabaseService';
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const handleResetPassword = () => {
-    if (!email.trim()) {
-      Alert.alert('Hata', 'Lütfen geçerli bir e-posta adresi girin.');
+  const isValidEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const handleResetPassword = async () => {
+    setErrorMessage('');
+    
+    if (!email.trim() || !isValidEmail(email)) {
+      setErrorMessage('Lütfen geçerli bir e-posta adresi girin.');
       return;
     }
     
-    // Simüle edilmiş şifre sıfırlama işlemi
-    Alert.alert(
-      'Başarılı',
-      'Şifre sıfırlama bağlantısı e-posta adresinize gönderildi.',
-      [{ text: 'Tamam', onPress: () => router.back() }]
-    );
+    try {
+      await DatabaseService.forgotPassword(email);
+      
+      // Doğrulama sayfasına yönlendir
+      router.push({
+        pathname: '/verify-email',
+        params: { 
+          userEmail: email
+        }
+      });
+    } catch (error: any) {
+      if (error.message === 'Böyle bir e-posta kayıtlı değil.') {
+        setErrorMessage(error.message);
+      } else {
+        setErrorMessage('E-posta gönderilirken bir hata oluştu. Lütfen tekrar deneyin.');
+        console.error(error);
+      }
+    }
   };
 
   return (
@@ -33,6 +54,8 @@ export default function ForgotPasswordScreen() {
         keyboardType="email-address"
         autoCapitalize="none"
       />
+
+      {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
       <TouchableOpacity style={styles.button} onPress={handleResetPassword}>
         <Text style={styles.buttonText}>Gönder</Text>
@@ -92,5 +115,11 @@ const styles = StyleSheet.create({
     color: '#2e7d32',
     textAlign: 'center',
     textDecorationLine: 'underline',
+  },
+  errorText: {
+    color: '#d32f2f',
+    fontSize: 14,
+    marginBottom: 16,
+    textAlign: 'center',
   },
 });
