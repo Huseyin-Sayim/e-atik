@@ -1,10 +1,12 @@
 const express = require("express");
 const userRoutes = require("./routes/api/userRoutes");
 const authRoutes = require("./routes/api/authRoutes");
+const cookieParser = require('cookie-parser');
 
 const app = express();
 const port = process.env.PORT || 2001;
 
+app.use(cookieParser());
 app.use(express.json());
 
 app.get('/', async (req, res) => {

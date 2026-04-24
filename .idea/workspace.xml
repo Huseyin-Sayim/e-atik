@@ -5,8 +5,17 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="891b3278-7a2e-4be4-a4f8-2b784f7fd9f8" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/Backend/README.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/services/mailServices.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/.env" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/.env" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/controllers/api/authController.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/controllers/api/authController.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/controllers/api/userController.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/controllers/api/userController.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/prisma/schema.prisma" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/prisma/schema.prisma" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/routes/api/authRoutes.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/routes/api/authRoutes.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/server.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/server.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/validations/validateSchema.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/validations/validateSchema.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -14,7 +23,7 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="63" />
+    <option name="cachedIndexableFilesCount" value="64" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="FileTemplateManagerImpl">
@@ -103,7 +112,8 @@
       <workItem from="1776783998120" duration="472000" />
       <workItem from="1776816680888" duration="15610000" />
       <workItem from="1776871953110" duration="378000" />
-      <workItem from="1776872396650" duration="307000" />
+      <workItem from="1776872396650" duration="353000" />
+      <workItem from="1776974679203" duration="13762000" />
     </task>
     <servers />
   </component>
@@ -114,11 +124,6 @@
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" type="javascript">
-          <url>file://$PROJECT_DIR$/Backend/controllers/api/authController.js</url>
-          <line>6</line>
-          <option name="timeStamp" value="2" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="javascript">
           <url>file://$PROJECT_DIR$/Backend/validations/validateSchema.js</url>
           <line>4</line>
           <option name="timeStamp" value="3" />
@@ -127,6 +132,12 @@
           <url>file://$PROJECT_DIR$/Backend/validations/validateSchema.js</url>
           <line>3</line>
           <option name="timeStamp" value="4" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="javascript">
+          <url>file://$PROJECT_DIR$/Backend/services/mailServices.js</url>
+          <line>14</line>
+          <properties lambdaOrdinal="-1" />
+          <option name="timeStamp" value="10" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

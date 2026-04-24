@@ -49,34 +49,54 @@ enum TransactionType {
 }
 
 model User {
-  id            String          @id @default(uuid())
-  name          String
-  email         String          @unique
-  password      String
-  phoneNumber   String          @db.VarChar(10)
-  role          Role            @default(USER)
-  employeeType  EmployeeType?
-  regionId      String?
-  region        Region?         @relation(fields: [regionId], references: [id])
-  wasteRequests WasteRequest[]
-  collections   CollectionLog[]
-  wallet        Wallet?
-  transactions  Transaction[]
-  redemptions   Redemption[]
-  isVerified    Boolean         @default(false)
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  refreshTokens RefreshToken[]
+  id                String             @id @default(uuid())
+  name              String
+  email             String             @unique
+  password          String
+  phoneNumber       String             @db.VarChar(10)
+  role              Role               @default(USER)
+  employeeType      EmployeeType?
+  regionId          String?
+  region            Region?            @relation(fields: [regionId], references: [id])
+  wasteRequests     WasteRequest[]
+  collections       CollectionLog[]
+  wallet            Wallet?
+  transactions      Transaction[]
+  redemptions       Redemption[]
+  isVerified        Boolean            @default(false)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  refreshTokens     RefreshToken[]
+  verificationCodes VerificationCode[]
+  resetTokens       ResetToken[]
 }
 
 model RefreshToken {
-  id         String   @id @default(uuid())
-  token      String   @unique
-  userId     String
-  user       User     @relation(fields: [userId], references: [id])
-  revorked   Boolean  @default(false)
-  experiedAt DateTime
-  createdAt  DateTime @default(now())
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  revorked  Boolean  @default(false)
+  expiredAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model VerificationCode {
+  id        String   @id @default(uuid())
+  code      String
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  expiredAt DateTime
+}
+
+model ResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiredAt DateTime
+  createdAt DateTime @default(now())
 }
 
 model Wallet {

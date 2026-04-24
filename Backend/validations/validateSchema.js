@@ -34,6 +34,17 @@ const schemas = {
     password: joi.string().required().trim().min(6).max(20).messages({
       'string.required': 'şifre alanı zorunludur'
     })
+  }),
+  resetPassMail: joi.object({
+    email: joi.string().email().trim().required().min(3).max(100).required().messages({
+      'string.base': 'email alanı metin olmalıdır',
+      'string.required': 'email alanı zorunludur'
+    }),
+  }),
+  resetPassword: joi.object({
+    password: joi.string().required().trim().min(6).max(20).messages({
+      'string.required': 'şifre alanı zorunludur'
+    })
   })
 }
 
