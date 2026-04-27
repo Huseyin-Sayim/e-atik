@@ -1,6 +1,9 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from './types';
 
-const API_URL = 'http://192.168.1.40:2001/api/users';
+const BASE_API_URL = 'http://192.168.1.40:2001/api';
+const AUTH_API_URL = `${BASE_API_URL}/auth`;
+const USER_API_URL = `${BASE_API_URL}/users`;
 
 class DatabaseService {
   /**
@@ -8,7 +11,13 @@ class DatabaseService {
    */
   static async getUsers(): Promise<User[]> {
     try {
-      const response = await fetch(API_URL);
+      const token = await AsyncStorage.getItem('accessToken');
+      const response = await fetch(USER_API_URL, {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+          'Content-Type': 'application/json'
+        }
+      });
       if (!response.ok) throw new Error('Kullanıcılar getirilemedi.');
       const json = await response.json();
       return json.data || [];
@@ -23,7 +32,7 @@ class DatabaseService {
    */
   static async addUser(user: any): Promise<void> {
     try {
-      const response = await fetch(`${API_URL}/register`, {
+      const response = await fetch(`${AUTH_API_URL}/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -46,7 +55,7 @@ class DatabaseService {
    */
   static async loginUser(email: string, password: string): Promise<any> {
     try {
-      const response = await fetch(`${API_URL}/login`, {
+      const response = await fetch(`${AUTH_API_URL}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -60,7 +69,18 @@ class DatabaseService {
         throw new Error(json.message || 'Giriş yapılamadı.');
       }
 
-      return json.data;
+      // Token'ları AsyncStorage'a kaydet
+      if (json.accessToken) {
+        await AsyncStorage.setItem('accessToken', json.accessToken);
+      }
+      if (json.refreshToken) {
+        await AsyncStorage.setItem('refreshToken', json.refreshToken);
+      }
+
+      // login.tsx tarafının eskisi gibi çalışabilmesi için dönen datayı uyarlıyoruz
+      // Not: Arkadaşının sisteminde 'profileType' olmadığı için şimdilik null dönebilir.
+      const userData = json.user || json.data || {};
+      return userData;
     } catch (error: any) {
       throw error;
     }
@@ -72,10 +92,12 @@ class DatabaseService {
   static async updateUser(email: string, updates: any): Promise<void> {
     try {
       if (updates.profileType) {
-        const response = await fetch(`${API_URL}/update-profile`, {
+        const token = await AsyncStorage.getItem('accessToken');
+        const response = await fetch(`${USER_API_URL}/update-profile`, {
           method: 'PUT',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : ''
           },
           body: JSON.stringify({
             email,
@@ -96,7 +118,7 @@ class DatabaseService {
 
   static async forgotPassword(email: string): Promise<void> {
     try {
-      const response = await fetch(`${API_URL}/forgot-password`, {
+      const response = await fetch(`${AUTH_API_URL}/reset/password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -115,10 +137,12 @@ class DatabaseService {
 
   static async verifyResetCode(email: string, code: string): Promise<void> {
     try {
-      const response = await fetch(`${API_URL}/verify-reset-code`, {
+      const token = await AsyncStorage.getItem('accessToken');
+      const response = await fetch(`${AUTH_API_URL}/verify/mail`, { // Not: Yeni backend GET /verify/mail/:code bekliyor. Bu kısım ileride güncellenebilir.
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
         },
         body: JSON.stringify({ email, code })
       });
@@ -134,7 +158,7 @@ class DatabaseService {
 
   static async resetPassword(email: string, code: string, newPassword: string): Promise<void> {
     try {
-      const response = await fetch(`${API_URL}/reset-password`, {
+      const response = await fetch(`${AUTH_API_URL}/reset/password`, { // Not: Yeni backend token bekliyor olabilir.
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

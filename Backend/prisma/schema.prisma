@@ -5,32 +5,139 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  ADMIN
+  EMPLOYEE
+  USER
+}
+
+enum EmployeeType {
+  TRASH_COLLECTOR
+  WASTE_COLLECTOR
+}
+
+enum BinType {
+  CONTAINER_LARGE
+  CONTAINER_SMALL
+  WASTE_POINT
+}
+
+enum WasteCategory {
+  DOMESTIC
+  ELECTRONIC
+  PLASTIC
+  GLASS
+  PAPER
+  GENERAL
+}
+
+enum RequestStatus {
+  PENDING
+  ON_ROUTE
+  COLLECTED
+  CANCELLED
+}
+
+enum TransactionType {
+  EARNED
+  SPENT
+  REFUNDED
+}
+
 model User {
-  id            String          @id @default(uuid())
-  fullName      String
-  city          String
-  district      String
-  email         String          @unique
-  password      String
-  role          String          @default("USER")
-  profileType   String?
-  employeeType  String?
-  
-  // Şifre sıfırlama için alanlar
-  resetCode       String?
-  resetCodeExpiry DateTime?
+  id                String             @id @default(uuid())
+  name              String
+  email             String             @unique
+  password          String
+  phoneNumber       String             @db.VarChar(10)
+  role              Role               @default(USER)
+  employeeType      EmployeeType?
+  city              String?
+  district          String?
+  regionId          String?
+  region            Region?            @relation(fields: [regionId], references: [id])
+  wasteRequests     WasteRequest[]
+  collections       CollectionLog[]
+  wallet            Wallet?
+  transactions      Transaction[]
+  redemptions       Redemption[]
+  isVerified        Boolean            @default(false)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  refreshTokens     RefreshToken[]
+  verificationCodes VerificationCode[]
+  resetTokens       ResetToken[]
+}
 
-  regionId      String?
-  region        Region?         @relation(fields: [regionId], references: [id])
-  wasteRequests WasteRequest[]
-  collections   CollectionLog[]
-
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  revorked  Boolean  @default(false)
+  expiredAt DateTime
   createdAt DateTime @default(now())
+}
+
+model VerificationCode {
+  id        String   @id @default(uuid())
+  code      String
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  expiredAt DateTime
+}
+
+model ResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiredAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Wallet {
+  id        String   @id @default(uuid())
+  balance   Int      @default(0)
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
   updatedAt DateTime @updatedAt
+}
+
+model Transaction {
+  id          String          @id @default(uuid())
+  amount      Int
+  type        TransactionType
+  description String?
+  userId      String
+  user        User            @relation(fields: [userId], references: [id])
+  createdAt   DateTime        @default(now())
+}
+
+model Reward {
+  id          String       @id @default(uuid())
+  title       String
+  description String
+  coinCost    Int
+  stock       Int          @default(100)
+  redemptions Redemption[]
+  createdAt   DateTime     @default(now())
+}
+
+model Redemption {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  rewardId  String
+  reward    Reward   @relation(fields: [rewardId], references: [id])
+  code      String   @unique // Kullanıcının kasada göstereceği dijital kod
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
 }
 
 model Region {
@@ -43,8 +150,8 @@ model Region {
 
 model Bin {
   id                String          @id @default(uuid())
-  type              String
-  wasteCategory     String          @default("GENERAL")
+  type              BinType
+  wasteCategory     WasteCategory   @default(GENERAL)
   latitude          Float
   longitude         Float
   capacityVolume    Float
@@ -69,12 +176,15 @@ model WasteRequest {
   id                 String        @id @default(uuid())
   userId             String
   user               User          @relation(fields: [userId], references: [id])
-  wasteType          String
+  wasteType          WasteCategory
   note               String?
   latitude           Float
   longitude          Float
-  status             String        @default("PENDING")
+  status             RequestStatus @default(PENDING)
   assignedEmployeeId String?
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
+  weight             Float?
+  earnedCoins        Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

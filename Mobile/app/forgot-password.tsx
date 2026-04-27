@@ -23,13 +23,14 @@ export default function ForgotPasswordScreen() {
     try {
       await DatabaseService.forgotPassword(email);
       
-      // Doğrulama sayfasına yönlendir
-      router.push({
-        pathname: '/verify-email',
-        params: { 
-          userEmail: email
-        }
-      });
+      // Arkadaşının backend sistemi link gönderdiği için doğrulama sayfasına gitmek yerine alert gösteriyoruz.
+      Alert.alert(
+        "E-posta Gönderildi",
+        "Şifre sıfırlama bağlantısı e-posta adresinize gönderildi. Lütfen e-postanızı kontrol edin ve linke tıklayarak şifrenizi sıfırlayın.",
+        [
+          { text: "Tamam", onPress: () => router.replace('/login') }
+        ]
+      );
     } catch (error: any) {
       if (error.message === 'Böyle bir e-posta kayıtlı değil.') {
         setErrorMessage(error.message);

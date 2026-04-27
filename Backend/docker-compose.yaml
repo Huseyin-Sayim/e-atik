@@ -5,7 +5,8 @@ services:
       - "2001:2001"
     volumes:
       - .:/home/node/eAtik
-      - node_modules_data:/home/node/eAtik/node_modules
+#      - node_modules_data:/home/node/eAtik/node_modules
+      - /home/node/eAtik/node_modules
     environment:
       - NODE_ENV=development
       - PORT=${PORT}
@@ -25,7 +26,7 @@ services:
       timeout: 5s
       retries: 5
     ports:
-      - "5434:5432"
+      - "5434:5434"
     volumes:
       - postgres-data:/var/lib/postgresql/data
 volumes:

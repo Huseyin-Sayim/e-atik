@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
-  KeyboardAvoidingView, 
-  Platform, 
-  ScrollView 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView
 } from 'react-native';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -19,6 +19,7 @@ export default function RegisterScreen() {
   const [city, setCity] = useState('');
   const [district, setDistrict] = useState('');
   const [email, setEmail] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -29,8 +30,13 @@ export default function RegisterScreen() {
     setErrorMessage('');
     setSuccessMessage('');
 
-    if (!fullName || !city || !district || !email || !password || !confirmPassword) {
+    if (!fullName || !city || !district || !email || !phoneNumber || !password || !confirmPassword) {
       setErrorMessage('Lütfen tüm alanları doldurun.');
+      return;
+    }
+
+    if (phoneNumber.length !== 10 || !/^[0-9]+$/.test(phoneNumber)) {
+      setErrorMessage('Telefon numarası başında 0 olmadan tam 10 haneli olmalıdır.');
       return;
     }
 
@@ -53,18 +59,19 @@ export default function RegisterScreen() {
     try {
       // Yeni kullanıcıyı oluştur ve kaydet
       const newUser = {
-        fullName,
+        name: fullName,
         city,
         district,
+        phoneNumber,
         email: email.toLowerCase(),
         password,
         isFirstLogin: true // Yeni kayıt olduğu için ilk girişi true olarak işaretle
       };
-      
+
       await DatabaseService.addUser(newUser);
-      
+
       console.log('Kayıt başarılı:', newUser.email);
-      
+
       setSuccessMessage('Hesabınız oluşturuldu. Giriş sayfasına yönlendiriliyorsunuz...');
 
       // Kısa bir süre sonra giriş yap ekranına yönlendir
@@ -83,12 +90,12 @@ export default function RegisterScreen() {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={{ flex: 1 }} 
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView 
-        contentContainerStyle={styles.scrollContainer} 
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.container}>
@@ -131,6 +138,16 @@ export default function RegisterScreen() {
             autoCapitalize="none"
           />
 
+          <TextInput
+            style={styles.input}
+            placeholder="Telefon Numarası (Örn: 5551234567)"
+            placeholderTextColor="#999"
+            value={phoneNumber}
+            onChangeText={setPhoneNumber}
+            keyboardType="numeric"
+            maxLength={10}
+          />
+
           <View style={styles.passwordContainer}>
             <TextInput
               style={styles.passwordInput}
@@ -140,8 +157,8 @@ export default function RegisterScreen() {
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
             />
-            <TouchableOpacity 
-              style={styles.eyeIcon} 
+            <TouchableOpacity
+              style={styles.eyeIcon}
               onPress={() => setShowPassword(!showPassword)}
             >
               <Ionicons name={showPassword ? "eye-off" : "eye"} size={24} color="#999" />
@@ -157,8 +174,8 @@ export default function RegisterScreen() {
               onChangeText={setConfirmPassword}
               secureTextEntry={!showPassword}
             />
-            <TouchableOpacity 
-              style={styles.eyeIcon} 
+            <TouchableOpacity
+              style={styles.eyeIcon}
               onPress={() => setShowPassword(!showPassword)}
             >
               <Ionicons name={showPassword ? "eye-off" : "eye"} size={24} color="#999" />
@@ -168,8 +185,8 @@ export default function RegisterScreen() {
           {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
           {successMessage ? <Text style={styles.successText}>{successMessage}</Text> : null}
 
-          <TouchableOpacity 
-            style={styles.registerButton} 
+          <TouchableOpacity
+            style={styles.registerButton}
             onPress={handleRegister}
           >
             <Text style={styles.registerButtonText}>Hesap Oluştur</Text>
