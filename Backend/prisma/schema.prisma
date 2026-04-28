@@ -56,8 +56,6 @@ model User {
   phoneNumber       String             @db.VarChar(10)
   role              Role               @default(USER)
   employeeType      EmployeeType?
-  city              String?
-  district          String?
   regionId          String?
   region            Region?            @relation(fields: [regionId], references: [id])
   wasteRequests     WasteRequest[]

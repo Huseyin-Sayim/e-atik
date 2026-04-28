@@ -18,16 +18,10 @@ const schemas = {
       'string.min': 'şifre alanı en az 6 karakter içermelidir',
       'string.max': 'şifre alanı en fazla 20 karakter içermelidir.'
     }),
-    phoneNumber: joi.string().length(10).pattern(/^[0-9]+$/).required().messages({
-      'string.length': 'telefon numarası 10 haneli olmalıdır',
-      'string.pattern.base': 'telefon numarası sadece rakamlardan oluşmalıdır',
-      'string.required': 'telefon numarası zorunludur'
-    }),
-    city: joi.string().required().messages({
-      'string.required': 'şehir alanı zorunludur'
-    }),
-    district: joi.string().required().messages({
-      'string.required': 'ilçe alanı zorunludur'
+    phoneNumber: joi.string().required().trim().min(10).max(13).messages({
+      'string.required': 'telefon numarası alanı zorunludur ve 10 karakter olmalıdır başına 0 koymadan deneyiniz',
+      'string.max': 'telefon numarası alanı en fazla 10 karakter içermelidir',
+      'string.min': 'telefon numarası alanı en az 10 karakter içermelidir'
     }),
     role: joi.string().valid('USER', 'EMPLOYEE').default('USER'),
     employeeType: joi.string().valid('TRASH_COLLECTOR', 'WASTE_COLLECTOR').allow('', null).empty('').default(null).optional()
