@@ -78,6 +78,13 @@ Yeni şifreyi kaydederek şifre sıfırlama işlemini tamamlar.
   - `password` (Zorunlu, Metin): Yeni şifreniz (En az 6, en fazla 20 karakter).
 - **Not:** `:token` kısmı, e-postaya gelen sıfırlama bağlantısındaki eşsiz karakter dizisidir.
 
+### 8. Çıkış Yap (Logout)
+Kullanıcının sistemden çıkış yapmasını (oturumunun ve çerezlerinin temizlenmesini) sağlar.
+
+- **URL:** `/api/auth/logout`
+- **Metot:** `GET`
+- **Yetki:** Gerektirir (Giriş yapılmış olmalı).
+
 ---
 
 ## 👥 Kullanıcı (Users) İstekleri
@@ -88,3 +95,21 @@ Sistemdeki kullanıcıları getirir.
 - **URL:** `/api/users/`
 - **Metot:** `GET`
 - **Yetki:** Gerektirir (Giriş yapılmış olmalı).
+
+### 2. Kullanıcı Sil (Delete User)
+Sistemdeki belirli bir kullanıcıyı silmek için kullanılır.
+
+- **URL:** `/api/users/delete/:id`
+- **Metot:** `GET`
+- **Yetki:** Gerektirir (Giriş yapılmış olmalı ve 'USER' rolüne sahip olmalı).
+- **Not:** `:id` kısmı silinmek istenen kullanıcının id değeridir.
+
+---
+
+## ⚙️ Sistem İstekleri
+
+### 1. API Sağlık Kontrolü (Health Check)
+API'nin ayakta olup olmadığını ve düzgün çalışıp çalışmadığını kontrol eder.
+
+- **URL:** `/api-health`
+- **Metot:** `GET`
