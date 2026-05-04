@@ -5,14 +5,47 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="891b3278-7a2e-4be4-a4f8-2b784f7fd9f8" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/Backend/views/layout/footer.ejs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/views/layout/header.ejs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/views/pages/auth/login.ejs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/views/pages/auth/register.ejs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/views/pages/auth/resetPassword.ejs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/views/pages/dashboard.ejs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/routes/dashboardRoutes.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/views/pages/auth/forgotPassword.ejs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/controllers/api/authController.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/controllers/api/authController.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/controllers/api/userController.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/controllers/api/userController.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/docker-compose.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/docker-compose.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/middleware/authentication.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/middleware/authentication.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/prisma/schema.prisma" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/prisma/schema.prisma" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/routes/api/authRoutes.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/routes/api/authRoutes.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/routes/api/userRoutes.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/routes/api/userRoutes.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/server.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/server.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/services/mailServices.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/services/mailServices.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/views/layout/footer.ejs" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/views/layout/footer.ejs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/views/layout/header.ejs" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/views/layout/header.ejs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/views/pages/auth/login.ejs" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/views/pages/auth/login.ejs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/views/pages/auth/register.ejs" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/views/pages/auth/register.ejs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/views/pages/auth/resetPassword.ejs" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/views/pages/auth/resetPassword.ejs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/views/pages/dashboard.ejs" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/views/pages/dashboard.ejs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/node_modules/.bin/ejs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/node_modules/.bin/ejs.cmd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/node_modules/.bin/ejs.ps1" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/node_modules/.package-lock.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/node_modules/ejs/LICENSE" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/node_modules/ejs/README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/node_modules/ejs/bin/cli.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/node_modules/ejs/ejs.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/node_modules/ejs/ejs.min.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/node_modules/ejs/jakefile.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/node_modules/ejs/lib/cjs/ejs.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/node_modules/ejs/lib/cjs/package.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/node_modules/ejs/lib/cjs/parseargs.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/node_modules/ejs/lib/cjs/utils.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/node_modules/ejs/lib/esm/ejs.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/node_modules/ejs/lib/esm/package.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/node_modules/ejs/lib/esm/parseargs.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/node_modules/ejs/lib/esm/utils.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/node_modules/ejs/package.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/node_modules/ejs/usage.txt" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -20,7 +53,7 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="65" />
+    <option name="cachedIndexableFilesCount" value="11168" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="FileTemplateManagerImpl">
@@ -111,7 +144,9 @@
       <workItem from="1776871953110" duration="378000" />
       <workItem from="1776872396650" duration="353000" />
       <workItem from="1776974679203" duration="14176000" />
-      <workItem from="1777364135511" duration="729000" />
+      <workItem from="1777364135511" duration="14230000" />
+      <workItem from="1777852000613" duration="202000" />
+      <workItem from="1777854299512" duration="4915000" />
     </task>
     <servers />
   </component>
@@ -132,9 +167,24 @@
           <option name="timeStamp" value="4" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="javascript">
+          <url>file://$PROJECT_DIR$/Backend/server.js</url>
+          <line>13</line>
+          <option name="timeStamp" value="11" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="javascript">
+          <url>file://$PROJECT_DIR$/Backend/services/mailServices.js</url>
+          <line>17</line>
+          <option name="timeStamp" value="13" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="javascript">
           <url>file://$PROJECT_DIR$/Backend/services/mailServices.js</url>
           <line>14</line>
-          <option name="timeStamp" value="10" />
+          <option name="timeStamp" value="15" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="javascript">
+          <url>file://$PROJECT_DIR$/Backend/services/mailServices.js</url>
+          <line>113</line>
+          <option name="timeStamp" value="20" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

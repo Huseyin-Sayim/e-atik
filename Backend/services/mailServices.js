@@ -83,13 +83,14 @@ const sendVerificationMail = async (email, code) => {
               </div>
               <div class="footer">
                   eAtik Geri Dönüşüm Sistemi © ${new Date().getFullYear()}
-                  ${email}
               </div>
           </div>
       </body>
       </html>
     `,
   }
+
+  // TRY CATCH BLOGUNU API İÇİN TEKRAR DÜZENLE
 
   try {
     const info = await transporter.sendMail(mailOptions);
@@ -169,7 +170,7 @@ const sendResetPasswordMail = async (email, token) => {
                   <p class="code-text">Şifre sıfırlamak için linke tıklayınız</p>
                   
                   <div class="code">
-                    <a href="${verificationLink}/${token}">${verificationLink}</a>
+                    <a href="${verificationLink}/reset/password/${token}">${verificationLink}</a>
                   </div>
                   
                   <p style="font-size: 13px; color: #d73a49;">Bu link 5 dakika boyunca geçerlidir.</p>

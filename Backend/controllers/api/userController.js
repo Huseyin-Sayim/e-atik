@@ -17,6 +17,23 @@ const getUsers =  async (req, res) => {
   }
 }
 
+const deleteUser = async (req, res) => {
+  try {
+    const {id} = req.user;
+    const user = await prisma.user.delete({
+      where: {
+        id
+      }
+    })
+    res.status(200).json({
+      message: "success",
+      data: user
+    })
+  } catch (err) {
+    return res.status(500).json({message: 'Bir hata oluştu'})
+  }
+}
 module.exports = {
-  getUsers
+  getUsers,
+  deleteUser
 }

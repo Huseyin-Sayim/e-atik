@@ -251,11 +251,38 @@ const resetPassword = async (req, res) => {
   }
 }
 
+const logout = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    await prisma.refreshToken.deleteMany({
+      where: {userId: userId}
+    });
+
+    res.clearCookie('accessToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: "strict",
+      path: '/'
+    });
+
+    if (req.accepts('html')) {
+      return res.redirect('/login');
+    }
+
+    return res.status(200).json({ message: "Başarıyla çıkış yapıldı ve oturumlar sonlandırıldı." });
+  } catch (err) {
+    console.error("Logout hatası:", err);
+    return res.status(500).json({ message: "Çıkış yapılırken bir hata oluştu." });
+  }
+}
+
 module.exports = {
   register,
   login,
   sendMailVerificationCode,
   verifyMail,
   generateResetToken,
-  resetPassword
+  resetPassword,
+  logout
 }
