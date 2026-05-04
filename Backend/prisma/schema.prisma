@@ -53,7 +53,7 @@ model User {
   name              String
   email             String             @unique
   password          String
-  phoneNumber       String             @db.VarChar(10)
+  phoneNumber       String             @unique @db.VarChar(10)
   role              Role               @default(USER)
   employeeType      EmployeeType?
   regionId          String?
