@@ -1,6 +1,7 @@
 const express = require("express");
 const userRoutes = require("./routes/api/userRoutes");
 const authRoutes = require("./routes/api/authRoutes");
+const regionRoutes = require("./routes/api/regionRoutes");
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const cookieParser = require('cookie-parser');
 const path = require('path');
@@ -25,6 +26,10 @@ app.get('/api-health', async (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/regions', regionRoutes);
+app.use('/map', async (req, res) => {
+  res.render('pages/map')
+})
 app.use('/', dashboardRoutes);
 
 
