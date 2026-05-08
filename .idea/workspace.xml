@@ -4,14 +4,33 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="891b3278-7a2e-4be4-a4f8-2b784f7fd9f8" name="Changes" comment="" />
+    <list default="true" id="891b3278-7a2e-4be4-a4f8-2b784f7fd9f8" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/Backend/controllers/api/binController.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/public/assets/images/trash.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/public/data/geojson/kampus.geojson" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/public/data/geojson/kampusParsel.geojson" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/public/data/geojson/mahalleler.geojson" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/routes/api/binRoutes.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/views/pages/bin/createBin.ejs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/views/pages/region/createRegion.ejs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/controllers/api/regionController.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/controllers/api/regionController.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/prisma/schema.prisma" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/prisma/schema.prisma" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/routes/api/regionRoutes.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/routes/api/regionRoutes.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/routes/dashboardRoutes.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/routes/dashboardRoutes.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/server.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/server.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/views/layout/auth-header.ejs" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/views/layout/auth-header.ejs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/views/layout/header.ejs" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/views/layout/header.ejs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/views/pages/dashboard.ejs" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/views/pages/dashboard.ejs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/views/pages/map.ejs" beforeDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="11168" />
+    <option name="cachedIndexableFilesCount" value="11190" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="FileTemplateManagerImpl">
@@ -48,26 +67,27 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;javascript.preferred.runtime.type.id&quot;: &quot;node&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/husos/OneDrive/Masaüstü/Programlama/E-Atık&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;C:\\Program Files\\JetBrains\\WebStorm 2025.2.3\\plugins\\javascript-plugin\\jsLanguageServicesImpl\\external&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "git-widget-placeholder": "main",
+    "javascript.preferred.runtime.type.id": "node",
+    "last_opened_file_path": "C:/Users/husos/OneDrive/Masaüstü/Programlama/E-Atık/Backend/public/assets/images",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "preferences.pluginManager",
+    "ts.external.directory.path": "C:\\Program Files\\JetBrains\\WebStorm 2025.2.3\\plugins\\javascript-plugin\\jsLanguageServicesImpl\\external",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="ReactDesignerToolWindowState">
     <option name="myId2Visible">
       <map>
@@ -76,6 +96,16 @@
         <entry key="com.intellij.reactbuddy.storybook" value="false" />
       </map>
     </option>
+  </component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\husos\OneDrive\Masaüstü\Programlama\E-Atık\Backend\public\assets\images" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\husos\OneDrive\Masaüstü\Programlama\E-Atık\Backend\public\data\geojson" />
+      <recent name="C:\Users\husos\OneDrive\Masaüstü\Programlama\E-Atık\Backend\public\data" />
+      <recent name="C:\Users\husos\OneDrive\Masaüstü\Programlama\E-Atık\Backend" />
+    </key>
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
@@ -104,7 +134,10 @@
       <workItem from="1776974679203" duration="14176000" />
       <workItem from="1777364135511" duration="14230000" />
       <workItem from="1777852000613" duration="202000" />
-      <workItem from="1777854299512" duration="5617000" />
+      <workItem from="1777854299512" duration="6230000" />
+      <workItem from="1777975791067" duration="5459000" />
+      <workItem from="1778150754856" duration="18074000" />
+      <workItem from="1778238798963" duration="4854000" />
     </task>
     <servers />
   </component>
@@ -126,7 +159,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="javascript">
           <url>file://$PROJECT_DIR$/Backend/server.js</url>
-          <line>13</line>
+          <line>15</line>
           <option name="timeStamp" value="11" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="javascript">
