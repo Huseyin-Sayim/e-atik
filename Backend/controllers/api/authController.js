@@ -1,7 +1,7 @@
 const {PrismaClient, Prisma} = require('@prisma/client');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const {sendVerificationMail, sendResetPasswordMail} = require("../../services/mailServices");
+const {sendVerificationMail, sendResetPasswordMail, sendWelcomeMail} = require("../../services/mailServices");
 const crypto = require('crypto');
 
 const prisma = new PrismaClient();
@@ -25,6 +25,11 @@ const register = async (req, res) => {
       message: "success",
       data: user
     })
+
+    // Kayıt başarılı olduktan sonra arka planda hoş geldin maili gönder
+    sendWelcomeMail(user.email, user.name).catch(err => {
+      console.error('Welcome mail error:', err);
+    });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError) {
       if (err.code === 'P2002') {

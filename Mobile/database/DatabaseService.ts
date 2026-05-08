@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from './types';
+import { Platform } from 'react-native';
 
-const BASE_API_URL = 'http://192.168.1.40:2001/api';
+const BASE_API_URL = Platform.OS === 'web' ? 'http://localhost:2001/api' : 'http://192.168.1.40:2001/api';
 const AUTH_API_URL = `${BASE_API_URL}/auth`;
 const USER_API_URL = `${BASE_API_URL}/users`;
 

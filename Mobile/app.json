@@ -9,7 +9,11 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "e-atik uygulaması, kampüs haritasında konumunuzu gösterebilmek için konum erişimi istiyor.",
+        "NSLocationAlwaysUsageDescription": "e-atik uygulaması, çöp kutusu konumlarını ve sizin konumunuzu göstermek için bu izne ihtiyaç duyuyor."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -19,10 +23,14 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ]
     },
     "web": {
-      "output": "static",
+      "output": "spa",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
@@ -37,6 +45,12 @@
           "dark": {
             "backgroundColor": "#000000"
           }
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "e-atik uygulaması kampüs haritasında konumunuzu göstermek için konum erişimi istiyor."
         }
       ]
     ],

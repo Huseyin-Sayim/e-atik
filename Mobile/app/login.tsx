@@ -38,10 +38,8 @@ export default function LoginScreen() {
         // Eğer oturum süresi dolmamışsa (30 gün) otomatik giriş yap
         if (now < expiry) {
           console.log('[OTURUM KONTROLÜ] Geçerli bir oturum bulundu, yönlendiriliyor...');
-          if (profileType === 'kisisel') {
+          if (profileType) {
             router.replace('/(tabs)');
-          } else if (profileType === 'kurumsal') {
-            router.replace('/main-kurumsal');
           } else {
             router.replace('/profile-selection');
           }
@@ -97,17 +95,19 @@ export default function LoginScreen() {
       // Profil seçimi veya diğer ekranlar için güncel email bilgisini sakla
       await AsyncStorage.setItem('currentUserEmail', email);
 
-      const isFirstLogin = isValidUser.isFirstLogin === true;
+      // Backend kaydetmediği için yerel hafızadan profil tipini kontrol et
+      const savedProfileType = await AsyncStorage.getItem(`profileType_${email}`);
+      const activeProfileType = savedProfileType || isValidUser.profileType;
+
+      const isFirstLogin = !activeProfileType;
 
       if (isFirstLogin) {
-        console.log('[YÖNLENDİRME] Kullanıcı ilk kez giriş yapıyor. Profil seçimine yönlendiriliyor...');
+        console.log('[YÖNLENDİRME] Kullanıcı ilk kez giriş yapıyor veya profil seçmemiş. Profil seçimine yönlendiriliyor...');
         router.replace('/profile-selection');
       } else {
         console.log('[YÖNLENDİRME] Kullanıcı daha önce giriş yapmış. Profil tipine göre ana sayfaya yönlendiriliyor...');
-        if (isValidUser.profileType === 'kisisel') {
+        if (activeProfileType) {
           router.replace('/(tabs)');
-        } else if (isValidUser.profileType === 'kurumsal') {
-          router.replace('/main-kurumsal');
         } else {
           router.replace('/profile-selection');
         }

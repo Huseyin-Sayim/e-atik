@@ -24,18 +24,19 @@ export default function ProfileSelectionScreen() {
         await AsyncStorage.setItem('userSession', JSON.stringify(session));
       }
 
-      // Backend update uyarı veriyor ama şimdilik kalsın
-      await DatabaseService.updateUser(email, {
-        profileType: type,
-        isFirstLogin: false
-      });
-
-      // Profil seçimine göre yönlendirme
-      if (type === 'kisisel') {
-        router.replace('/main-kisisel');
-      } else {
-        router.replace('/main-kurumsal');
+      try {
+        await AsyncStorage.setItem(`profileType_${email}`, type);
+        
+        await DatabaseService.updateUser(email, {
+          profileType: type,
+          isFirstLogin: false
+        });
+      } catch (err) {
+        console.warn('Backend update failed, but proceeding to route:', err);
       }
+
+      // Profil seçimine göre yönlendirme (Artık her ikisi de ortak Tabs yapısını kullanıyor)
+      router.replace('/(tabs)');
     } catch (error) {
       console.error('Profil kaydedilirken hata:', error);
       Alert.alert('Hata', 'Profil seçimi kaydedilirken bir sorun oluştu.');
