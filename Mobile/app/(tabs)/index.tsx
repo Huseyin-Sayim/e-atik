@@ -1,14 +1,48 @@
-import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Platform, StatusBar } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, Platform, StatusBar, ActivityIndicator } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function MainScreen() {
+  const [profileType, setProfileType] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProfileType = async () => {
+      try {
+        const email = await AsyncStorage.getItem('currentUserEmail');
+        if (email) {
+          const type = await AsyncStorage.getItem(`profileType_${email}`);
+          setProfileType(type || 'kisisel'); // Varsayılan kişisel
+        }
+      } catch (error) {
+        console.error('Profil tipi okunurken hata:', error);
+        setProfileType('kisisel');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfileType();
+  }, []);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#2e7d32" />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Top Bar */}
+      {/* Top Bar - İki profil için de ORTAK HEADER */}
       <View style={styles.topBarContainer}>
         <View style={styles.topBar}>
-          <View style={styles.topBarLeft}></View>
+          <View style={styles.topBarLeft}>
+            <Text style={{ fontWeight: 'bold', color: '#555' }}>
+              {profileType === 'kurumsal' ? '🏢 Kurumsal' : '👤 Kişisel'}
+            </Text>
+          </View>
           <View style={styles.topBarRight}>
             <Text style={styles.coinText}>50</Text>
             <FontAwesome5 name="coins" size={28} color="#FFD700" />
@@ -17,32 +51,47 @@ export default function MainScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Yapılan Son İşlemler Paneli */}
-        <View style={styles.transactionsPanel}>
-          <View style={styles.transactionsBadgeContainer}>
-            <View style={styles.transactionsBadge}>
-              <Text style={styles.transactionsBadgeText}>Yapılan Son İşlemler</Text>
+        
+        {/* PROFİLE GÖRE ORTA NOKTA (İÇERİK) */}
+        {profileType === 'kurumsal' ? (
+          
+          <View style={styles.corporateEmptyCenter}>
+            <Text style={styles.corporateEmptyText}>Kurumsal Ana Sayfa İçeriği Yakında Eklenecek</Text>
+          </View>
+          
+        ) : (
+          
+          <React.Fragment>
+            {/* Yapılan Son İşlemler Paneli */}
+            <View style={styles.transactionsPanel}>
+              <View style={styles.transactionsBadgeContainer}>
+                <View style={styles.transactionsBadge}>
+                  <Text style={styles.transactionsBadgeText}>Yapılan Son İşlemler</Text>
+                </View>
+              </View>
+
+              <View style={styles.listContainer}>
+                <Text style={styles.listItem}>• A4 Fotokopi Kağıdı <Text style={styles.boldText}>x</Text> 1 Adet</Text>
+                <Text style={styles.listItem}>• </Text>
+                <Text style={styles.listItem}>• </Text>
+                <Text style={styles.listItem}>• </Text>
+                <Text style={styles.listItem}>• </Text>
+                <Text style={styles.listItem}>• </Text>
+                <Text style={styles.listItem}>• </Text>
+              </View>
             </View>
-          </View>
 
-          <View style={styles.listContainer}>
-            <Text style={styles.listItem}>• A4 Fotokopi Kağıdı <Text style={styles.boldText}>x</Text> 1 Adet</Text>
-            <Text style={styles.listItem}>• </Text>
-            <Text style={styles.listItem}>• </Text>
-            <Text style={styles.listItem}>• </Text>
-            <Text style={styles.listItem}>• </Text>
-            <Text style={styles.listItem}>• </Text>
-            <Text style={styles.listItem}>• </Text>
-          </View>
-        </View>
+            {/* Çevre Sözü Paneli */}
+            <View style={styles.quotePanel}>
+              <Text style={styles.quoteText}>
+                Geri dönüşüme giden her atık, enerji kullanımını %80 azaltan ve her tonuyla 17 ağacı hayata bağlayan bir kazanımdır.
+              </Text>
+              <Text style={styles.treeEmoji}>🌳</Text>
+            </View>
+          </React.Fragment>
 
-        {/* Çevre Sözü Paneli */}
-        <View style={styles.quotePanel}>
-          <Text style={styles.quoteText}>
-            Geri dönüşüme giden her atık, enerji kullanımını %80 azaltan ve her tonuyla 17 ağacı hayata bağlayan bir kazanımdır.
-          </Text>
-          <Text style={styles.treeEmoji}>🌳</Text>
-        </View>
+        )}
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -142,4 +191,16 @@ const styles = StyleSheet.create({
     right: 15,
     fontSize: 32,
   },
+  corporateEmptyCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 100,
+  },
+  corporateEmptyText: {
+    fontSize: 16,
+    color: '#999',
+    textAlign: 'center',
+    fontStyle: 'italic',
+  }
 });

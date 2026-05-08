@@ -60,12 +60,9 @@ export default function RegisterScreen() {
       // Yeni kullanıcıyı oluştur ve kaydet
       const newUser = {
         name: fullName,
-        city,
-        district,
         phoneNumber,
         email: email.toLowerCase(),
         password,
-        isFirstLogin: true // Yeni kayıt olduğu için ilk girişi true olarak işaretle
       };
 
       await DatabaseService.addUser(newUser);
@@ -81,11 +78,7 @@ export default function RegisterScreen() {
 
     } catch (error: any) {
       console.error('Kayıt işlemi sırasında hata:', error);
-      if (error.message === 'Bu e-posta adresi zaten kullanımda.') {
-        setErrorMessage(error.message);
-      } else {
-        setErrorMessage('Kayıt işlemi sırasında beklenmeyen bir hata oluştu.');
-      }
+      setErrorMessage(error.message || 'Kayıt işlemi sırasında beklenmeyen bir hata oluştu.');
     }
   };
 
