@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { MapView, Marker, PROVIDER_DEFAULT, Geojson } from '../../components/MapComponent';
 import * as Location from 'expo-location';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 // GeoJSON verisini import ediyoruz
 import campusParcels from '../../assets/campus-parcels.json';
@@ -151,14 +151,9 @@ function getPinColor(percentage: number): string {
   return '#e74c3c';                         // Kırmızı
 }
 
-function getTypeIcon(type: TrashBin['type']): string {
-  const icons = {
-    plastik: '♻️',
-    kagit: '📄',
-    cam: '🍶',
-    genel: '🗑️',
-  };
-  return icons[type];
+function getTypeIcon(type: TrashBin['type']): any {
+  // Kullanıcı tüm ikonların çöp kutusu olmasını istedi
+  return 'trash-can';
 }
 
 function getLevelLabel(level: FillLevel): string {
@@ -219,12 +214,10 @@ export default function LocationScreen() {
     };
   }, []);
 
-  // Pin render tamamlanınca tracksViewChanges kapat (performans)
+  // Pinlerin her zaman görünür kalması için tracksViewChanges optimizasyonunu kaldırdık
   useEffect(() => {
-    // Android snapshotting needs more time to avoid clipping
-    const timer = setTimeout(() => setTracksViewChanges(false), 2000);
-    return () => clearTimeout(timer);
-  }, []);
+    setTracksViewChanges(true);
+  }, [filterLevel]);
 
   // ── Pin Seçilince Kart Animasyonu
   useEffect(() => {
@@ -300,11 +293,11 @@ export default function LocationScreen() {
     }
   }, [trashBins]);
 
-  // ── Filtre
-  const filteredBins = trashBins.filter((bin) => {
-    if (filterLevel === 'all') return true;
-    return getFillLevel(bin.fillPercentage) === filterLevel;
-  });
+  // ── Filtreleme Mantığı (Garantiye Alındı)
+  const filteredBins = React.useMemo(() => {
+    if (filterLevel === 'all') return trashBins;
+    return trashBins.filter((bin) => getFillLevel(bin.fillPercentage) === filterLevel);
+  }, [trashBins, filterLevel]);
 
   // ── Harita Sınır Kontrolü
   const onRegionChangeComplete = useCallback((region: any) => {
@@ -361,20 +354,30 @@ export default function LocationScreen() {
 
           return (
             <Marker
-              key={bin.id}
+              key={`bin-${bin.id}`}
               coordinate={{ latitude: bin.latitude, longitude: bin.longitude }}
               onPress={() => setSelectedBin(bin)}
               anchor={{ x: 0.5, y: 1 }}
-              tracksViewChanges={isSelected ? true : tracksViewChanges}
+              tracksViewChanges={true}
             >
               <View style={styles.pinWrapper}>
-                <View style={[styles.pinContainer, isSelected && styles.pinContainerSelected]}>
-                  <View style={[styles.pinBubble, { backgroundColor: color }]}>
-                    <Text style={styles.pinIcon}>{getTypeIcon(bin.type)}</Text>
-                    <Text style={styles.pinPercent}>{bin.fillPercentage}%</Text>
+                <View style={[
+                  styles.tooltipContainer, 
+                  isSelected && styles.tooltipSelected,
+                  { backgroundColor: color }
+                ]}>
+                  <View style={styles.tooltipContent}>
+                    <MaterialCommunityIcons 
+                      name={getTypeIcon(bin.type)} 
+                      size={18} 
+                      color="#fff" 
+                    />
+                    <View style={styles.divider} />
+                    <Text style={styles.tooltipText}>%{bin.fillPercentage}</Text>
                   </View>
-                  <View style={[styles.pinTail, { borderTopColor: color }]} />
                 </View>
+                {/* Keskin Kuyruk */}
+                <View style={[styles.tooltipTail, { borderTopColor: color }]} />
               </View>
             </Marker>
           );
@@ -417,19 +420,30 @@ export default function LocationScreen() {
 
       {/* ── Sağ Aksiyon Butonları ── */}
       <View style={styles.actionButtons}>
-        <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#e74c3c' }]} onPress={goToFullestBin} activeOpacity={0.8}>
-          <Ionicons name="alert-circle" size={24} color="#fff" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} onPress={goToMyLocation} activeOpacity={0.8}>
-          {isLocating ? (
-            <ActivityIndicator size="small" color="#2e7d32" />
-          ) : (
-            <Ionicons name="locate" size={22} color="#2e7d32" />
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} onPress={goToCampus} activeOpacity={0.8}>
-          <Ionicons name="map-outline" size={22} color="#2e7d32" />
-        </TouchableOpacity>
+        <View style={styles.actionItem}>
+          <Text style={styles.actionLabel}>En Dolu</Text>
+          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#e74c3c' }]} onPress={goToFullestBin} activeOpacity={0.8}>
+            <Ionicons name="alert-circle" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.actionItem}>
+          <Text style={styles.actionLabel}>Konumum</Text>
+          <TouchableOpacity style={styles.actionBtn} onPress={goToMyLocation} activeOpacity={0.8}>
+            {isLocating ? (
+              <ActivityIndicator size="small" color="#2e7d32" />
+            ) : (
+              <Ionicons name="locate" size={22} color="#2e7d32" />
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.actionItem}>
+          <Text style={styles.actionLabel}>Kampüs</Text>
+          <TouchableOpacity style={styles.actionBtn} onPress={goToCampus} activeOpacity={0.8}>
+            <Ionicons name="map-outline" size={22} color="#2e7d32" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* ── Legend ── */}
@@ -458,15 +472,17 @@ export default function LocationScreen() {
         >
           <View style={styles.cardHeader}>
             <View style={styles.cardTitleRow}>
-              <Text style={styles.cardIcon}>{getTypeIcon(selectedBin.type)}</Text>
+              <View style={[styles.cardIconBg, { backgroundColor: getPinColor(selectedBin.fillPercentage) }]}>
+                <MaterialCommunityIcons name="trash-can" size={24} color="#fff" />
+              </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.cardName}>{selectedBin.name}</Text>
                 <Text style={styles.cardType}>
-                  {selectedBin.type.charAt(0).toUpperCase() + selectedBin.type.slice(1)} Atık
+                  {selectedBin.type.toUpperCase()} ATIK KUTUSU
                 </Text>
               </View>
               <TouchableOpacity onPress={() => setSelectedBin(null)} style={styles.cardClose}>
-                <Ionicons name="close" size={20} color="#999" />
+                <Ionicons name="close-circle" size={26} color="#ccc" />
               </TouchableOpacity>
             </View>
           </View>
@@ -626,7 +642,23 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 16,
     bottom: 220,
-    gap: 10,
+    gap: 12,
+  },
+  actionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  actionLabel: {
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    color: '#fff',
+    fontSize: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    fontWeight: 'bold',
+    overflow: 'hidden',
   },
   actionBtn: {
     width: 48,
@@ -674,51 +706,58 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // Pin
+  // Tooltip Pin Tasarımı (Final Premium)
   pinWrapper: {
-    width: 90,
-    height: 70, // Yüksekliği artırdık ki büyüyünce kesilmesin
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
-  pinContainer: {
-    alignItems: 'center',
-  },
-  pinContainerSelected: {
-    transform: [{ scale: 1.25 }],
-    marginBottom: 4, // Seçilince hafif yukarı kalksın
-  },
-  pinBubble: {
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
+  },
+  tooltipContainer: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    minWidth: 65,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
   },
-  pinIcon: {
-    fontSize: 14,
-    marginRight: 4, // gap yerine
+  tooltipSelected: {
+    transform: [{ scale: 1.2 }],
+    borderWidth: 3,
+    zIndex: 999,
   },
-  pinPercent: {
+  tooltipContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  divider: {
+    width: 1,
+    height: 14,
+    backgroundColor: 'rgba(255,255,255,0.4)',
+  },
+  tooltipText: {
     color: '#fff',
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: 'bold',
   },
-  pinTail: {
+  tooltipTail: {
     width: 0,
     height: 0,
+    backgroundColor: 'transparent',
+    borderStyle: 'solid',
     borderLeftWidth: 8,
     borderRightWidth: 8,
     borderTopWidth: 10,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
-    marginTop: -1, // Balonla arasındaki ince boşluğu kapatmak için
+    marginTop: -2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
 
   // Detay Kartı
@@ -748,21 +787,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  cardIcon: {
-    fontSize: 28,
+  cardIconBg: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   cardName: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '800',
     color: '#1a1a1a',
   },
   cardType: {
-    fontSize: 12,
-    color: '#888',
+    fontSize: 11,
+    color: '#666',
+    fontWeight: '600',
     marginTop: 2,
+    letterSpacing: 0.5,
   },
   cardClose: {
-    padding: 4,
+    padding: 2,
   },
   cardBody: {
     padding: 16,

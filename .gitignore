@@ -1,20 +1,24 @@
-# Her yerdeki node_modules ve kütüphaneleri engelle
+# Node modules and libraries (all directories)
 **/node_modules/
 **/dist/
 **/build/
 **/.expo/
 **/public/libs/
+
+# IDE settings
 **/.idea/
 **/.vscode/
 
-# Satır sonu uyarılarını görmezden gelmek için
+# Environment files and logs
 *.log
 .env
 .DS_Store
 Thumbs.db
 
-# Proje özelindeki klasörleri kökten engelle
-e-atik-berkay/Backend/node_modules/
-e-atik-berkay/Backend/public/libs/
-e-atik-berkay/Mobile/node_modules/
-e-atik-berkay/Mobile/.expo/
+# Mobile specific cache
+Mobile/.expo/
+Mobile/npm-debug.log*
+
+# Backend specific
+Backend/.env
+Backend/npm-debug.log*

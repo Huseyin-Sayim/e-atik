@@ -7,7 +7,8 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  ScrollView
+  ScrollView,
+  Alert
 } from 'react-native';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -31,28 +32,38 @@ export default function RegisterScreen() {
     setSuccessMessage('');
 
     if (!fullName || !city || !district || !email || !phoneNumber || !password || !confirmPassword) {
-      setErrorMessage('Lütfen tüm alanları doldurun.');
+      const msg = 'Lütfen tüm alanları doldurun.';
+      setErrorMessage(msg);
+      Alert.alert('Eksik Bilgi', msg);
       return;
     }
 
     if (phoneNumber.length !== 10 || !/^[0-9]+$/.test(phoneNumber)) {
-      setErrorMessage('Telefon numarası başında 0 olmadan tam 10 haneli olmalıdır.');
+      const msg = 'Telefon numarası başında 0 olmadan tam 10 haneli olmalıdır.';
+      setErrorMessage(msg);
+      Alert.alert('Geçersiz Telefon', msg);
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      setErrorMessage('Lütfen geçerli bir e-posta adresi girin.');
+      const msg = 'Lütfen geçerli bir e-posta adresi girin.';
+      setErrorMessage(msg);
+      Alert.alert('Geçersiz E-posta', msg);
       return;
     }
 
     if (password !== confirmPassword) {
-      setErrorMessage('Şifreler eşleşmiyor, lütfen kontrol edin.');
+      const msg = 'Şifreler eşleşmiyor, lütfen kontrol edin.';
+      setErrorMessage(msg);
+      Alert.alert('Şifre Hatası', msg);
       return;
     }
 
     if (password.length < 6) {
-      setErrorMessage('Şifreniz en az 6 karakter olmalıdır.');
+      const msg = 'Şifreniz en az 6 karakter olmalıdır.';
+      setErrorMessage(msg);
+      Alert.alert('Zayıf Şifre', msg);
       return;
     }
 
@@ -65,10 +76,12 @@ export default function RegisterScreen() {
         password,
       };
 
+      console.log('[KAYIT] İstek gönderiliyor:', newUser);
       await DatabaseService.addUser(newUser);
 
       console.log('Kayıt başarılı:', newUser.email);
 
+      Alert.alert('Başarılı', 'Hesabınız oluşturuldu. Giriş sayfasına yönlendiriliyorsunuz...');
       setSuccessMessage('Hesabınız oluşturuldu. Giriş sayfasına yönlendiriliyorsunuz...');
 
       // Kısa bir süre sonra giriş yap ekranına yönlendir
@@ -78,7 +91,9 @@ export default function RegisterScreen() {
 
     } catch (error: any) {
       console.error('Kayıt işlemi sırasında hata:', error);
-      setErrorMessage(error.message || 'Kayıt işlemi sırasında beklenmeyen bir hata oluştu.');
+      const msg = error.message || 'Kayıt işlemi sırasında beklenmeyen bir hata oluştu.';
+      setErrorMessage(msg);
+      Alert.alert('Kayıt Hatası', msg);
     }
   };
 

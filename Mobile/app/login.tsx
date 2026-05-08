@@ -66,7 +66,11 @@ export default function LoginScreen() {
       try {
         isValidUser = await DatabaseService.loginUser(email, password);
       } catch (err: any) {
-        setErrorMessage(err.message || 'Böyle bir hesap bulunamadı veya şifre hatalı, lütfen kayıt olun.');
+        if (err.message === 'kullanıcı bulunamadı') {
+          setErrorMessage('Böyle bir hesap bulunamadı. Lütfen önce hesap oluşturun.');
+        } else {
+          setErrorMessage(err.message || 'Giriş yapılamadı, lütfen tekrar deneyiniz.');
+        }
         return;
       }
 

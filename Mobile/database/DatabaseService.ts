@@ -2,7 +2,25 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from './types';
 import { Platform } from 'react-native';
 
-const BASE_API_URL = Platform.OS === 'web' ? 'http://localhost:2001/api' : 'http://192.168.1.40:2001/api';
+import Constants from 'expo-constants';
+
+const getBaseApiUrl = () => {
+  if (Platform.OS === 'web') return 'http://localhost:2001/api';
+
+  const debuggerHost = Constants.expoConfig?.hostUri;
+  const localhost = debuggerHost?.split(':').shift();
+
+  if (!localhost) {
+    console.warn('[DATABASE_SERVICE] Host IP bulunamadı, 10.0.2.2 (emülatör) deneniyor.');
+    return 'http://10.0.2.2:2001/api'; 
+  }
+  
+  const url = `http://${localhost}:2001/api`;
+  console.log('[DATABASE_SERVICE] Dinamik API URL:', url);
+  return url;
+};
+
+const BASE_API_URL = getBaseApiUrl();
 const AUTH_API_URL = `${BASE_API_URL}/auth`;
 const USER_API_URL = `${BASE_API_URL}/users`;
 
@@ -33,13 +51,18 @@ class DatabaseService {
    */
   static async addUser(user: any): Promise<void> {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
       const response = await fetch(`${AUTH_API_URL}/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(user)
+        body: JSON.stringify(user),
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
 
       const json = await response.json();
 
@@ -56,13 +79,18 @@ class DatabaseService {
    */
   static async loginUser(email: string, password: string): Promise<any> {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 saniye sonra iptal et
+
       const response = await fetch(`${AUTH_API_URL}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password }),
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
 
       const json = await response.json();
 
