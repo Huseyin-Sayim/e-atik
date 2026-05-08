@@ -1,0 +1,175 @@
+<%- include('../../layout/header') %>
+
+<div id="add-bin-panel" style="display:none; position: absolute; top: 20px; right: 20px; z-index: 1000; background: #FCFAF8; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); width: 280px; font-family: sans-serif;">
+    <h5 style="margin-top:0;">🗑️ Yeni Çöp Kovası</h5>
+
+    <label>Koordinatlar</label>
+    <div style="display:flex; gap:5px; margin-bottom:10px;">
+        <input type="text" id="lat-input" readonly style="width:50%; font-size:11px; padding:5px; background:#eee; border:1px solid #ccc;">
+        <input type="text" id="lng-input" readonly style="width:50%; font-size:11px; padding:5px; background:#eee; border:1px solid #ccc;">
+    </div>
+
+    <label>Bölge (Otomatik)</label>
+    <input type="text" id="region-display" readonly style="width:100%; font-size:12px; padding:5px; margin-bottom:10px; background:#e9ecef; border:1px solid #ced4da; font-weight:bold;">
+
+    <label>Kova Türü</label>
+    <select id="bin-type" class="form-select mb-2">
+        <option value="CONTAINER_LARGE">Büyük Konteyner</option>
+        <option value="CONTAINER_SMALL">Küçük Konteyner</option>
+        <option value="WASTE_POINT">Atık Noktası</option>
+    </select>
+
+    <label>Atık Kategorisi</label>
+    <select id="waste-category" class="form-select mb-2">
+        <option value="GENERAL">Genel (GENERAL)</option>
+        <option value="DOMESTIC">Evsel Atık (DOMESTIC)</option>
+        <option value="ELECTRONIC">Elektronik (ELECTRONIC)</option>
+        <option value="PLASTIC">Plastik (PLASTIC)</option>
+        <option value="GLASS">Cam (GLASS)</option>
+        <option value="PAPER">Kağıt (PAPER)</option>
+    </select>
+
+    <label>Kapasite (Litre)</label>
+    <input type="number" id="capacity" class="form-control mb-3" value="100">
+
+    <div style="display:flex; gap:10px;">
+        <button onclick="saveBinToServer()" class="btn btn-success btn-sm w-100">Kaydet</button>
+        <button onclick="cancelAdd()" class="btn btn-danger btn-sm w-100">İptal</button>
+    </div>
+</div>
+
+<div id="map" style="height: 600px; width: 100%;"></div>
+
+<!-- Kütüphaneler (SIRALAMA ÖNEMLİ) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/@mapbox/leaflet-pip@latest/leaflet-pip.js"></script>
+
+<script>
+  const map = L.map('map').setView([38.459, 27.228], 15);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap'
+  }).addTo(map);
+
+  const binIcon = L.icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+  });
+
+  let tempMarker = null;
+  let campusLayer = null;
+  let detectedRegionId = null;
+
+  async function loadCampusAreas() {
+    try {
+      const response = await fetch('/api/regions/static');
+      const result = await response.json();
+
+      // Senin paylaştığın yapıda veri ya direkt result'tır ya da result.data içindedir
+      const geojsonData = result.features ? result : result.data;
+
+      if (!geojsonData) {
+        console.error("GeoJSON verisi bulunamadı!");
+        return;
+      }
+
+      campusLayer = L.geoJSON(geojsonData, {
+        style: { color: "#ff7800", weight: 2, fillOpacity: 0.1 }
+      }).addTo(map);
+
+      map.fitBounds(campusLayer.getBounds());
+      console.log("Kampüs bölgeleri başarıyla yüklendi.");
+    } catch (err) {
+      console.error("Yükleme Hatası:", err);
+    }
+  }
+
+  function getRegionAt(lat, lng) {
+    if (!campusLayer || !window.leafletPip) return null;
+
+    // Pip kütüphanesi [lng, lat] bekler
+    const match = leafletPip.pointInLayer([lng, lat], campusLayer);
+
+    if (match && match.length > 0) {
+      return {
+        id: match[0].feature.id,
+        name: match[0].feature.properties.name
+      };
+    }
+    return null;
+  }
+
+  map.on('click', function(e) {
+    const region = getRegionAt(e.latlng.lat, e.latlng.lng);
+
+    if (!region) {
+      alert("Lütfen bir poligon içine tıklayın!");
+      return;
+    }
+
+    detectedRegionId = region.id;
+    document.getElementById('region-display').value = region.name;
+    document.getElementById('lat-input').value = e.latlng.lat.toFixed(6);
+    document.getElementById('lng-input').value = e.latlng.lng.toFixed(6);
+
+    if (tempMarker) {
+      tempMarker.setLatLng(e.latlng);
+    } else {
+      tempMarker = L.marker(e.latlng, { draggable: true, icon: binIcon }).addTo(map);
+    }
+
+    document.getElementById('add-bin-panel').style.display = 'block';
+  });
+
+  const binType = document.getElementById('bin-type');
+  const wasteCat = document.getElementById('waste-category');
+
+  binType.onchange = () => {
+    if (binType.value !== 'WASTE_POINT') {
+      wasteCat.value = 'GENERAL';
+      Array.from(wasteCat.options).forEach(o => o.disabled = (o.value !== 'GENERAL'));
+    } else {
+      Array.from(wasteCat.options).forEach(o => o.disabled = false);
+    }
+  };
+
+  async function saveBinToServer() {
+    const data = {
+      latitude: parseFloat(document.getElementById('lat-input').value),
+      longitude: parseFloat(document.getElementById('lng-input').value),
+      wasteCategory: wasteCat.value,
+      type: binType.value,
+      capacityVolume: parseFloat(document.getElementById('capacity').value),
+      regionId: detectedRegionId
+    };
+
+    try {
+      const res = await fetch('/api/bins/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (res.ok) {
+        alert("Başarılı!");
+        location.reload();
+      } else {
+        alert("Sunucu hatası!");
+      }
+    } catch (e) { console.error(e); }
+  }
+
+  function cancelAdd() {
+    if (tempMarker) map.removeLayer(tempMarker);
+    tempMarker = null;
+    document.getElementById('add-bin-panel').style.display = 'none';
+  }
+
+  window.onload = () => {
+    loadCampusAreas();
+    binType.dispatchEvent(new Event('change'));
+  };
+</script>
+
+<%- include('../../layout/footer') %>

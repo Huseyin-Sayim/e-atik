@@ -1,0 +1,160 @@
+<%- include('../../layout/auth-header') %>
+  <main class="d-flex flex-column justify-content-center vh-100">
+    <!--Sign up start-->
+    <section>
+      <div class="container">
+        <div class="row mb-8">
+          <div class="col-xl-4 offset-xl-4 col-md-12 col-12">
+            <div class="text-center">
+              <a href="/dashboard" class="fs-2 fw-bold d-flex align-items-center gap-2 justify-content-center mb-6">
+                <img src="/assets/images/brand/logo/logo-icon.svg" alt="" />
+                <span>Dasher</span>
+              </a>
+              <h1 class="mb-1">Hesap Oluştur</h1>
+              <p class="mb-0">Hemen kayıt olun ve çevreyi korumamıza siz de destek olun</p>
+            </div>
+          </div>
+        </div>
+        <div class="row justify-content-center">
+          <div class="col-xl-5 col-lg-6 col-md-8 col-12">
+            <div class="card shadow-sm mb-4">
+              <div class="card-body p-6">
+                <form id="registerForm" class="needs-validation mb-6" novalidate>
+                  <div class="mb-3">
+                    <label for="signupFullnameInput" class="form-label">Ad Soyad <span
+                        class="text-danger">*</span></label>
+                    <input name="name" type="text" class="form-control" id="signupFullnameInput" required />
+                    <div class="invalid-feedback">Lütfen adınızı ve soyadınızı giriniz</div>
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="signupEmailInput" class="form-label">
+                      Email
+                      <span class="text-danger">*</span>
+                    </label>
+                    <input name="email" type="email" class="form-control" id="signupEmailInput" required />
+                    <div class="invalid-feedback">Lütfen email adresinizi giriniz.</div>
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="signupEmailInput" class="form-label">
+                      Telefon Numarası
+                      <span class="text-danger">*</span>
+                    </label>
+                    <input name="phoneNumber" type="email" class="form-control" id="signupEmailInput" required />
+                    <div class="invalid-feedback">Telefon numaranızı giriniz.</div>
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="signupEmailInput" class="form-label">
+                      Rol Belirleme
+                      <span class="text-danger">*</span>
+                    </label>
+                    <select id="roleSelect" name="role" class="form-select">
+                      <option class="" value="USER">Kişisel</option>
+                      <option value="EMPLOYEE">Kurumsal</option>
+                    </select>
+                    <div class="invalid-feedback">Lütfen kullanım amacınızı seçiniz.</div>
+                  </div>
+
+                  <div id="employeeType" class="mb-3 d-none">
+                    <label for="signupEmailInput" class="form-label">
+                      İş Kategorisi
+                    </label>
+                    <select name="employeeType" class="form-select">
+                      <option selected disabled value="">Lütfen Bir Seçim Yapın</option>
+                      <option value="WASTE_COLLECTOR">Atık</option>
+                      <option value="TRASH_COLLECTOR">Çöp</option>
+                    </select>
+                    <div class="invalid-feedback">Lütfen kullanım amacınızı seçiniz.</div>
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="formSignUpPassword" class="form-label">Şifre <span class="text-danger">*</span></label>
+                    <div class="password-field position-relative">
+                      <input name="password" type="password" class="form-control fakePassword" id="formSignUpPassword"
+                        required />
+                      <span><i class="ti ti-eye-off passwordToggler"></i></span>
+                      <div class="invalid-feedback">Lütfen şifreyi giriniz!!!</div>
+                    </div>
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="formSignUpConfirmPassword" class="form-label">Şifre Tekrar <span
+                        class="text-danger">*</span></label>
+                    <div class="password-field position-relative">
+                      <input type="password" class="form-control fakePassword" id="formSignUpConfirmPassword"
+                        required />
+                      <span><i class="ti ti-eye-off passwordToggler"></i></span>
+                      <div class="invalid-feedback">Lütfen şifre tekrarını giriniz!!!</div>
+                    </div>
+                  </div>
+
+                  <div class="d-grid">
+                    <button class="btn btn-primary" type="submit">Kayıt Ol</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+            <span>
+              Zaten bir hesabın var mı?
+              <a href="/login" class="text-primary">Giriş yapın</a>
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+    <!--Sign up end-->
+  </main>
+
+  <script>
+
+    document.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("roleSelect").addEventListener("change", (e) => {
+        console.log(e.target.value)
+        if (e.target.value === "EMPLOYEE") {
+          document.getElementById("employeeType").classList.remove("d-none")
+        } else {
+          document.getElementById("employeeType").classList.add("d-none")
+        }
+      })
+    })
+
+
+
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData.entries());
+      try {
+        if (data.password !== document.getElementById("formSignUpConfirmPassword").value) {
+          alert('Şifreler Eşleşmiyor!')
+          return;
+        }
+        const response = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+        })
+
+        const result = await response.json();
+
+        console.log(result)
+
+        if (response.ok) {
+          window.location.href = "/login"
+        } else {
+          alert(result.message)
+        }
+      } catch (err) {
+        console.log(err.message);
+        alert("Sunucuya bağlanılamadı!")
+      }
+    })
+  </script>
+
+
+
+  <%- include('../../layout/auth-footer') %>

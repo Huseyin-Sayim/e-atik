@@ -1,0 +1,20 @@
+# Her yerdeki node_modules ve kütüphaneleri engelle
+**/node_modules/
+**/dist/
+**/build/
+**/.expo/
+**/public/libs/
+**/.idea/
+**/.vscode/
+
+# Satır sonu uyarılarını görmezden gelmek için
+*.log
+.env
+.DS_Store
+Thumbs.db
+
+# Proje özelindeki klasörleri kökten engelle
+e-atik-berkay/Backend/node_modules/
+e-atik-berkay/Backend/public/libs/
+e-atik-berkay/Mobile/node_modules/
+e-atik-berkay/Mobile/.expo/
