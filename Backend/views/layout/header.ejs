@@ -9,6 +9,7 @@
   <title>Dasher Free - Responsive Bootstrap 5 Admin Dashboard</title>
   <link rel="stylesheet" href="/libs/swiper/swiper-bundle.min.css" />
   <!-- Favicon icon-->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 <link rel="apple-touch-icon" sizes="57x57" href="/assets/images/favicon/apple-icon-57x57.png" />
 <link rel="apple-touch-icon" sizes="60x60" href="/assets/images/favicon/apple-icon-60x60.png" />
 <link rel="apple-touch-icon" sizes="72x72" href="/assets/images/favicon/apple-icon-72x72.png" />
@@ -44,10 +45,16 @@
 <link rel="stylesheet" href="/libs/simplebar/dist/simplebar.min.css" />
 <link rel="stylesheet" href="/libs/@tabler/icons-webfont/tabler-icons.min.css" />
 
-<!-- Theme CSS -->
-<!-- build:css /assets/css/theme.min.css -->
 <link rel="stylesheet" href="/assets/css/theme.css" />
-<!-- endbuild -->
+
+  <style>
+    #map {
+      height: 600px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      margin: 20px 0;
+    }
+  </style>
 
 </head>
 

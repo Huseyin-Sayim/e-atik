@@ -13,6 +13,7 @@ enum Role {
   ADMIN
   EMPLOYEE
   USER
+  BOSS
 }
 
 enum EmployeeType {
@@ -141,6 +142,7 @@ model Redemption {
 model Region {
   id        String   @id @default(uuid())
   name      String   @unique
+  region_id String
   users     User[]
   bins      Bin[]
   createdAt DateTime @default(now())
