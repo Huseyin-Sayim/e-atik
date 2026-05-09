@@ -15,7 +15,7 @@ import * as Location from 'expo-location';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 // GeoJSON verisini import ediyoruz
-import campusParcels from '../../assets/campus-parcels.json';
+import campusParcels from '../../assets/kampusParsel.json';
 
 const CAMPUS_BOUNDS = {
   northEast: { latitude: 38.4620, longitude: 27.2360 },
@@ -330,7 +330,6 @@ export default function LocationScreen() {
       <MapView
         ref={mapRef}
         style={styles.map}
-        provider={PROVIDER_DEFAULT}
         initialRegion={CAMPUS_CENTER}
         showsUserLocation={locationPermission === true}
         showsMyLocationButton={false}
@@ -342,9 +341,9 @@ export default function LocationScreen() {
         {/* Kampüs Parselleri (GeoJSON) */}
         <Geojson
           geojson={campusParcels as any}
-          strokeColor="#2c3e50"
-          fillColor="rgba(52, 152, 219, 0.2)"
-          strokeWidth={1}
+          strokeColor="#ff7800"
+          fillColor="rgba(255, 120, 0, 0.1)"
+          strokeWidth={2}
         />
 
         {/* Çöp Kutusu Pinleri */}
@@ -525,14 +524,6 @@ export default function LocationScreen() {
           </View>
         </Animated.View>
       )}
-
-      {/* ── Konum İzni Yok Uyarısı ── */}
-      {locationPermission === false && (
-        <View style={styles.permissionBanner}>
-          <Ionicons name="warning-outline" size={16} color="#f39c12" />
-          <Text style={styles.permissionText}>Konum izni verilmedi — Harita aktif</Text>
-        </View>
-      )}
     </View>
   );
 }
@@ -549,6 +540,7 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+    height: Platform.OS === 'web' ? 'calc(100vh - 70px)' : '100%',
   },
 
   // Header

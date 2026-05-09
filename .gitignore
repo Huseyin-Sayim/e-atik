@@ -22,3 +22,6 @@ Mobile/npm-debug.log*
 # Backend specific
 Backend/.env
 Backend/npm-debug.log*
+
+# Local Docker settings (only for this PC)
+docker-compose.yaml
