@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function TabLayout() {
+export default function KisiselLayout() {
   return (
     <Tabs
       screenOptions={{
@@ -12,35 +12,35 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="location"
+        name="kisisel-location"
         options={{
           title: 'Konum',
           tabBarIcon: ({ color }) => <Ionicons name="location-outline" size={28} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="scan"
+        name="kisisel-scan"
         options={{
           title: 'Tarama',
           tabBarIcon: ({ color }) => <Ionicons name="scan-outline" size={28} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="index"
+        name="kisisel-index"
         options={{
           title: 'Ana Sayfa',
           tabBarIcon: ({ color }) => <Ionicons name="home-outline" size={28} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="market"
+        name="kisisel-market"
         options={{
           title: 'Market',
           tabBarIcon: ({ color }) => <Ionicons name="storefront-outline" size={28} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="settings"
+        name="kisisel-settings"
         options={{
           title: 'Ayarlar',
           tabBarIcon: ({ color }) => <Ionicons name="settings-outline" size={28} color={color} />,

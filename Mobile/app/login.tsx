@@ -39,7 +39,7 @@ export default function LoginScreen() {
         if (now < expiry) {
           console.log('[OTURUM KONTROLÜ] Geçerli bir oturum bulundu, yönlendiriliyor...');
           if (profileType) {
-            router.replace('/(tabs)');
+            router.replace(profileType === 'kisisel' ? '/kisisel/kisisel-index' : '/kurumsal/kurumsal-index' as any);
           } else {
             router.replace('/profile-selection');
           }
@@ -111,7 +111,7 @@ export default function LoginScreen() {
       } else {
         console.log('[YÖNLENDİRME] Kullanıcı daha önce giriş yapmış. Profil tipine göre ana sayfaya yönlendiriliyor...');
         if (activeProfileType) {
-          router.replace('/(tabs)');
+          router.replace(activeProfileType === 'kisisel' ? '/kisisel/kisisel-index' : '/kurumsal/kurumsal-index' as any);
         } else {
           router.replace('/profile-selection');
         }

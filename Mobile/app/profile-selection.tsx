@@ -26,7 +26,7 @@ export default function ProfileSelectionScreen() {
 
       try {
         await AsyncStorage.setItem(`profileType_${email}`, type);
-        
+
         await DatabaseService.updateUser(email, {
           profileType: type,
           isFirstLogin: false
@@ -35,8 +35,12 @@ export default function ProfileSelectionScreen() {
         console.warn('Backend update failed, but proceeding to route:', err);
       }
 
-      // Profil seçimine göre yönlendirme (Artık her ikisi de ortak Tabs yapısını kullanıyor)
-      router.replace('/(tabs)');
+      // Profil seçimine göre yönlendirme
+      if (type === 'kisisel') {
+        router.replace('/kisisel/kisisel-index' as any);
+      } else {
+        router.replace('/kurumsal/kurumsal-index' as any);
+      }
     } catch (error) {
       console.error('Profil kaydedilirken hata:', error);
       Alert.alert('Hata', 'Profil seçimi kaydedilirken bir sorun oluştu.');

@@ -2,10 +2,9 @@ import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, Platform, StatusBar } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 
-export default function MarketScreen() {
+export default function KisiselMarketScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Top Bar */}
       <View style={styles.topBarContainer}>
         <View style={styles.topBar}>
           <View style={styles.topBarLeft}></View>
