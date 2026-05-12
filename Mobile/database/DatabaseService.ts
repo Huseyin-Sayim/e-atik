@@ -120,24 +120,22 @@ class DatabaseService {
    */
   static async updateUser(email: string, updates: any): Promise<void> {
     try {
-      if (updates.profileType) {
-        const token = await AsyncStorage.getItem('accessToken');
-        const response = await fetch(`${USER_API_URL}/update-profile`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': token ? `Bearer ${token}` : ''
-          },
-          body: JSON.stringify({
-            email,
-            profileType: updates.profileType
-          })
-        });
+      const token = await AsyncStorage.getItem('accessToken');
+      const response = await fetch(`${USER_API_URL}/update-profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
+        body: JSON.stringify({
+          email,
+          ...updates
+        })
+      });
 
-        if (!response.ok) {
-          const json = await response.json();
-          throw new Error(json.message || 'Profil güncellenirken hata oluştu.');
-        }
+      if (!response.ok) {
+        const json = await response.json();
+        throw new Error(json.message || 'Profil güncellenirken hata oluştu.');
       }
     } catch (error: any) {
       console.error('Kullanıcı güncellenirken hata:', error);

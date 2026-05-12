@@ -33,7 +33,27 @@ const deleteUser = async (req, res) => {
     return res.status(500).json({message: 'Bir hata oluştu'})
   }
 }
+const updateProfile = async (req, res) => {
+  try {
+    const { email, profileImage, profileType } = req.body;
+    const updatedUser = await prisma.user.update({
+      where: { email: email.toLowerCase() },
+      data: {
+        ...(profileImage && { profileImage }),
+        ...(profileType && { profileType })
+      }
+    });
+    res.status(200).json({
+      message: "success",
+      data: updatedUser
+    });
+  } catch (err) {
+    res.status(500).json({ message: "hata" });
+  }
+}
+
 module.exports = {
   getUsers,
-  deleteUser
-}
+  deleteUser,
+  updateProfile
+}

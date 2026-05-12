@@ -11,9 +11,13 @@ import {
   Image,
   Alert
 } from 'react-native';
+import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import DatabaseService from '../../database/DatabaseService';
+
+const DEFAULT_AVATAR = require('../../assets/images/default-avatar.png');
 
 export default function KisiselSettingsScreen() {
   const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -36,7 +40,7 @@ export default function KisiselSettingsScreen() {
       }
 
       if (email) {
-        const savedPhoto = await AsyncStorage.getItem(`profileImage_kisisel_${email}`);
+        const savedPhoto = await AsyncStorage.getItem(`profileImage_${email}`);
         if (savedPhoto) setProfileImage(savedPhoto);
       }
     } catch (error) {
@@ -49,34 +53,56 @@ export default function KisiselSettingsScreen() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 1,
+      quality: 0.3,
+      base64: true,
     });
 
     if (!result.canceled) {
-      const uri = result.assets[0].uri;
-      setProfileImage(uri);
-      await AsyncStorage.setItem(`profileImage_kisisel_${userEmail}`, uri);
+      const base64Data = `data:image/jpeg;base64,${result.assets[0].base64}`;
+      setProfileImage(base64Data);
+      
+      const email = await AsyncStorage.getItem('currentUserEmail');
+      if (email) {
+        const lowerEmail = email.toLowerCase();
+        await AsyncStorage.setItem(`profileImage_${lowerEmail}`, base64Data);
+        
+        try {
+          await DatabaseService.updateUser(lowerEmail, { profileImage: base64Data });
+          console.log('[PROFIL] Base64 fotoğraf backend\'e kaydedildi.');
+        } catch (err) {
+          console.warn('[PROFIL] Backend kayıt hatası:', err);
+        }
+      }
     }
   };
 
   const deleteImage = async () => {
     if (!profileImage) return;
 
-    Alert.alert(
-      "Fotoğrafı Sil",
-      "Profil fotoğrafınızı silmek istediğinize emin misiniz?",
-      [
-        { text: "Vazgeç", style: "cancel" },
-        { 
-          text: "Sil", 
-          style: "destructive", 
-          onPress: async () => {
-            setProfileImage(null);
-            await AsyncStorage.removeItem(`profileImage_kisisel_${userEmail}`);
-          }
-        }
-      ]
-    );
+    // Arayüzü anında güncelle
+    setProfileImage(null);
+
+    try {
+      const email = await AsyncStorage.getItem('currentUserEmail');
+      if (email) {
+        const lowerEmail = email.toLowerCase();
+        await AsyncStorage.removeItem(`profileImage_${lowerEmail}`);
+        await DatabaseService.updateUser(lowerEmail, { profileImage: null });
+        console.log('[PROFIL] Fotoğraf başarıyla silindi.');
+      }
+    } catch (err) {
+      console.warn('[PROFIL] Silme işlemi sırasında hata:', err);
+    }
+  };
+  
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.removeItem('userSession');
+      await AsyncStorage.removeItem('currentUserEmail');
+      router.replace('/login');
+    } catch (error) {
+      console.error('Çıkış yapılırken hata:', error);
+    }
   };
 
   return (
@@ -88,14 +114,12 @@ export default function KisiselSettingsScreen() {
           <View style={styles.photoContainer}>
             {/* Profil Fotoğrafı (SAF ÇİZİM) */}
             <View style={styles.imageWrapper}>
-              {profileImage ? (
-                <Image source={{ uri: profileImage }} style={styles.profileImage} resizeMode="cover" />
-              ) : (
-                <View style={styles.drawnAvatarContainer}>
-                  <View style={styles.avatarHead} />
-                  <View style={styles.avatarBody} />
-                </View>
-              )}
+              <Image 
+                key={profileImage || 'default'}
+                source={profileImage ? { uri: profileImage } : DEFAULT_AVATAR} 
+                style={styles.profileImage} 
+                resizeMode="cover" 
+              />
             </View>
 
             {/* Butonlar */}
@@ -118,13 +142,12 @@ export default function KisiselSettingsScreen() {
             </View>
           </View>
           
-          <View style={styles.divider} />
-          
-          <View style={styles.infoRow}>
-            <Ionicons name="information-circle-outline" size={18} color="#7f8c8d" />
-            <Text style={styles.infoText}>Görseliniz ana menüde en sol üstte görünecektir.</Text>
-          </View>
         </View>
+
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={20} color="#e74c3c" />
+          <Text style={styles.logoutBtnText}>Çıkış Yap</Text>
+        </TouchableOpacity>
 
       </ScrollView>
     </SafeAreaView>
@@ -246,5 +269,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#7f8c8d',
     flex: 1,
+  },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    marginTop: 20,
+    paddingVertical: 15,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#eee',
+    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  logoutBtnText: {
+    color: '#e74c3c',
+    fontSize: 16,
+    fontWeight: '700',
   }
 });

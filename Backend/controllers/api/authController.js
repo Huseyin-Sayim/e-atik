@@ -58,7 +58,7 @@ const login = async (req, res) => {
 
     if (!user) {
       return res.status(404).json({
-        message: 'kullanıcı bulunamadı'
+        message: 'Kullanıcı bulunamadı'
       });
     }
 
@@ -66,7 +66,7 @@ const login = async (req, res) => {
 
     if (!isMatch) {
       return res.status(401).json({
-        message: 'hatalı şifre girdiniz lütfen tekrar deneyiniz!'
+        message: 'Hatalı şifre girdiniz lütfen tekrar deneyiniz!'
       })
     }
 
@@ -99,7 +99,14 @@ const login = async (req, res) => {
 
     res.status(200).json({
       message: 'giriş başarılı',
-      user: {id: user.id, name: user.name, email: user.email, role: user.role},
+      user: {
+        id: user.id, 
+        name: user.name, 
+        email: user.email, 
+        role: user.role,
+        profileImage: user.profileImage,
+        profileType: user.profileType
+      },
       refreshToken,
       accessToken
     })

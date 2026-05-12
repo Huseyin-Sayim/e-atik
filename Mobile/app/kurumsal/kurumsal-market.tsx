@@ -4,7 +4,7 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from 'expo-router';
 
-export default function KisiselMarketScreen() {
+export default function KurumsalMarketScreen() {
   const [points, setPoints] = React.useState(0);
 
   useFocusEffect(

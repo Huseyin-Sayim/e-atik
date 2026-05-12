@@ -4,8 +4,7 @@ import { View, Text, StyleSheet } from 'react-native';
 export default function KurumsalScanScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Kurumsal Tarama Sayfası</Text>
-      <Text style={styles.subtitle}>Barkod ve QR işlemleri burada yer alacak.</Text>
+      <Text style={styles.title}>QR Tarama Sayfası</Text>
     </View>
   );
 }
@@ -20,11 +19,5 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#2e7d32',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#7f8c8d',
   }
 });

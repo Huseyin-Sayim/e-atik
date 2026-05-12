@@ -21,6 +21,7 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     checkSession();
@@ -55,6 +56,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     setErrorMessage('');
+    setSuccessMessage('');
 
     if (!email || !password) {
       setErrorMessage('Lütfen e-posta ve şifre alanlarının ikisini de doldurun.');
@@ -74,7 +76,11 @@ export default function LoginScreen() {
         return;
       }
 
-      Alert.alert('Başarılı', 'Giriş Başarılı, Hoşgeldiniz!');
+
+      setSuccessMessage('Giriş Başarılı, Hoş geldiniz!');
+      
+      // Küçük bir gecikme ekleyelim ki kullanıcı mesajı görsün
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       console.log('Giriş yapılıyor:', { email, password, rememberMe });
 
@@ -84,7 +90,8 @@ export default function LoginScreen() {
         const expiryDate = new Date().getTime() + thirtyDaysInMillis;
 
         const sessionData = {
-          email: email,
+          email: email.toLowerCase(),
+          name: isValidUser.name,
           profileType: isValidUser.profileType,
           expiry: expiryDate
         };
@@ -97,10 +104,19 @@ export default function LoginScreen() {
       }
 
       // Profil seçimi veya diğer ekranlar için güncel email bilgisini sakla
-      await AsyncStorage.setItem('currentUserEmail', email);
+      const lowerEmail = email.toLowerCase();
+      await AsyncStorage.setItem('currentUserEmail', lowerEmail);
+      if (isValidUser.name) {
+        await AsyncStorage.setItem(`userName_${lowerEmail}`, isValidUser.name);
+      }
+      
+      // Backend'den gelen profil fotoğrafını kaydet
+      if (isValidUser.profileImage) {
+        await AsyncStorage.setItem(`profileImage_${lowerEmail}`, isValidUser.profileImage);
+      }
 
       // Backend kaydetmediği için yerel hafızadan profil tipini kontrol et
-      const savedProfileType = await AsyncStorage.getItem(`profileType_${email}`);
+      const savedProfileType = await AsyncStorage.getItem(`profileType_${lowerEmail}`);
       const activeProfileType = savedProfileType || isValidUser.profileType;
 
       const isFirstLogin = !activeProfileType;
@@ -163,6 +179,7 @@ export default function LoginScreen() {
           </View>
 
           {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+          {successMessage ? <Text style={styles.successText}>{successMessage}</Text> : null}
 
           <View style={styles.row}>
             {/* BENİ HATIRLA - Hitbox sadece içerik kadar */}
@@ -333,5 +350,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 16,
     textAlign: 'center',
+  },
+  successText: {
+    color: '#2e7d32',
+    fontSize: 14,
+    marginBottom: 16,
+    textAlign: 'center',
+    fontWeight: '600',
   },
 });

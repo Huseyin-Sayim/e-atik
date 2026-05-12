@@ -2,15 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, Platform, StatusBar, TouchableOpacity, Image } from 'react-native';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from 'expo-router';
+
+const DEFAULT_AVATAR = require('../../assets/images/default-avatar.png');
 
 export default function KisiselIndexScreen() {
   const [userName, setUserName] = useState('...');
-  const [points, setPoints] = useState(125);
+  const [points, setPoints] = useState(0);
   const [profileImage, setProfileImage] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      loadData();
+    }, [])
+  );
 
   const loadData = async () => {
     try {
@@ -23,8 +28,21 @@ export default function KisiselIndexScreen() {
       }
 
       if (email) {
-        const savedPhoto = await AsyncStorage.getItem(`profileImage_kisisel_${email}`);
-        if (savedPhoto) setProfileImage(savedPhoto);
+        const lowerEmail = email.toLowerCase();
+        const savedName = await AsyncStorage.getItem(`userName_${lowerEmail}`);
+        if (savedName) setUserName(savedName);
+        
+        const savedPhoto = await AsyncStorage.getItem(`profileImage_${lowerEmail}`);
+        setProfileImage(savedPhoto); // null ise null set eder, eskiyi temizler
+
+        const savedPoints = await AsyncStorage.getItem(`userPoints_${lowerEmail}`);
+        if (savedPoints) {
+          setPoints(parseInt(savedPoints));
+        } else {
+          // Varsayılan başlangıç puanı
+          await AsyncStorage.setItem(`userPoints_${lowerEmail}`, '50');
+          setPoints(50);
+        }
       }
     } catch (error) {
       console.error('Veri yükleme hatası:', error);
@@ -38,15 +56,12 @@ export default function KisiselIndexScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <TouchableOpacity style={styles.profileIconContainer}>
-            {profileImage ? (
-              <Image source={{ uri: profileImage }} style={styles.profileIcon} resizeMode="cover" />
-            ) : (
-              /* SAF ÇİZİM DEFAULT PP (RESİM VEYA İKON BAĞIMLILIĞI YOK) */
-              <View style={styles.drawnAvatarContainer}>
-                <View style={styles.avatarHead} />
-                <View style={styles.avatarBody} />
-              </View>
-            )}
+            <Image 
+              key={profileImage || 'default'}
+              source={profileImage ? { uri: profileImage } : DEFAULT_AVATAR} 
+              style={styles.profileIcon} 
+              resizeMode="cover" 
+            />
           </TouchableOpacity>
           <View>
             <Text style={styles.userName}>Hoş Geldin,</Text>
@@ -60,22 +75,6 @@ export default function KisiselIndexScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>Neler Yapabilirsin?</Text>
-        <View style={styles.actionRow}>
-          <TouchableOpacity style={styles.actionCard}>
-            <View style={[styles.actionIcon, { backgroundColor: '#e8f5e9' }]}>
-              <Ionicons name="qr-code-outline" size={28} color="#2e7d32" />
-            </View>
-            <Text style={styles.actionLabel}>Kova Tara</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionCard}>
-            <View style={[styles.actionIcon, { backgroundColor: '#e3f2fd' }]}>
-              <Ionicons name="map-outline" size={28} color="#1565c0" />
-            </View>
-            <Text style={styles.actionLabel}>Haritaya Bak</Text>
-          </TouchableOpacity>
-        </View>
-
         <View style={styles.tipCard}>
           <Ionicons name="bulb-outline" size={24} color="#f1c40f" />
           <Text style={styles.tipText}>
@@ -99,6 +98,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 15,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
   },
   headerLeft: {
     flexDirection: 'row',
