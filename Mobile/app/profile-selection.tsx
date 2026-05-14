@@ -8,26 +8,28 @@ export default function ProfileSelectionScreen() {
   const handleSelectProfile = async (type: 'kisisel' | 'kurumsal') => {
     try {
       console.log(`[PROFİL SEÇİMİ] Kullanıcı profili seçti: ${type}`);
+      const userId = await AsyncStorage.getItem('currentUserId');
       const email = await AsyncStorage.getItem('currentUserEmail');
 
-      if (!email) {
+      if (!userId || !email) {
         Alert.alert('Hata', 'Kullanıcı bilgisi bulunamadı. Lütfen tekrar giriş yapın.');
         router.replace('/login');
         return;
       }
 
-      // Mevcut oturum varsa (Beni Hatırla seçilmişse) oturumu güncelle
+      // Mevcut oturum varsa oturumu güncelle
       const sessionStr = await AsyncStorage.getItem('userSession');
       if (sessionStr) {
         const session = JSON.parse(sessionStr);
+        session.id = userId;
         session.profileType = type;
         await AsyncStorage.setItem('userSession', JSON.stringify(session));
       }
 
       try {
-        await AsyncStorage.setItem(`profileType_${email}`, type);
+        await AsyncStorage.setItem(`profileType_${userId}`, type);
 
-        await DatabaseService.updateUser(email, {
+        await DatabaseService.updateUser(email.trim().toLowerCase(), {
           profileType: type,
           isFirstLogin: false
         });

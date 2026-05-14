@@ -52,6 +52,36 @@ export default function KurumsalLayout() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="edit-corp-address"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="edit-corp-info"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="edit-corp-contact"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="edit-corp-email"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="change-corp-password"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

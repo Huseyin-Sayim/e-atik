@@ -1,24 +1,27 @@
 const {PrismaClient, Prisma} = require('@prisma/client');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const {sendVerificationMail, sendResetPasswordMail, sendWelcomeMail} = require("../../services/mailServices");
+const {sendVerificationMail, sendResetPasswordMail, sendWelcomeMail, sendEmailChangeMail, sendPasswordChangeMail, sendEmailChangeVerificationMail} = require("../../services/mailServices");
 const crypto = require('crypto');
 
 const prisma = new PrismaClient();
 
 const register = async (req, res) => {
   try{
-    const {name, email, password, phoneNumber, role, employeeType} = req.body;
+    const {name, surname, email, password, phoneNumber, role, employeeType, city, district} = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await prisma.user.create({
       data: {
         name,
+        surname,
         email,
         password : hashedPassword,
         phoneNumber,
         role,
-        employeeType
+        employeeType,
+        city,
+        district
       }
     })
     res.status(201).json({
@@ -33,16 +36,21 @@ const register = async (req, res) => {
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError) {
       if (err.code === 'P2002') {
-        let field = err.meta.target;
+        const fieldNames = {
+          email: 'e-posta adresi',
+          phoneNumber: 'telefon numarası'
+        };
+        const friendlyField = fieldNames[field] || field;
         return res.status(400).json({
-          message: `bu ${field} zaten kayıtlı.`,
+          message: `Bu ${friendlyField} zaten sisteme kayıtlıdır.`,
           error: 'DUPLICATE_FIELD'
         })
       }
     }
 
     res.status(500).json({
-      message: "Kullanıcı oluşturulamadı."
+      message: "Kullanıcı oluşturulamadı.",
+      error: err.message
     })
   }
 }
@@ -98,23 +106,132 @@ const login = async (req, res) => {
     })
 
     res.status(200).json({
-      message: 'giriş başarılı',
+      message: 'Giriş başarılı.',
       user: {
         id: user.id, 
         name: user.name, 
+        surname: user.surname,
         email: user.email, 
         role: user.role,
         profileImage: user.profileImage,
-        profileType: user.profileType
+        profileType: user.profileType,
+        city: user.city,
+        district: user.district
       },
       refreshToken,
       accessToken
     })
   } catch (err) {
     res.status(500).json({
-      message: 'giriş başarısız',
+      message: 'Giriş işlemi başarısız oldu.',
       error: err.message
     })
+  }
+}
+
+const changePassword = async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    const { userId } = req.user;
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ message: 'Kullanıcı bulunamadı.' });
+
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) return res.status(400).json({ message: 'Mevcut şifreniz hatalı.' });
+
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedNewPassword }
+    });
+
+    // Güvenlik Maili Gönder
+    await sendPasswordChangeMail(user.email);
+
+    res.status(200).json({ message: 'Şifreniz başarıyla değiştirildi.' });
+  } catch (err) {
+    res.status(500).json({ message: 'Şifre değiştirilirken bir hata oluştu.', error: err.message });
+  }
+}
+
+const requestEmailChange = async (req, res) => {
+  try {
+    const { newEmail } = req.body;
+    const { userId } = req.user;
+
+    if (!newEmail) return res.status(400).json({ message: 'Yeni e-posta adresi gereklidir.' });
+
+    // 1. E-posta daha önce alınmış mı kontrol et
+    const existingUser = await prisma.user.findUnique({ where: { email: newEmail.toLowerCase() } });
+    if (existingUser) return res.status(400).json({ message: 'Bu e-posta adresi zaten başka bir hesap tarafından kullanılıyor.' });
+
+    // 2. 6 Haneli Kod Üret
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // 3. Veritabanına Kaydet (Varsa eskisini silerek)
+    await prisma.verificationCode.upsert({
+      where: { userId },
+      update: {
+        code: verificationCode,
+        targetEmail: newEmail.toLowerCase(),
+        createdAt: new Date(),
+        expiredAt: new Date(Date.now() + 10 * 60 * 1000) // 10 dakika
+      },
+      create: {
+        userId,
+        code: verificationCode,
+        targetEmail: newEmail.toLowerCase(),
+        expiredAt: new Date(Date.now() + 10 * 60 * 1000)
+      }
+    });
+
+    // 4. Yeni Maile Kodu Gönder
+    await sendEmailChangeVerificationMail(newEmail.toLowerCase(), verificationCode);
+
+    res.status(200).json({ message: 'Doğrulama kodu yeni e-posta adresinize gönderildi.' });
+  } catch (err) {
+    console.error('Email change request error:', err);
+    res.status(500).json({ message: 'Kod gönderilirken bir hata oluştu.', error: err.message });
+  }
+}
+
+const verifyEmailChange = async (req, res) => {
+  try {
+    const { code, newEmail } = req.body;
+    const { userId } = req.user;
+
+    // 1. Kodu kontrol et
+    const record = await prisma.verificationCode.findUnique({ where: { userId } });
+
+    if (!record || record.code !== code || record.targetEmail !== newEmail.toLowerCase()) {
+      return res.status(400).json({ message: 'Geçersiz doğrulama kodu.' });
+    }
+
+    if (new Date() > record.expiredAt) {
+      return res.status(400).json({ message: 'Kodun süresi dolmuş.' });
+    }
+
+    // 2. Kullanıcıyı bul
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const oldEmail = user.email;
+
+    // 3. E-postayı Güncelle
+    await prisma.user.update({
+      where: { id: userId },
+      data: { email: newEmail.toLowerCase() }
+    });
+
+    // 4. Kod Kaydını Sil
+    await prisma.verificationCode.delete({ where: { userId } });
+
+    // 5. Bilgilendirme Mailleri Gönder
+    await sendEmailChangeMail(oldEmail, newEmail.toLowerCase());
+
+    res.status(200).json({ message: 'E-posta adresiniz başarıyla güncellendi.' });
+  } catch (err) {
+    console.error('Email verification error:', err);
+    res.status(500).json({ message: 'Doğrulama sırasında bir hata oluştu.', error: err.message });
   }
 }
 
@@ -296,5 +413,8 @@ module.exports = {
   verifyMail,
   generateResetToken,
   resetPassword,
-  logout
+  logout,
+  changePassword,
+  requestEmailChange,
+  verifyEmailChange
 }

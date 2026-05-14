@@ -46,6 +46,36 @@ export default function KisiselLayout() {
           tabBarIcon: ({ color }) => <Ionicons name="settings-outline" size={28} color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="edit-personal-info"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="edit-address"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="edit-contact"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="edit-email"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="change-password"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

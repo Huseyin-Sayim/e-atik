@@ -22,7 +22,9 @@ const DEFAULT_AVATAR = require('../../assets/images/default-avatar.png');
 export default function KurumsalSettingsScreen() {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState('');
-  const [corpName, setCorpName] = useState('');
+  const [userName, setUserName] = useState('');
+  const [userSurname, setUserSurname] = useState('');
+  const [address, setAddress] = useState('');
 
   useEffect(() => {
     loadUserData();
@@ -30,18 +32,39 @@ export default function KurumsalSettingsScreen() {
 
   const loadUserData = async () => {
     try {
+      const userId = await AsyncStorage.getItem('currentUserId');
       const email = await AsyncStorage.getItem('currentUserEmail');
       const sessionStr = await AsyncStorage.getItem('userSession');
       
-      if (email) setUserEmail(email);
-      if (sessionStr) {
-        const session = JSON.parse(sessionStr);
-        setCorpName(session.name || '');
+      if (userId) {
+        // İsim Soyisim Çek
+        const savedName = await AsyncStorage.getItem(`userName_${userId}`);
+        const savedSurname = await AsyncStorage.getItem(`userSurname_${userId}`);
+        
+        if (savedName) setUserName(savedName);
+        if (savedSurname) setUserSurname(savedSurname);
+
+        // Eğer local storage'da yoksa session'dan bak
+        if (!savedName && sessionStr) {
+          const session = JSON.parse(sessionStr);
+          setUserName(session.name || '');
+          setUserSurname(session.surname || '');
+        }
+
+        // Adres Çek
+        const savedCity = await AsyncStorage.getItem(`userCity_${userId}`);
+        const savedDistrict = await AsyncStorage.getItem(`userDistrict_${userId}`);
+        if (savedCity && savedDistrict) {
+          setAddress(`${savedCity} / ${savedDistrict}`);
+        }
+
+        // Profil Fotoğrafı
+        const savedPhoto = await AsyncStorage.getItem(`profileImage_${userId}`);
+        if (savedPhoto) setProfileImage(savedPhoto);
       }
 
       if (email) {
-        const savedPhoto = await AsyncStorage.getItem(`profileImage_${email}`);
-        if (savedPhoto) setProfileImage(savedPhoto);
+        setUserEmail(email.trim().toLowerCase());
       }
     } catch (error) {
       console.error('Veri yükleme hatası:', error);
@@ -61,14 +84,16 @@ export default function KurumsalSettingsScreen() {
       const base64Data = `data:image/jpeg;base64,${result.assets[0].base64}`;
       setProfileImage(base64Data);
       
+      const userId = await AsyncStorage.getItem('currentUserId');
       const email = await AsyncStorage.getItem('currentUserEmail');
-      if (email) {
-        const lowerEmail = email.toLowerCase();
-        await AsyncStorage.setItem(`profileImage_${lowerEmail}`, base64Data);
+      
+      if (userId) {
+        await AsyncStorage.setItem(`profileImage_${userId}`, base64Data);
         
         try {
-          await DatabaseService.updateUser(lowerEmail, { profileImage: base64Data });
-          console.log('[PROFIL] Base64 logo backend\'e kaydedildi.');
+          if (email) {
+            await DatabaseService.updateUser(email.trim().toLowerCase(), { profileImage: base64Data });
+          }
         } catch (err) {
           console.warn('[PROFIL] Backend kayıt hatası:', err);
         }
@@ -78,20 +103,18 @@ export default function KurumsalSettingsScreen() {
 
   const deleteImage = async () => {
     if (!profileImage) return;
-
-    // Arayüzü anında güncelle
     setProfileImage(null);
-
     try {
+      const userId = await AsyncStorage.getItem('currentUserId');
       const email = await AsyncStorage.getItem('currentUserEmail');
-      if (email) {
-        const lowerEmail = email.toLowerCase();
-        await AsyncStorage.removeItem(`profileImage_${lowerEmail}`);
-        await DatabaseService.updateUser(lowerEmail, { profileImage: null });
-        console.log('[PROFIL] Kurumsal fotoğraf başarıyla silindi.');
+      if (userId) {
+        await AsyncStorage.removeItem(`profileImage_${userId}`);
+        if (email) {
+          await DatabaseService.updateUser(email.trim().toLowerCase(), { profileImage: null });
+        }
       }
     } catch (err) {
-      console.warn('[PROFIL] Silme işlemi sırasında hata:', err);
+      console.warn('[PROFIL] Silme hatası:', err);
     }
   };
   
@@ -101,52 +124,120 @@ export default function KurumsalSettingsScreen() {
       await AsyncStorage.removeItem('currentUserEmail');
       router.replace('/login');
     } catch (error) {
-      console.error('Çıkış yapılırken hata:', error);
+      console.error('Çıkış hatası:', error);
     }
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         
-        <View style={styles.card}>
-          <View style={styles.photoContainer}>
+        {/* PROFIL KARTI (PREMIUM) */}
+        <View style={styles.profileCard}>
+          <View style={styles.profileHeader}>
             <View style={styles.imageWrapper}>
               <Image 
-                key={profileImage || 'default'}
                 source={profileImage ? { uri: profileImage } : DEFAULT_AVATAR} 
                 style={styles.profileImage} 
-                resizeMode="cover" 
               />
             </View>
-
-            <View style={styles.buttonWrapper}>
-              <Text style={styles.title}>{corpName || 'Kurumsal Firma'} Profili</Text>
-              
-              <TouchableOpacity style={styles.uploadBtn} onPress={pickImage}>
-                <Ionicons name="camera" size={18} color="#fff" />
-                <Text style={styles.btnText}>Profil Fotoğrafı Yükle</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[styles.deleteBtn, !profileImage && styles.disabledBtn]} 
-                onPress={deleteImage}
-                disabled={!profileImage}
-              >
-                <Ionicons name="trash" size={18} color={profileImage ? "#fff" : "#95a5a6"} />
-                <Text style={[styles.btnText, !profileImage && styles.disabledText]}>Profil Fotoğrafını Sil</Text>
-              </TouchableOpacity>
+            <View style={styles.profileInfo}>
+              <Text style={styles.userNameText}>
+                {userName ? `${userName} ${userSurname}` : 'Kurumsal Kullanıcı'}
+              </Text>
+              <Text style={styles.userEmailText}>{userEmail}</Text>
             </View>
           </View>
-          
+
+          <View style={styles.profileActions}>
+            <TouchableOpacity style={styles.uploadActionBtn} onPress={pickImage}>
+              <Ionicons name="cloud-upload-outline" size={18} color="#fff" />
+              <Text style={styles.uploadActionBtnText}>Fotoğraf Yükle</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.deleteActionBtn, !profileImage && styles.disabledBtn]} 
+              onPress={deleteImage}
+              disabled={!profileImage}
+            >
+              <Ionicons name="trash-outline" size={18} color={profileImage ? "#ef4444" : "#cbd5e1"} />
+              <Text style={[styles.deleteActionBtnText, !profileImage && { color: '#cbd5e1' }]}>Sil</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* AYARLAR MENÜSÜ */}
+        <View style={styles.menuSection}>
+          <Text style={styles.sectionTitle}>Hesap Ayarları</Text>
+
+          <TouchableOpacity 
+            style={styles.menuItem} 
+            activeOpacity={0.7}
+            onPress={() => router.push('/kurumsal/edit-corp-info')}
+          >
+            <View style={[styles.iconBox, { backgroundColor: '#eff6ff' }]}>
+              <Ionicons name="business" size={20} color="#3b82f6" />
+            </View>
+            <Text style={styles.menuItemText}>Kurumsal Bilgiler</Text>
+            <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.menuItem} 
+            activeOpacity={0.7}
+            onPress={() => router.push('/kurumsal/edit-corp-address')}
+          >
+            <View style={[styles.iconBox, { backgroundColor: '#f0fdf4' }]}>
+              <Ionicons name="location" size={20} color="#16a34a" />
+            </View>
+            <Text style={styles.menuItemText}>Adres Bilgileri</Text>
+            <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.menuItem} 
+            activeOpacity={0.7}
+            onPress={() => router.push('/kurumsal/edit-corp-contact')}
+          >
+            <View style={[styles.iconBox, { backgroundColor: '#fff7ed' }]}>
+              <Ionicons name="call" size={20} color="#ea580c" />
+            </View>
+            <Text style={styles.menuItemText}>İletişim Bilgileri</Text>
+            <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.menuItem} 
+            activeOpacity={0.7}
+            onPress={() => router.push('/kurumsal/edit-corp-email')}
+          >
+            <View style={[styles.iconBox, { backgroundColor: '#f5f3ff' }]}>
+              <Ionicons name="mail" size={20} color="#8b5cf6" />
+            </View>
+            <Text style={styles.menuItemText}>E-posta İşlemleri</Text>
+            <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.menuItem} 
+            activeOpacity={0.7}
+            onPress={() => router.push('/kurumsal/change-corp-password')}
+          >
+            <View style={[styles.iconBox, { backgroundColor: '#fef2f2' }]}>
+              <Ionicons name="lock-closed" size={20} color="#ef4444" />
+            </View>
+            <Text style={styles.menuItemText}>Şifre İşlemleri</Text>
+            <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+          </TouchableOpacity>
         </View>
 
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={20} color="#e74c3c" />
-          <Text style={styles.logoutBtnText}>Çıkış Yap</Text>
+          <Ionicons name="log-out-outline" size={22} color="#ef4444" />
+          <Text style={styles.logoutBtnText}>Güvenli Çıkış Yap</Text>
         </TouchableOpacity>
 
+        <Text style={styles.versionText}>Versiyon 1.0.4</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -158,136 +249,180 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
-  scrollContent: {
+  container: {
     padding: 20,
-    flexGrow: 1,
-    justifyContent: 'center',
+    paddingBottom: 40,
   },
-  card: {
+  profileCard: {
     backgroundColor: '#fff',
     borderRadius: 24,
-    padding: 24,
-    shadowColor: '#000',
+    padding: 20,
+    shadowColor: '#0f172a',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 15,
-    elevation: 5,
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 3,
+    marginBottom: 25,
   },
-  photoContainer: {
+  profileHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 20,
   },
   imageWrapper: {
-    width: 90,
-    height: 90,
-    borderRadius: 15, // Kurumsal daha keskin hatlı
-    borderWidth: 1,
-    borderColor: '#dcdde1',
-    overflow: 'hidden',
+    position: 'relative',
+    width: 80,
+    height: 80,
   },
-  drawnAvatarContainer: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#95a5a6',
-    justifyContent: 'center',
-    alignItems: 'center',
+  profileImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 15, // Kurumsal için daha keskin/premium box
+    backgroundColor: '#f1f5f9',
   },
-  avatarHead: {
+  editBadge: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    backgroundColor: '#2e7d32',
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#e0e0e0',
-    marginTop: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#fff',
   },
-  avatarBody: {
-    width: 56,
-    height: 36,
-    backgroundColor: '#e0e0e0',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    marginTop: 4,
-  },
-  profileImage: {
-    width: '100%',
-    height: '100%',
-  },
-  buttonWrapper: {
-    marginLeft: 20,
+  profileInfo: {
+    marginLeft: 16,
     flex: 1,
-    gap: 10,
   },
-  title: {
-    fontSize: 14,
-    fontWeight: '700',
+  userNameText: {
+    fontSize: 20,
+    fontWeight: '800',
     color: '#1e293b',
     marginBottom: 4,
   },
-  uploadBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#2e7d32', // Kişisel ile aynı yeşil tonu
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-    gap: 8,
+  userEmailText: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '500',
   },
-  deleteBtn: {
+  profileActions: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+    paddingTop: 15,
+    gap: 12,
+  },
+  uploadActionBtn: {
+    flex: 1, // Eşit uzunluk için 1 yapıldı
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e74c3c',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
+    justifyContent: 'center',
+    backgroundColor: '#2e7d32',
+    paddingVertical: 12,
     borderRadius: 12,
-    alignSelf: 'flex-start',
     gap: 8,
+    shadowColor: '#2e7d32',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  uploadActionBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  deleteActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#fee2e2',
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 6,
+  },
+  deleteActionBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ef4444',
   },
   disabledBtn: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: '#f8fafc',
+    borderColor: '#f1f5f9',
+    opacity: 0.6,
   },
-  btnText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '600',
+  menuSection: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 12,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 3,
   },
-  disabledText: {
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
     color: '#94a3b8',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginLeft: 12,
+    marginTop: 8,
+    marginBottom: 12,
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#f1f5f9',
-    marginVertical: 20,
-  },
-  infoRow: {
+  menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    padding: 12,
+    borderRadius: 16,
   },
-  infoText: {
-    fontSize: 12,
-    color: '#64748b',
+  iconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  menuItemText: {
     flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
   },
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#fff',
-    marginTop: 20,
-    paddingVertical: 15,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#eee',
+    marginTop: 25,
+    paddingVertical: 16,
+    borderRadius: 20,
     gap: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    borderWidth: 1,
+    borderColor: '#fee2e2',
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
-    shadowRadius: 10,
+    shadowRadius: 8,
     elevation: 2,
   },
   logoutBtnText: {
-    color: '#e74c3c',
+    color: '#ef4444',
     fontSize: 16,
     fontWeight: '700',
+  },
+  versionText: {
+    textAlign: 'center',
+    color: '#94a3b8',
+    fontSize: 12,
+    marginTop: 20,
   }
 });

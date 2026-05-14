@@ -22,22 +22,31 @@ export default function KurumsalIndexScreen() {
       const email = await AsyncStorage.getItem('currentUserEmail');
       const sessionStr = await AsyncStorage.getItem('userSession');
       
+      let fullName = 'Kurumsal Firma';
+
       if (sessionStr) {
         const session = JSON.parse(sessionStr);
-        setCorpName(session.name || 'Kurumsal Firma');
+        fullName = (session.name || 'Kurumsal') + (session.surname ? ' ' + session.surname : '');
       }
 
       if (email) {
         const lowerEmail = email.toLowerCase();
         const savedName = await AsyncStorage.getItem(`userName_${lowerEmail}`);
-        if (savedName) setCorpName(savedName);
+        const savedSurname = await AsyncStorage.getItem(`userSurname_${lowerEmail}`);
+        
+        if (savedName) {
+          fullName = savedName + (savedSurname ? ' ' + savedSurname : '');
+        }
+        
+        setCorpName(fullName);
         
         const savedPhoto = await AsyncStorage.getItem(`profileImage_${lowerEmail}`);
-        setProfileImage(savedPhoto); // null ise null set eder
+        setProfileImage(savedPhoto);
 
-        // Şu an için 50 olarak kalsın dendiği için zorla 50 yapıyoruz
         await AsyncStorage.setItem(`userPoints_${lowerEmail}`, '50');
         setPoints(50);
+      } else {
+        setCorpName(fullName);
       }
     } catch (error) {
       console.error('Veri yükleme hatası:', error);

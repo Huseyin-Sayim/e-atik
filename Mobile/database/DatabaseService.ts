@@ -47,6 +47,93 @@ class DatabaseService {
   }
 
   /**
+   * Kullanıcının şifresini değiştirir.
+   */
+  static async changePassword(oldPassword: string, newPassword: string): Promise<void> {
+    const token = await AsyncStorage.getItem('accessToken');
+    const response = await fetch(`${AUTH_API_URL}/change-password`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ oldPassword, newPassword })
+    });
+    if (!response.ok) {
+      const json = await response.json();
+      throw new Error(json.message || 'Şifre değiştirilemedi.');
+    }
+  }
+
+  /**
+   * Kullanıcının telefon numarasını veya e-postasını günceller.
+   */
+  static async updateContactInfo(email: string, data: { phoneNumber?: string, email?: string }): Promise<void> {
+    await this.updateUser(email, data);
+  }
+
+  /**
+   * E-posta değişikliği için kod ister.
+   */
+  static async requestEmailChange(newEmail: string): Promise<void> {
+    const token = await AsyncStorage.getItem('accessToken');
+    const response = await fetch(`${AUTH_API_URL}/request-email-change`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ newEmail })
+    });
+    if (!response.ok) {
+      const json = await response.json();
+      throw new Error(json.message || 'Doğrulama kodu gönderilemedi.');
+    }
+  }
+
+  /**
+   * E-posta değişikliğini kod ile onaylar.
+   */
+  static async verifyEmailChange(newEmail: string, code: string): Promise<void> {
+    const token = await AsyncStorage.getItem('accessToken');
+    const response = await fetch(`${AUTH_API_URL}/verify-email-change`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ newEmail, code })
+    });
+    if (!response.ok) {
+      const json = await response.json();
+      throw new Error(json.message || 'Doğrulama başarısız.');
+    }
+  }
+
+  /**
+   * Aktif oturumdaki kullanıcının profil bilgilerini döner.
+   */
+  static async getCurrentUser(): Promise<User | null> {
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) return null;
+
+      const response = await fetch(`${USER_API_URL}/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) return null;
+      const json = await response.json();
+      return json.data || null;
+    } catch (error) {
+      console.error('API profile çekme hatası:', error);
+      return null;
+    }
+  }
+
+  /**
    * Yeni bir kullanıcı kaydeder (Backend /register).
    */
   static async addUser(user: any): Promise<void> {
@@ -67,9 +154,13 @@ class DatabaseService {
       const json = await response.json();
 
       if (!response.ok) {
-        throw new Error(json.message || 'Kayıt sırasında hata oluştu.');
+        const errorMsg = json.error ? `${json.message} (${json.error})` : (json.message || 'Kayıt sırasında hata oluştu.');
+        throw new Error(errorMsg);
       }
     } catch (error: any) {
+      if (error.message === 'Failed to fetch' || error.message.includes('Network request failed')) {
+        throw new Error('Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol ediniz.');
+      }
       throw error;
     }
   }
@@ -111,6 +202,9 @@ class DatabaseService {
       const userData = json.user || json.data || {};
       return userData;
     } catch (error: any) {
+      if (error.message === 'Failed to fetch' || error.message.includes('Network request failed')) {
+        throw new Error('Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol ediniz.');
+      }
       throw error;
     }
   }
@@ -121,6 +215,9 @@ class DatabaseService {
   static async updateUser(email: string, updates: any): Promise<void> {
     try {
       const token = await AsyncStorage.getItem('accessToken');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
       const response = await fetch(`${USER_API_URL}/update-profile`, {
         method: 'PUT',
         headers: {
@@ -130,8 +227,10 @@ class DatabaseService {
         body: JSON.stringify({
           email,
           ...updates
-        })
+        }),
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const json = await response.json();
@@ -139,6 +238,9 @@ class DatabaseService {
       }
     } catch (error: any) {
       console.error('Kullanıcı güncellenirken hata:', error);
+      if (error.message === 'Failed to fetch' || error.message.includes('Network request failed')) {
+        throw new Error('Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol ediniz.');
+      }
       throw error;
     }
   }

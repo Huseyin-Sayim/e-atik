@@ -6,12 +6,12 @@ const getUsers =  async (req, res) => {
   try {
     const users = await prisma.user.findMany();
     res.status(200).json({
-      message: "success",
+      message: "Kullanıcılar başarıyla getirildi.",
       data: users
     })
   } catch (err) {
     res.status(500).json({
-      message: "Kullanıcılar getirilemedi.",
+      message: "Kullanıcı listesi getirilemedi.",
       error: err.message
     })
   }
@@ -35,25 +35,50 @@ const deleteUser = async (req, res) => {
 }
 const updateProfile = async (req, res) => {
   try {
-    const { email, profileImage, profileType } = req.body;
+    const { email, profileImage, profileType, name, surname, city, district } = req.body;
     const updatedUser = await prisma.user.update({
       where: { email: email.toLowerCase() },
       data: {
-        ...(profileImage && { profileImage }),
-        ...(profileType && { profileType })
+        ...(profileImage !== undefined && { profileImage }),
+        ...(profileType && { profileType }),
+        ...(name && { name }),
+        ...(surname && { surname }),
+        ...(city && { city }),
+        ...(district && { district })
       }
     });
     res.status(200).json({
-      message: "success",
+      message: "Profil başarıyla güncellendi.",
       data: updatedUser
     });
   } catch (err) {
-    res.status(500).json({ message: "hata" });
+    res.status(500).json({ message: "Profil güncellenirken bir hata oluştu." });
+  }
+}
+
+const getUserProfile = async (req, res) => {
+  try {
+    const {userId} = req.user; // isAuth middleware'inden geliyor
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    
+    if (!user) {
+      return res.status(404).json({ message: "Kullanıcı bulunamadı" });
+    }
+
+    res.status(200).json({
+      message: "Profil bilgileri başarıyla getirildi.",
+      data: user
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Kullanıcı bilgileri getirilirken bir sunucu hatası oluştu.", error: err.message });
   }
 }
 
 module.exports = {
   getUsers,
   deleteUser,
-  updateProfile
+  updateProfile,
+  getUserProfile
 }

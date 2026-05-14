@@ -16,7 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import DatabaseService from '../database/DatabaseService';
 
 export default function RegisterScreen() {
-  const [fullName, setFullName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [city, setCity] = useState('');
   const [district, setDistrict] = useState('');
   const [email, setEmail] = useState('');
@@ -31,7 +32,7 @@ export default function RegisterScreen() {
     setErrorMessage('');
     setSuccessMessage('');
 
-    if (!fullName || !city || !district || !email || !phoneNumber || !password || !confirmPassword) {
+    if (!firstName || !lastName || !city || !district || !email || !phoneNumber || !password || !confirmPassword) {
       const msg = 'Lütfen tüm alanları doldurun.';
       setErrorMessage(msg);
       Alert.alert('Eksik Bilgi', msg);
@@ -47,7 +48,7 @@ export default function RegisterScreen() {
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      const msg = 'Lütfen geçerli bir e-posta adresi girin.';
+      const msg = 'Lütfen geçerli bir e-posta adresi giriniz.';
       setErrorMessage(msg);
       Alert.alert('Geçersiz E-posta', msg);
       return;
@@ -70,14 +71,24 @@ export default function RegisterScreen() {
     try {
       // Yeni kullanıcıyı oluştur ve kaydet
       const newUser = {
-        name: fullName,
+        name: firstName,
+        surname: lastName,
         phoneNumber,
         email: email.toLowerCase(),
         password,
+        city,
+        district
       };
 
       console.log('[KAYIT] İstek gönderiliyor:', newUser);
       await DatabaseService.addUser(newUser);
+
+      // Kayıt başarılı olduktan sonra yerel hafızaya da atalım ki hemen görünsün
+      const lowerEmail = email.toLowerCase();
+      await AsyncStorage.setItem(`userName_${lowerEmail}`, firstName);
+      await AsyncStorage.setItem(`userSurname_${lowerEmail}`, lastName);
+      await AsyncStorage.setItem(`userCity_${lowerEmail}`, city);
+      await AsyncStorage.setItem(`userDistrict_${lowerEmail}`, district);
 
       console.log('Kayıt başarılı:', newUser.email);
 
@@ -111,10 +122,19 @@ export default function RegisterScreen() {
 
           <TextInput
             style={styles.input}
-            placeholder="Ad Soyad"
+            placeholder="Ad"
             placeholderTextColor="#999"
-            value={fullName}
-            onChangeText={setFullName}
+            value={firstName}
+            onChangeText={setFirstName}
+            autoCapitalize="words"
+          />
+
+          <TextInput
+            style={styles.input}
+            placeholder="Soyad"
+            placeholderTextColor="#999"
+            value={lastName}
+            onChangeText={setLastName}
             autoCapitalize="words"
           />
 
