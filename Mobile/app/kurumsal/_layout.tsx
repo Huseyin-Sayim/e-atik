@@ -82,6 +82,12 @@ export default function KurumsalLayout() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="kurumsal-notifications"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

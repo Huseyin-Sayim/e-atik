@@ -6,6 +6,16 @@ import { useFocusEffect } from 'expo-router';
 
 const DEFAULT_AVATAR = require('../../assets/images/default-avatar.png');
 
+const RECENT_TRANSACTIONS = [
+  { id: '1', title: 'Akıllı Kova - Plastik Atık', type: 'qr', points: '+10', date: 'Bugün, 14:30' },
+  { id: '2', title: 'Market İadesi - Cam Şişe', type: 'market', points: '+5', date: 'Dün, 09:15' },
+  { id: '3', title: 'Akıllı Kova - Kağıt Atık', type: 'qr', points: '+15', date: '12 Mayıs, 16:45' },
+  { id: '4', title: 'Market İadesi - Pil', type: 'market', points: '+20', date: '10 Mayıs, 11:20' },
+  { id: '5', title: 'Akıllı Kova - Genel Atık', type: 'qr', points: '+5', date: '08 Mayıs, 13:10' },
+  { id: '6', title: 'Market İadesi - Plastik Poşet', type: 'market', points: '+5', date: '05 Mayıs, 18:00' },
+];
+
+
 export default function KisiselIndexScreen() {
   const [userName, setUserName] = useState('...');
   const [points, setPoints] = useState(0);
@@ -75,11 +85,38 @@ export default function KisiselIndexScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        
+        <View style={styles.transactionsContainer}>
+          <Text style={styles.sectionTitle}>Son İşlemler</Text>
+          
+          <View style={styles.transactionsList}>
+            {RECENT_TRANSACTIONS.map((item, index) => (
+              <View key={item.id} style={[styles.transactionItem, index === RECENT_TRANSACTIONS.length - 1 && { borderBottomWidth: 0 }]}>
+                <View style={[styles.transactionIconContainer, { backgroundColor: item.type === 'qr' ? '#e8f5e9' : '#e3f2fd' }]}>
+                  <Ionicons 
+                    name={item.type === 'qr' ? 'qr-code-outline' : 'cart-outline'} 
+                    size={22} 
+                    color={item.type === 'qr' ? '#2e7d32' : '#1565c0'} 
+                  />
+                </View>
+                <View style={styles.transactionDetails}>
+                  <Text style={styles.transactionName}>{item.title}</Text>
+                  <Text style={styles.transactionDate}>{item.date}</Text>
+                </View>
+                <Text style={styles.transactionPoints}>{item.points} Puan</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
         <View style={styles.tipCard}>
           <Ionicons name="bulb-outline" size={24} color="#f1c40f" />
-          <Text style={styles.tipText}>
-            Gereksiz fişleri prizden çekerek ayda ortalama 5 ağacı kurtarabilirsin!
-          </Text>
+          <View style={styles.tipTextContainer}>
+            <Text style={styles.tipTitle}>Küçük Bilgi:</Text>
+            <Text style={styles.tipText}>
+              Gereksiz fişleri prizden çekerek ayda ortalama 5 ağacı kurtarabilirsin!
+            </Text>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -247,10 +284,61 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  tipText: {
+  tipTextContainer: {
     flex: 1,
-    fontSize: 14,
+  },
+  tipTitle: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#d4ac0d',
+    marginBottom: 2,
+  },
+  tipText: {
+    fontSize: 13,
     color: '#9a7d0a',
-    lineHeight: 20,
+    lineHeight: 18,
+  },
+  transactionsContainer: {
+    marginBottom: 25,
+  },
+  transactionsList: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+    overflow: 'hidden',
+  },
+  transactionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  transactionIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  transactionDetails: {
+    flex: 1,
+  },
+  transactionName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: 4,
+  },
+  transactionDate: {
+    fontSize: 12,
+    color: '#94a3b8',
+  },
+  transactionPoints: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#2e7d32',
   }
 });
