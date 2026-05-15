@@ -5,14 +5,16 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   Animated,
   Platform,
   Dimensions,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import { MapView, Marker, PROVIDER_DEFAULT, Geojson } from '../../components/MapComponent';
 import * as Location from 'expo-location';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import DatabaseService from '../../database/DatabaseService';
 
 // GeoJSON verisini import ediyoruz
 import campusParcels from '../../assets/kampusParsel.json';
@@ -36,21 +38,6 @@ interface TrashBin {
   type: 'plastik' | 'kagit' | 'cam' | 'genel';
 }
 
-// KURAL: KISALTMA YOK, TAM İSİMLER VE BİNA MERKEZLİ KOORDİNATLAR
-const MOCK_TRASH_BINS: TrashBin[] = [
-  { id: '1', name: 'Fen Fakültesi', latitude: 38.4590, longitude: 27.2285, fillPercentage: 85, lastUpdated: '5 dk önce', type: 'genel' },
-  { id: '2', name: 'Metro Girişi', latitude: 38.4595, longitude: 27.2287, fillPercentage: 42, lastUpdated: '12 dk önce', type: 'plastik' },
-  { id: '3', name: 'Merkez Kütüphane', latitude: 38.4570, longitude: 27.2315, fillPercentage: 25, lastUpdated: '3 dk önce', type: 'kagit' },
-  { id: '4', name: 'Elektrik-Elektronik Mühendisliği', latitude: 38.4530, longitude: 27.2260, fillPercentage: 67, lastUpdated: '8 dk önce', type: 'cam' },
-  { id: '5', name: 'Makine Mühendisliği', latitude: 38.4525, longitude: 27.2275, fillPercentage: 91, lastUpdated: '2 dk önce', type: 'genel' },
-  { id: '6', name: 'İnşaat Mühendisliği', latitude: 38.4515, longitude: 27.2270, fillPercentage: 18, lastUpdated: '20 dk önce', type: 'plastik' },
-  { id: '7', name: 'Merkez Kafeterya', latitude: 38.4555, longitude: 27.2295, fillPercentage: 55, lastUpdated: '6 dk önce', type: 'genel' },
-  { id: '8', name: 'Spor Kompleksi', latitude: 38.4545, longitude: 27.2250, fillPercentage: 73, lastUpdated: '15 dk önce', type: 'genel' },
-  { id: '9', name: 'Diş Hekimliği Fakültesi', latitude: 38.4565, longitude: 27.2255, fillPercentage: 30, lastUpdated: '9 dk önce', type: 'kagit' },
-  { id: '10', name: 'Eczacılık Fakültesi', latitude: 38.4555, longitude: 27.2250, fillPercentage: 60, lastUpdated: '11 dk önce', type: 'cam' },
-  { id: '11', name: 'Ege Meslek Yüksekokulu', latitude: 38.4510, longitude: 27.2285, fillPercentage: 12, lastUpdated: '30 dk önce', type: 'plastik' },
-];
-
 function getFillLevel(percentage: number): FillLevel {
   if (percentage < 40) return 'low';
   if (percentage < 75) return 'medium';
@@ -67,19 +54,57 @@ function getPinColor(percentage: number): string {
 export default function KisiselLocationScreen() {
   const mapRef = useRef<MapView>(null);
   const cardAnim = useRef(new Animated.Value(0)).current;
+
+  const [bins, setBins] = useState<TrashBin[]>([]);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [selectedBin, setSelectedBin] = useState<TrashBin | null>(null);
   const [filterLevel, setFilterLevel] = useState<FillLevel | 'all'>('all');
+  const [loading, setLoading] = useState(true);
+  const [isListModalVisible, setIsListModalVisible] = useState(false);
 
   useEffect(() => {
-    (async () => {
+    const initApp = async () => {
+      await loadBins();
+      setupLocation();
+    };
+    
+    initApp();
+  }, []);
+
+  const setupLocation = async () => {
+    try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
         const initial = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
         setUserLocation({ latitude: initial.coords.latitude, longitude: initial.coords.longitude });
       }
-    })();
-  }, []);
+    } catch (e) {
+      console.warn('Konum alınamadı');
+    }
+  };
+
+  const loadBins = async () => {
+    try {
+      setLoading(true);
+      let fetchedBins = await DatabaseService.getBins();
+      
+      const mappedBins = fetchedBins.map(b => ({
+        id: b.id.toString(),
+        name: b.name || 'İsimsiz Kutu',
+        latitude: parseFloat(b.latitude),
+        longitude: parseFloat(b.longitude),
+        fillPercentage: b.predictedFullness || 0,
+        type: b.wasteCategory === 'PLASTIC' ? 'plastik' : b.wasteCategory === 'GLASS' ? 'cam' : b.wasteCategory === 'PAPER' ? 'kagit' : 'genel',
+        lastUpdated: 'Şimdi'
+      }));
+
+      setBins(mappedBins);
+    } catch (e) {
+      console.error('❌ Yükleme hatası:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (selectedBin) {
@@ -101,19 +126,38 @@ export default function KisiselLocationScreen() {
   }, []);
 
   const goToFullestBin = useCallback(() => {
-    const fullestBin = [...MOCK_TRASH_BINS].sort((a, b) => b.fillPercentage - a.fillPercentage)[0];
+    const sorted = [...bins].sort((a, b) => b.fillPercentage - a.fillPercentage);
+    const fullestBin = sorted[0];
     if (fullestBin) {
       setSelectedBin(fullestBin);
       mapRef.current?.animateToRegion({ latitude: fullestBin.latitude, longitude: fullestBin.longitude, latitudeDelta: 0.002, longitudeDelta: 0.002 }, 800);
     }
-  }, []);
+  }, [bins]);
 
-  const filteredBins = MOCK_TRASH_BINS.filter((bin) => filterLevel === 'all' || getFillLevel(bin.fillPercentage) === filterLevel);
+  const filteredBins = bins.filter((bin) => filterLevel === 'all' || getFillLevel(bin.fillPercentage) === filterLevel);
+
+  if (loading) {
+    return <View style={styles.loader}><ActivityIndicator size="large" color="#2e7d32" /></View>;
+  }
 
   return (
     <View style={styles.container}>
-      <MapView ref={mapRef} style={styles.map} initialRegion={CAMPUS_CENTER} showsUserLocation={true} onPress={() => setSelectedBin(null)}>
-        <Geojson geojson={campusParcels as any} strokeColor="#ff7800" fillColor="rgba(255, 120, 0, 0.1)" strokeWidth={2} />
+      <MapView
+        ref={mapRef}
+        style={styles.map}
+        initialRegion={CAMPUS_CENTER}
+        showsUserLocation={true}
+        onPress={() => setSelectedBin(null)}
+      >
+        <Geojson 
+          geojson={{
+            ...campusParcels,
+            features: (campusParcels as any).features.filter((f: any) => f.geometry.type !== 'Point')
+          } as any} 
+          strokeColor="#ff7800" 
+          fillColor="rgba(255, 120, 0, 0.1)" 
+          strokeWidth={2} 
+        />
         {filteredBins.map((bin) => (
           <Marker key={`bin-${bin.id}`} coordinate={{ latitude: bin.latitude, longitude: bin.longitude }} onPress={() => setSelectedBin(bin)}>
             <View style={styles.pinWrapper}>
@@ -134,11 +178,16 @@ export default function KisiselLocationScreen() {
         <View style={styles.headerContent}>
           <View>
             <Text style={styles.headerTitle}>🗺️ Kampüs Haritası</Text>
-            <Text style={styles.headerSubtitle}>Ege Üniversitesi</Text>
+            <Text style={styles.headerSubtitle}>{filteredBins.length} Aktif Kutu</Text>
           </View>
-          <View style={styles.binCountBadge}>
-            <Text style={styles.binCountText}>{filteredBins.length}</Text>
-            <Text style={styles.binCountLabel}>kutu</Text>
+          <View style={styles.headerActions}>
+            <TouchableOpacity 
+              style={styles.binCountBadge}
+              onPress={() => setIsListModalVisible(true)}
+            >
+              <Text style={styles.binCountText}>{filteredBins.length}</Text>
+              <Text style={styles.binCountLabel}>Kutu</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -168,28 +217,94 @@ export default function KisiselLocationScreen() {
       {selectedBin && (
         <Animated.View style={[styles.detailCard, { transform: [{ translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [200, 0] }) }] }]}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardName}>{selectedBin.name}</Text>
+            <View>
+              <Text style={styles.cardName}>{selectedBin.name}</Text>
+              <Text style={styles.cardUpdate}>{selectedBin.lastUpdated} güncellendi</Text>
+            </View>
             <TouchableOpacity onPress={() => setSelectedBin(null)}><Ionicons name="close-circle" size={26} color="#ccc" /></TouchableOpacity>
           </View>
           <View style={styles.cardBody}>
-            <Text style={{color: getPinColor(selectedBin.fillPercentage), fontWeight: 'bold'}}>Doluluk: %{selectedBin.fillPercentage}</Text>
+            <View style={styles.coordDisplayRow}>
+              <View style={styles.coordItem}>
+                <Text style={styles.coordLabel}>ENLEM:</Text>
+                <Text style={styles.coordValue}>{selectedBin.latitude.toFixed(6)}</Text>
+              </View>
+              <View style={styles.coordItem}>
+                <Text style={styles.coordLabel}>BOYLAM:</Text>
+                <Text style={styles.coordValue}>{selectedBin.longitude.toFixed(6)}</Text>
+              </View>
+            </View>
+
+            <View style={styles.progressContainer}>
+              <View style={[styles.progressBar, { width: `${selectedBin.fillPercentage}%`, backgroundColor: getPinColor(selectedBin.fillPercentage) }]} />
+            </View>
           </View>
         </Animated.View>
       )}
+
+      {/* LİSTE MODALI (Üst Üste Binen Kutular İçin) */}
+      <Modal visible={isListModalVisible} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '70%' }]}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Tüm Atık Kutuları</Text>
+                <Text style={styles.headerSubtitle}>{filteredBins.length} kayıt bulundu</Text>
+              </View>
+              <TouchableOpacity onPress={() => setIsListModalVisible(false)}>
+                <Ionicons name="close" size={28} color="#333" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {filteredBins.map((bin) => (
+                <TouchableOpacity 
+                  key={`list-bin-${bin.id}`} 
+                  style={styles.listItem}
+                  onPress={() => {
+                    setIsListModalVisible(false);
+                    setSelectedBin(bin);
+                    mapRef.current?.animateToRegion({ 
+                      latitude: bin.latitude, 
+                      longitude: bin.longitude, 
+                      latitudeDelta: 0.002, 
+                      longitudeDelta: 0.002 
+                    }, 800);
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View style={[styles.listColorDot, { backgroundColor: getPinColor(bin.fillPercentage) }]} />
+                    <View>
+                      <Text style={styles.listItemName}>{bin.name}</Text>
+                      <Text style={styles.listItemCoords}>{bin.latitude.toFixed(6)}, {bin.longitude.toFixed(6)}</Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.listFillText, { color: getPinColor(bin.fillPercentage) }]}>%{bin.fillPercentage}</Text>
+                </TouchableOpacity>
+              ))}
+              {filteredBins.length === 0 && (
+                <Text style={{ textAlign: 'center', color: '#94a3b8', marginTop: 20 }}>Listelenecek kutu yok.</Text>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
+  loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   map: { flex: 1 },
   headerBar: { position: 'absolute', top: 50, left: 16, right: 16, backgroundColor: '#fff', borderRadius: 16, padding: 12, elevation: 8 },
   headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  binCountBadge: { backgroundColor: '#e8f5e9', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4, alignItems: 'center' },
-  binCountText: { fontSize: 16, fontWeight: '800', color: '#2e7d32' },
-  binCountLabel: { fontSize: 10, color: '#2e7d32', fontWeight: '600' },
-  headerTitle: { fontSize: 16, fontWeight: '700' },
-  headerSubtitle: { fontSize: 12, color: '#888' },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1e293b' },
+  headerSubtitle: { fontSize: 12, color: '#64748b' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  binCountBadge: { backgroundColor: '#e8f5e9', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4, alignItems: 'center', minWidth: 40 },
+  binCountText: { fontSize: 14, fontWeight: '800', color: '#2e7d32' },
+  binCountLabel: { fontSize: 8, color: '#2e7d32', fontWeight: '700', textTransform: 'uppercase' },
   filterRow: { position: 'absolute', top: 120, left: 16, right: 16, flexDirection: 'row', gap: 8 },
   filterBtn: { flex: 1, backgroundColor: '#fff', borderRadius: 20, paddingVertical: 8, alignItems: 'center', elevation: 4 },
   filterBtnActive: { backgroundColor: '#2e7d32' },
@@ -204,7 +319,27 @@ const styles = StyleSheet.create({
   tooltipText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
   tooltipTail: { width: 0, height: 0, borderLeftWidth: 8, borderRightWidth: 8, borderTopWidth: 10, borderLeftColor: 'transparent', borderRightColor: 'transparent', marginTop: -2 },
   detailCard: { position: 'absolute', bottom: 20, left: 16, right: 16, backgroundColor: '#fff', borderRadius: 20, padding: 16, elevation: 12 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  cardName: { fontSize: 16, fontWeight: 'bold' },
-  cardBody: { paddingBottom: 10 }
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  cardName: { fontSize: 18, fontWeight: 'bold', color: '#1e293b' },
+  cardUpdate: { fontSize: 12, color: '#94a3b8' },
+  cardBody: { gap: 12 },
+  coordDisplayRow: { flexDirection: 'row', backgroundColor: '#f8fafc', padding: 10, borderRadius: 12, gap: 15, marginBottom: 5 },
+  coordItem: { flex: 1 },
+  coordLabel: { fontSize: 9, fontWeight: '800', color: '#94a3b8', marginBottom: 2 },
+  coordValue: { fontSize: 13, fontWeight: '700', color: '#1e293b', fontFamily: 'monospace' },
+  progressContainer: { height: 8, backgroundColor: '#f1f5f9', borderRadius: 4, overflow: 'hidden' },
+  progressBar: { height: '100%', borderRadius: 4 },
+  
+  // MODAL STYLES
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 24, maxHeight: '80%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { fontSize: 20, fontWeight: '800', color: '#1e293b' },
+  
+  // LİSTE STYLES
+  listItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  listColorDot: { width: 12, height: 12, borderRadius: 6 },
+  listItemName: { fontSize: 15, fontWeight: '700', color: '#1e293b' },
+  listItemCoords: { fontSize: 11, color: '#94a3b8', fontFamily: 'monospace', marginTop: 2 },
+  listFillText: { fontSize: 14, fontWeight: 'bold' },
 });

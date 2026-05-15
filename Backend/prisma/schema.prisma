@@ -156,14 +156,15 @@ model Region {
 
 model Bin {
   id                String          @id @default(uuid())
+  name              String?         @db.Text
   type              BinType
   wasteCategory     WasteCategory   @default(GENERAL)
   latitude          Float
   longitude         Float
-  capacityVolume    Float
+  capacityVolume    Float           @default(100.0)
   predictedFullness Float           @default(0.0)
-  regionId          String
-  region            Region          @relation(fields: [regionId], references: [id])
+  regionId          String?
+  region            Region?         @relation(fields: [regionId], references: [id])
   logs              CollectionLog[]
   createdAt         DateTime        @default(now())
 }

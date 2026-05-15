@@ -307,6 +307,71 @@ class DatabaseService {
   static async clearDatabase(): Promise<void> {
     console.warn("Clear database API'de tanımlı değil.");
   }
+
+  // ==========================================
+  // ATIK KUTULARI (BINS) API İŞLEMLERİ
+  // ==========================================
+
+  static async getBins(): Promise<any[]> {
+    try {
+      // Sadece timestamp ile cache kırma (Özel headerlar CORS hatası veriyordu)
+      const response = await fetch(`${BASE_API_URL}/bins?t=${new Date().getTime()}`, {
+        method: 'GET',
+        headers: { 
+          'Content-Type': 'application/json'
+        },
+        cache: 'no-store'
+      });
+      if (!response.ok) throw new Error('Kutular getirilemedi.');
+      return await response.json();
+    } catch (error) {
+      console.error('getBins hatası:', error);
+      return [];
+    }
+  }
+
+  static async addBin(binData: any): Promise<any> {
+    try {
+      const response = await fetch(`${BASE_API_URL}/bins/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(binData)
+      });
+      if (!response.ok) throw new Error('Kutu eklenemedi.');
+      return await response.json();
+    } catch (error) {
+      console.error('addBin hatası:', error);
+      throw error;
+    }
+  }
+
+  static async updateBinItem(id: string, binData: any): Promise<any> {
+    try {
+      const response = await fetch(`${BASE_API_URL}/bins/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(binData)
+      });
+      if (!response.ok) throw new Error('Kutu güncellenemedi.');
+      return await response.json();
+    } catch (error) {
+      console.error('updateBinItem hatası:', error);
+      throw error;
+    }
+  }
+
+  static async deleteBinItem(id: string): Promise<void> {
+    try {
+      const response = await fetch(`${BASE_API_URL}/bins/${id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!response.ok) throw new Error('Kutu silinemedi.');
+    } catch (error) {
+      console.error('deleteBinItem hatası:', error);
+      throw error;
+    }
+  }
 }
 
 export default DatabaseService;
