@@ -9,13 +9,16 @@ const {
   createBin,
   updateBin,
   deleteBin,
+  collectBin,
 } = require('../../controllers/api/binController');
 
 const router = express.Router();
 
 const adminBoss = [isAuth, hasRole('ADMIN', 'BOSS')];
+const collectorRoles = [isAuth, hasRole('EMPLOYEE', 'ADMIN', 'BOSS')];
 
 router.get('/', getBins);
+router.post('/:id/collect', ...collectorRoles, collectBin);
 router.get('/:id', getBinById);
 
 router.post('/', ...adminBoss, validate(validateSchema.binCreate), createBin);

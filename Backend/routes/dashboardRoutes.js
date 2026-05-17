@@ -1,12 +1,26 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const isAuth = require('../middleware/authentication');
 const loadCurrentUser = require('../middleware/loadCurrentUser');
 const requirePageRole = require('../middleware/requirePageRole');
 const { PrismaClient } = require('@prisma/client');
+const { getRecyclingStatsForDashboard } = require('../services/recyclingStats');
+const { getRegionFullnessAlerts } = require('../services/employeeRegionAlerts');
 
 const prisma = new PrismaClient();
 
 const router = express.Router();
+
+function hasValidSession(req) {
+  const token = req.headers.authorization?.split(' ')[1] || req.cookies?.accessToken;
+  if (!token) return false;
+  try {
+    jwt.verify(token, process.env.ACCESS_SECRET_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 
 // DASHBOARD AUTH ROUTES
@@ -37,27 +51,76 @@ router.get('/reset/password/:token', async (req, res) => {
   res.render('pages/auth/resetPassword', {token: token});
 });
 
-// DASHBORAD
+// LANDING (public)
 
-router.get('/', isAuth, loadCurrentUser, async (req, res) => {
-  const regions = await prisma.region.findMany();
+router.get('/', (req, res) => {
+  res.render('pages/landing', {
+    showDashboardLink: hasValidSession(req),
+  });
+});
+
+// DASHBOARD
+
+const staffRoles = requirePageRole('ADMIN', 'BOSS', 'EMPLOYEE');
+
+router.get('/dashboard', isAuth, loadCurrentUser, async (req, res) => {
+  const tasks = [
+    prisma.region.findMany(),
+    getRecyclingStatsForDashboard(),
+  ];
+
+  if (res.locals.user?.role === 'EMPLOYEE') {
+    tasks.push(getRegionFullnessAlerts(req.user.userId));
+  }
+
+  const results = await Promise.all(tasks);
+  const regions = results[0];
+  const recyclingStats = results[1];
+  const regionFullnessAlerts =
+    res.locals.user?.role === 'EMPLOYEE' ? results[2] : null;
 
   res.render('pages/dashboard', {
     user: res.locals.user,
-    regions: regions,
+    regions,
+    recyclingStats,
+    regionFullnessAlerts,
+  });
+});
+
+// KULLANICI — KİŞİSEL GERİ DÖNÜŞÜM (taslak)
+
+router.get('/user/my-recycling', isAuth, loadCurrentUser, requirePageRole('USER'), (req, res) => {
+  res.render('pages/user/myRecycling', {
+    user: res.locals.user,
   });
 });
 
 // REGİON
 
-router.get('/region/create', isAuth, loadCurrentUser, (req, res) => {
+router.get('/region/create', isAuth, loadCurrentUser, staffRoles, (req, res) => {
   res.render('pages/region/createRegion');
 });
 
 // BİN
 
-router.get('/bin/create', isAuth, loadCurrentUser, (req, res) => {
+router.get('/bin/create', isAuth, loadCurrentUser, staffRoles, (req, res) => {
   res.render('pages/bin/createBin');
+});
+
+// ADMIN — ÇALIŞAN KONUM TAKİBİ
+
+router.get('/admin/employee-tracking', isAuth, loadCurrentUser, requirePageRole('ADMIN'), (req, res) => {
+  res.render('pages/admin/employeeTracking', {
+    user: res.locals.user,
+  });
+});
+
+// ÇALIŞAN — BENİM ROTAM (taslak)
+
+router.get('/employee/my-route', isAuth, loadCurrentUser, requirePageRole('EMPLOYEE'), (req, res) => {
+  res.render('pages/employee/myRoute', {
+    user: res.locals.user,
+  });
 });
 
 // ÇALIŞAN — ÇALIŞMA BÖLGESİ

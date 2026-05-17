@@ -170,6 +170,8 @@ model CollectionLog {
   employee       User     @relation(fields: [employeeId], references: [id])
   emptiedAt      DateTime @default(now())
   actualFullness Float
+
+  @@index([binId, emptiedAt(sort: Desc)])
 }
 
 model WasteRequest {

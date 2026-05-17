@@ -23,6 +23,13 @@ const campusRegions = [
 
 const demoUsers = [
   {
+    name: 'Demo Admin',
+    email: 'admin@info.com',
+    phoneNumber: '5551000000',
+    role: 'ADMIN',
+    employeeType: null,
+  },
+  {
     name: 'Boss Admin',
     email: 'huseyinn.sayim@gmail.com',
     phoneNumber: '5551000001',

@@ -1,13 +1,46 @@
 const { PrismaClient } = require('@prisma/client');
 const { assertPointInParcel } = require('../../services/campusParcels');
+const {
+  calculatePredictedFullness,
+  enrichBinWithFullness,
+  getLastEmptiedAt,
+} = require('../../services/binFullness');
+const { findLatestEmptiedAtByBinIds } = require('../../services/binFullnessRepository');
 
 const prisma = new PrismaClient();
+
+const regionSelect = { select: { id: true, name: true, region_id: true } };
 
 async function resolveRegionFromParcelKey(parcelKey) {
   if (!parcelKey) return null;
   return prisma.region.findFirst({
     where: { region_id: String(parcelKey) },
   });
+}
+
+async function attachFullnessAndSync(bins) {
+  if (!bins.length) {
+    return [];
+  }
+
+  const binIds = bins.map((b) => b.id);
+  const latestMap = await findLatestEmptiedAtByBinIds(binIds);
+  const now = new Date();
+
+  const enriched = bins.map((bin) =>
+    enrichBinWithFullness(bin, latestMap.get(bin.id), now)
+  );
+
+  await Promise.all(
+    enriched.map((bin) =>
+      prisma.bin.update({
+        where: { id: bin.id },
+        data: { predictedFullness: bin.predictedFullness },
+      })
+    )
+  );
+
+  return enriched;
 }
 
 const getBins = async (req, res) => {
@@ -19,10 +52,12 @@ const getBins = async (req, res) => {
     }
     const bins = await prisma.bin.findMany({
       where,
-      include: { region: { select: { id: true, name: true, region_id: true } } },
+      include: { region: regionSelect },
       orderBy: { createdAt: 'desc' },
     });
-    res.status(200).json(bins);
+
+    const enriched = await attachFullnessAndSync(bins);
+    res.status(200).json(enriched);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -33,12 +68,14 @@ const getBinById = async (req, res) => {
     const { id } = req.params;
     const bin = await prisma.bin.findUnique({
       where: { id },
-      include: { region: { select: { id: true, name: true, region_id: true } } },
+      include: { region: regionSelect },
     });
     if (!bin) {
       return res.status(404).json({ message: 'Çöp kutusu bulunamadı.' });
     }
-    res.status(200).json(bin);
+
+    const [enriched] = await attachFullnessAndSync([bin]);
+    res.status(200).json(enriched);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -69,8 +106,9 @@ const createBin = async (req, res) => {
         type,
         capacityVolume,
         regionId: region.id,
+        predictedFullness: 0,
       },
-      include: { region: { select: { id: true, name: true, region_id: true } } },
+      include: { region: regionSelect },
     });
 
     res.status(201).json({ message: 'Çöp kutusu başarıyla oluşturuldu.', data: bin });
@@ -97,7 +135,6 @@ const updateBin = async (req, res) => {
       wasteCategory,
       type,
       capacityVolume,
-      predictedFullness,
       regionId: parcelKey,
     } = req.body;
 
@@ -130,7 +167,6 @@ const updateBin = async (req, res) => {
     if (wasteCategory !== undefined) data.wasteCategory = wasteCategory;
     if (type !== undefined) data.type = type;
     if (capacityVolume !== undefined) data.capacityVolume = capacityVolume;
-    if (predictedFullness !== undefined) data.predictedFullness = predictedFullness;
     if (parcelKey !== undefined && parcelKey !== null && parcelKey !== '') {
       data.regionId = nextRegionId;
     }
@@ -139,13 +175,18 @@ const updateBin = async (req, res) => {
       return res.status(400).json({ message: 'Güncellenecek alan yok.' });
     }
 
-    const bin = await prisma.bin.update({
+    await prisma.bin.update({
       where: { id },
       data,
-      include: { region: { select: { id: true, name: true, region_id: true } } },
     });
 
-    res.status(200).json({ message: 'Çöp kutusu güncellendi.', data: bin });
+    const bin = await prisma.bin.findUnique({
+      where: { id },
+      include: { region: regionSelect },
+    });
+    const [enriched] = await attachFullnessAndSync([bin]);
+
+    res.status(200).json({ message: 'Çöp kutusu güncellendi.', data: enriched });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
@@ -166,10 +207,63 @@ const deleteBin = async (req, res) => {
   }
 };
 
+const collectBin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const employeeId = req.user?.userId;
+
+    if (!employeeId) {
+      return res.status(401).json({ message: 'Giriş yapınız.' });
+    }
+
+    const bin = await prisma.bin.findUnique({
+      where: { id },
+      include: { region: regionSelect },
+    });
+
+    if (!bin) {
+      return res.status(404).json({ message: 'Çöp kutusu bulunamadı.' });
+    }
+
+    const latestMap = await findLatestEmptiedAtByBinIds([id]);
+    const lastEmptiedAt = getLastEmptiedAt(bin, latestMap.get(id));
+    const actualFullness = calculatePredictedFullness(bin, lastEmptiedAt);
+
+    const [log, updatedBin] = await prisma.$transaction([
+      prisma.collectionLog.create({
+        data: {
+          binId: id,
+          employeeId,
+          actualFullness,
+        },
+      }),
+      prisma.bin.update({
+        where: { id },
+        data: { predictedFullness: 0 },
+        include: { region: regionSelect },
+      }),
+    ]);
+
+    const enriched = enrichBinWithFullness(updatedBin, log.emptiedAt);
+
+    res.status(201).json({
+      message: 'Kova boşaltma kaydı oluşturuldu.',
+      data: {
+        collectionLog: log,
+        bin: enriched,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 module.exports = {
   getBins,
   getBinById,
   createBin,
   updateBin,
   deleteBin,
+  collectBin,
 };

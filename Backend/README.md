@@ -138,12 +138,22 @@ Parsel GeoJSON dosyası: `public/data/geojson/kampusParsel.geojson`. Her parseli
 npx prisma db seed
 ```
 
+### Doluluk oranı (`predictedFullness`)
+
+Hesaplanan alandır; manuel PATCH ile güncellenmez.
+
+- **Referans:** 100 litre tam dolana kadar geçen süre — konteyner (`CONTAINER_SMALL`, `CONTAINER_LARGE`): **24 saat**; atık noktası (`WASTE_POINT`): **48 saat**.
+- **Formül:** `hoursToFull = (capacityVolume / 100) × baseHours`; `predictedFullness = min(1, elapsedHours / hoursToFull)`.
+- **Son boşaltma:** En son `CollectionLog.emptiedAt`; kayıt yoksa `Bin.createdAt` (yeni kova boş kabul edilir).
+- `GET /api/bins` ve `GET /api/bins/:id` her istekte doluluğu hesaplar ve `Bin.predictedFullness` alanına yazar.
+
 ### 1. Çöp kovalarını listele
 
 - **URL:** `/api/bins`
 - **Metot:** `GET`
 - **Yetki:** Gerekmez.
 - **Sorgu (isteğe bağlı):** `regionId` — bölgenin Prisma UUID değeri (`Region.id`).
+- Yanıtta `predictedFullness`, `lastEmptiedAt`, `hoursToFull` (hesaplanmış).
 
 ### 2. Tek çöp kovası
 
@@ -171,9 +181,31 @@ Sunucu, noktanın seçilen parsel poligonu içinde olduğunu doğrular; aksi hal
 - **URL:** `/api/bins/:id`
 - **Metot:** `PATCH`
 - **Yetki:** Giriş + `ADMIN` veya `BOSS`.
-- **Body:** En az bir alan; tümü isteğe bağlı: `latitude`, `longitude`, `wasteCategory`, `type`, `capacityVolume`, `predictedFullness`, `regionId` (parsel anahtarı — bölge değişiminde).
+- **Body:** En az bir alan; tümü isteğe bağlı: `latitude`, `longitude`, `wasteCategory`, `type`, `capacityVolume`, `regionId` (parsel anahtarı — bölge değişiminde).
 
-### 5. Çöp kovasını sil
+### 5. Kovayı boşalt (CollectionLog)
+
+- **URL:** `/api/bins/:id/collect`
+- **Metot:** `POST`
+- **Yetki:** Giriş + rol `EMPLOYEE`, `ADMIN` veya `BOSS`.
+- **Body:** Boş JSON `{}` yeterli.
+- Anlık doluluk `CollectionLog.actualFullness` olarak kaydedilir; `predictedFullness` sıfırlanır.
+
+### Geri dönüşüm istatistikleri
+
+Dashboard ve API, kategori bazında toplanan atık hacmini (litre) gösterir.
+
+- **URL:** `GET /api/stats/recycling`
+- **Yetki:** Giriş gerekir (`isAuth` — cookie veya Bearer).
+- **Yanıt:** `data` dizisi: `key`, `label` (Türkçe), `liters`, `formatted`, `iconUrl`.
+
+**Hesaplama (v1):** Her `CollectionLog` kaydı için `collectedLiters = actualFullness × Bin.capacityVolume`; kategori `Bin.wasteCategory` üzerinden toplanır. Kayıt yoksa tüm kategoriler `0 L`.
+
+**İleride:** `WasteRequest` (`status = COLLECTED`, `weight` dolu) aynı servise eklenecek.
+
+---
+
+### 6. Çöp kovasını sil
 
 - **URL:** `/api/bins/:id`
 - **Metot:** `DELETE`
@@ -181,5 +213,53 @@ Sunucu, noktanın seçilen parsel poligonu içinde olduğunu doğrular; aksi hal
 
 ### Web arayüzü
 
-- **URL:** `/bin/create` (giriş gerekir)
+#### Tanıtım sayfası (herkese açık)
+
+- **URL:** `/` — giriş gerekmez; hakkımızda, özellikler, vizyon ve misyon bölümleri.
+- Yönetim paneli: **`/dashboard`** (giriş zorunlu).
+
+#### Rol bazlı sayfalar
+
+| Rol | Sayfalar |
+|-----|----------|
+| **USER** | `/dashboard` (geri dönüşüm özeti + kampüs haritası, yönetim sayfaları yok), `/user/my-recycling` (kişisel geri dönüşüm taslağı) |
+| **ADMIN** | Yukarıdakilere ek `/admin/employee-tracking` (canlı çalışan konumu) |
+| **BOSS / EMPLOYEE** | `/dashboard` (tam dashboard + harita), `/bin/create`, `/region/create` |
+| **EMPLOYEE** | Ayrıca `/employee/work-region`, `/employee/my-route` (rota taslağı); dashboard üstünde bölge doluluk uyarıları (%80+) |
+
+### Çalışan doluluk uyarıları
+
+- **EMPLOYEE** panelde (`/dashboard`), atanmış çalışma bölgesindeki kovalar için `predictedFullness >= 0.8` ise üstte kırmızı uyarı listesi gösterilir.
+- Bölge seçilmemişse sarı uyarı ve `/employee/work-region` linki.
+- Hesaplama: [`services/employeeRegionAlerts.js`](services/employeeRegionAlerts.js) — okuma modunda doluluk enrich (DB sync yok).
+
+Yetkisiz sayfa istekleri `requirePageRole` ile panele (`/dashboard`) yönlendirilir.
+
+- **URL:** `/bin/create` (giriş + ADMIN, BOSS veya EMPLOYEE)
 - Haritada mevcut kutular, tıklayınca düzenleme/silme; yeni ekleme için parsel içine tıklama.
+
+### Konum takibi (Socket.io)
+
+Çalışan konumları bellekte tutulur (sunucu restart’ta sıfırlanır). Bağlantıda JWT zorunlu: `auth: { token: '<accessToken>' }`.
+
+| Yön | Event | Payload |
+|-----|--------|---------|
+| Client → Server | `location:update` | `{ latitude, longitude, accuracy? }` (yalnızca **EMPLOYEE**) |
+| Server → ADMIN | `location:employee:update` | `{ userId, name, latitude, longitude, updatedAt }` |
+| Server → ADMIN | `location:employees:snapshot` | `{ employees: [...] }` |
+
+- **REST:** `GET /api/tracking/employees` — **ADMIN**; bellekteki son konumlar.
+- Kampüs dışı konum güncellemesi reddedilir.
+
+### Atık talepleri (USER konumu)
+
+| Endpoint | Metot | Yetki |
+|----------|-------|-------|
+| `/api/waste-requests` | POST | USER — `wasteType`, `latitude`, `longitude`, `note?` |
+| `/api/waste-requests/mine` | GET | USER |
+| `/api/waste-requests` | GET | ADMIN |
+| `/api/waste-requests/:id` | PATCH | ADMIN — `status`, `assignedEmployeeId?` |
+
+Konum `assertPointInCampus` ile doğrulanır (kampüs parsellerinden biri içinde olmalı).
+
+**Demo hesap (ADMIN):** `admin@info.com` / `password` (seed).

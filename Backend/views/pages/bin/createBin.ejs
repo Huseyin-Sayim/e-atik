@@ -34,11 +34,6 @@
     <label>Kapasite (litre)</label>
     <input type="number" id="capacity" class="form-control mb-2" value="100" min="1" step="1">
 
-    <div id="fullness-wrap" style="display:none;">
-        <label>Tahmini doluluk (0+)</label>
-        <input type="number" id="predicted-fullness" class="form-control mb-2" value="0" min="0" step="0.01">
-    </div>
-
     <div id="panel-error" class="text-danger small mb-2" style="display:none;"></div>
 
     <div style="display:flex; flex-wrap:wrap; gap:8px;">
@@ -55,8 +50,20 @@
 
 <div id="map" style="height: 600px; width: 100%;"></div>
 
+<div class="map-bin-legend d-flex flex-wrap gap-3 align-items-center mt-2 mb-3" id="map-bin-legend"></div>
+
+<style>
+  .map-bin-legend { font-size: 0.875rem; }
+  .map-bin-legend__group { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+  .map-bin-legend__item { display: inline-flex; align-items: center; gap: 0.35rem; }
+  .map-bin-legend__item img { width: 20px; height: 20px; object-fit: contain; }
+  .leaflet-marker-icon { image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; }
+</style>
+
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="/assets/css/map-pin-marker.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/assets/js/map/binMapIcons.js"></script>
 <script src="https://unpkg.com/@mapbox/leaflet-pip@latest/leaflet-pip.js"></script>
 
 <script>
@@ -67,17 +74,37 @@
     attribution: '&copy; OpenStreetMap'
   }).addTo(map);
 
-  const binIcon = L.icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41]
-  });
+  const MAP_ICON_OPTS = { baseZoom: 15, baseSize: 22 };
 
-  const savedBinIcon = L.icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41]
-  });
+  function renderMapLegend() {
+    const el = document.getElementById('map-bin-legend');
+    if (!el) return;
+    el.innerHTML = renderMapLegendHtml();
+  }
+
+  function getSelectedBinType() {
+    return document.getElementById('bin-type').value;
+  }
+
+  function getSelectedWasteCategory() {
+    return document.getElementById('waste-category').value;
+  }
+
+  function markerIconOptions(binOrType, wasteCategory) {
+    if (binOrType && typeof binOrType === 'object') {
+      return { ...MAP_ICON_OPTS, wasteCategory: binOrType.wasteCategory };
+    }
+    return { ...MAP_ICON_OPTS, wasteCategory: wasteCategory || getSelectedWasteCategory() };
+  }
+
+  function refreshMarkerIcon(marker, binType, wasteCategory) {
+    if (!marker) return;
+    const type = binType || getSelectedBinType();
+    const category = wasteCategory != null ? wasteCategory : getSelectedWasteCategory();
+    marker.setIcon(getBinIcon(type, map.getZoom(), markerIconOptions(type, category)));
+    marker.binType = type;
+    marker.binWasteCategory = category;
+  }
 
   let tempMarker = null;
   let campusLayer = null;
@@ -151,11 +178,18 @@
       if (!res.ok) return;
       const bins = await res.json();
       bins.forEach((bin) => {
-        const m = L.marker([bin.latitude, bin.longitude], { icon: savedBinIcon, draggable: false });
+        const m = L.marker([bin.latitude, bin.longitude], {
+          icon: getBinIcon(bin.type, map.getZoom(), markerIconOptions(bin)),
+          draggable: false,
+        });
         m.binRecord = bin;
+        m.binType = bin.type;
+        m.binWasteCategory = bin.wasteCategory;
+        const fullnessPct = Math.round((bin.predictedFullness || 0) * 100);
         m.bindPopup(
           '<strong>' + (bin.region && bin.region.name ? bin.region.name : 'Bölge') + '</strong><br>' +
-          bin.type + ' · ' + bin.wasteCategory
+          getBinTypeLabel(bin.type, bin.wasteCategory) + '<br>' +
+          '<small>Doluluk: %' + fullnessPct + '</small>'
         );
         m.on('click', (e) => {
           L.DomEvent.stopPropagation(e);
@@ -179,14 +213,53 @@
     }
   }
 
-  document.getElementById('bin-type').onchange = applyWasteCategoryRules;
+  document.getElementById('bin-type').onchange = function () {
+    applyWasteCategoryRules();
+    if (tempMarker) refreshMarkerIcon(tempMarker);
+    if (editMarker) refreshMarkerIcon(editMarker);
+  };
+
+  document.getElementById('waste-category').onchange = function () {
+    if (getSelectedBinType() !== 'WASTE_POINT') return;
+    if (tempMarker) refreshMarkerIcon(tempMarker);
+    if (editMarker) refreshMarkerIcon(editMarker);
+  };
+
+  map.on('zoomend', function () {
+    const zoom = map.getZoom();
+    binMarkersLayer.eachLayer((layer) => {
+      if (layer instanceof L.Marker && layer.binType) {
+        layer.setIcon(
+          getBinIcon(layer.binType, zoom, {
+            ...MAP_ICON_OPTS,
+            wasteCategory: layer.binWasteCategory,
+          })
+        );
+      }
+    });
+    if (tempMarker && tempMarker.binType) {
+      tempMarker.setIcon(
+        getBinIcon(tempMarker.binType, zoom, {
+          ...MAP_ICON_OPTS,
+          wasteCategory: tempMarker.binWasteCategory,
+        })
+      );
+    }
+    if (editMarker && editMarker.binType) {
+      editMarker.setIcon(
+        getBinIcon(editMarker.binType, zoom, {
+          ...MAP_ICON_OPTS,
+          wasteCategory: editMarker.binWasteCategory,
+        })
+      );
+    }
+  });
 
   function startAddMode() {
     cancelPanel();
     panelMode = 'add';
     document.getElementById('panel-title').textContent = 'Yeni çöp kovası';
     document.getElementById('btn-delete-bin').style.display = 'none';
-    document.getElementById('fullness-wrap').style.display = 'none';
     showPanelError('');
   }
 
@@ -215,8 +288,6 @@
     editingBinId = bin.id;
     document.getElementById('panel-title').textContent = 'Çöp kovasını düzenle';
     document.getElementById('btn-delete-bin').style.display = 'inline-block';
-    document.getElementById('fullness-wrap').style.display = 'block';
-
     detectedParcelKey = bin.region ? bin.region.region_id : null;
     document.getElementById('region-display').value = bin.region ? bin.region.name : '';
     document.getElementById('lat-input').value = Number(bin.latitude).toFixed(6);
@@ -224,12 +295,16 @@
     document.getElementById('bin-type').value = bin.type;
     document.getElementById('waste-category').value = bin.wasteCategory;
     document.getElementById('capacity').value = bin.capacityVolume;
-    document.getElementById('predicted-fullness').value = bin.predictedFullness != null ? bin.predictedFullness : 0;
 
     applyWasteCategoryRules();
 
     if (editMarker) map.removeLayer(editMarker);
-    editMarker = L.marker([bin.latitude, bin.longitude], { icon: binIcon, draggable: true }).addTo(map);
+    editMarker = L.marker([bin.latitude, bin.longitude], {
+      icon: getBinIcon(bin.type, map.getZoom(), markerIconOptions(bin)),
+      draggable: true,
+    }).addTo(map);
+    editMarker.binType = bin.type;
+    editMarker.binWasteCategory = bin.wasteCategory;
     editMarker.on('dragend', () => {
       const ll = editMarker.getLatLng();
       document.getElementById('lat-input').value = ll.lat.toFixed(6);
@@ -261,7 +336,16 @@
     if (tempMarker) {
       tempMarker.setLatLng(e.latlng);
     } else {
-      tempMarker = L.marker(e.latlng, { draggable: true, icon: binIcon }).addTo(map);
+      tempMarker = L.marker(e.latlng, {
+        draggable: true,
+        icon: getBinIcon(
+          getSelectedBinType(),
+          map.getZoom(),
+          markerIconOptions(getSelectedBinType(), getSelectedWasteCategory())
+        ),
+      }).addTo(map);
+      tempMarker.binType = getSelectedBinType();
+      tempMarker.binWasteCategory = getSelectedWasteCategory();
       tempMarker.on('dragend', () => {
         const ll = tempMarker.getLatLng();
         document.getElementById('lat-input').value = ll.lat.toFixed(6);
@@ -310,8 +394,6 @@
 
     try {
       if (panelMode === 'edit' && editingBinId) {
-        const pf = parseFloat(document.getElementById('predicted-fullness').value);
-        body.predictedFullness = isNaN(pf) ? 0 : pf;
         const res = await fetch('/api/bins/' + editingBinId, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -366,6 +448,7 @@
   }
 
   window.onload = async () => {
+    renderMapLegend();
     await loadCampusAreas();
     await checkRegionsInDb();
     await loadExistingBins();

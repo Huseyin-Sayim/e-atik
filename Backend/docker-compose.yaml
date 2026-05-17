@@ -5,8 +5,7 @@ services:
       - "2001:2001"
     volumes:
       - .:/home/node/eAtik
-#      - node_modules_data:/home/node/eAtik/node_modules
-      - /home/node/eAtik/node_modules
+      - node_modules_data:/home/node/eAtik/node_modules
     environment:
       - NODE_ENV=development
       - SEED_DEMO_USERS=true

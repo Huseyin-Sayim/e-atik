@@ -40,14 +40,14 @@
   <div>
     <div id="miniSidebar">
       <div class="brand-logo">
-        <a class="d-none d-md-flex align-items-center gap-2" href="/">
+        <a class="d-none d-md-flex align-items-center gap-2" href="/dashboard">
           <img src="/assets/images/brand/logo/logo-icon.svg" alt="E-Atık" />
           <span class="fw-bold fs-4 site-logo-text">E-Atık</span>
         </a>
       </div>
       <ul class="navbar-nav flex-column">
         <li class="nav-item">
-          <a class="nav-link" href="/">
+          <a class="nav-link" href="/dashboard">
             <span class="nav-icon">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
@@ -60,6 +60,23 @@
             <span class="text">Anasayfa</span>
           </a>
         </li>
+        <% if (typeof user !== 'undefined' && user && user.role === 'USER') { %>
+        <li class="nav-item">
+          <a class="nav-link" href="/user/my-recycling">
+            <span class="nav-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                class="icon icon-tabler icons-tabler-outline icon-tabler-recycle">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                <path d="M12 17l-2 2m2 -2l2 2m-2 -2v-5" />
+                <path d="M7 12a5 5 0 0 1 5 -5h3" />
+                <path d="M17 12a5 5 0 0 1 -5 5h-3" />
+              </svg>
+            </span>
+            <span class="text">Geri dönüşümüm</span>
+          </a>
+        </li>
+        <% } else { %>
         <li class="nav-item">
           <a class="nav-link" href="/bin/create">
             <span class="nav-icon">
@@ -91,7 +108,40 @@
             <span class="text">Bölge seçimi</span>
           </a>
         </li>
+        <% if (typeof user !== 'undefined' && user && user.role === 'ADMIN') { %>
+        <li class="nav-item">
+          <a class="nav-link" href="/admin/employee-tracking">
+            <span class="nav-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                class="icon icon-tabler icons-tabler-outline icon-tabler-map-2">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                <path d="M12 18.5l-3 -1.5l-6 3v-13l6 -3l6 3l6 -3v7.5" />
+                <path d="M9 4v13" />
+                <path d="M15 7v5.5" />
+              </svg>
+            </span>
+            <span class="text">Çalışan konum takibi</span>
+          </a>
+        </li>
+        <% } %>
         <% if (typeof user !== 'undefined' && user && user.role === 'EMPLOYEE') { %>
+        <li class="nav-item">
+          <a class="nav-link" href="/employee/my-route">
+            <span class="nav-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                class="icon icon-tabler icons-tabler-outline icon-tabler-route">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                <path d="M3 19a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+                <path d="M19 7a2 2 0 1 0 2 -2a2 2 0 1 0 -2 2" />
+                <path d="M11 19h6.5a1.5 1.5 0 0 0 1.5 -1.5v-15a1.5 1.5 0 0 0 -1.5 -1.5h-9a1.5 1.5 0 0 0 -1.5 1.5v6.5" />
+                <path d="M5 12l14 0" />
+              </svg>
+            </span>
+            <span class="text">Benim Rotam</span>
+          </a>
+        </li>
         <li class="nav-item">
           <a class="nav-link" href="/employee/work-region">
             <span class="nav-icon">
@@ -109,13 +159,14 @@
           </a>
         </li>
         <% } %>
+        <% } %>
       </ul>
     </div>
 
     <div class="offcanvasNav offcanvas offcanvas-start" tabindex="-1" id="offcanvasExample"
       aria-labelledby="offcanvasExampleLabel">
       <div class="offcanvas-header">
-        <a class="d-flex align-items-center gap-2" href="/">
+        <a class="d-flex align-items-center gap-2" href="/dashboard">
           <img src="/assets/images/brand/logo/logo-icon.svg" alt="E-Atık" />
           <span class="fw-bold fs-4 site-logo-text">E-Atık</span>
         </a>
@@ -124,7 +175,7 @@
       <div class="offcanvas-body p-0">
         <ul class="navbar-nav flex-column">
           <li class="nav-item">
-            <a class="nav-link" href="/">
+            <a class="nav-link" href="/dashboard">
               <span class="nav-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
@@ -137,6 +188,23 @@
               <span class="text">Anasayfa</span>
             </a>
           </li>
+          <% if (typeof user !== 'undefined' && user && user.role === 'USER') { %>
+          <li class="nav-item">
+            <a class="nav-link" href="/user/my-recycling">
+              <span class="nav-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                  class="icon icon-tabler icons-tabler-outline icon-tabler-recycle">
+                  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                  <path d="M12 17l-2 2m2 -2l2 2m-2 -2v-5" />
+                  <path d="M7 12a5 5 0 0 1 5 -5h3" />
+                  <path d="M17 12a5 5 0 0 1 -5 5h-3" />
+                </svg>
+              </span>
+              <span class="text">Geri dönüşümüm</span>
+            </a>
+          </li>
+          <% } else { %>
           <li class="nav-item">
             <a class="nav-link" href="/bin/create">
               <span class="nav-icon">
@@ -168,7 +236,40 @@
               <span class="text">Bölge seçimi</span>
             </a>
           </li>
+          <% if (typeof user !== 'undefined' && user && user.role === 'ADMIN') { %>
+          <li class="nav-item">
+            <a class="nav-link" href="/admin/employee-tracking">
+              <span class="nav-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                  class="icon icon-tabler icons-tabler-outline icon-tabler-map-2">
+                  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                  <path d="M12 18.5l-3 -1.5l-6 3v-13l6 -3l6 3l6 -3v7.5" />
+                  <path d="M9 4v13" />
+                  <path d="M15 7v5.5" />
+                </svg>
+              </span>
+              <span class="text">Çalışan konum takibi</span>
+            </a>
+          </li>
+          <% } %>
           <% if (typeof user !== 'undefined' && user && user.role === 'EMPLOYEE') { %>
+          <li class="nav-item">
+            <a class="nav-link" href="/employee/my-route">
+              <span class="nav-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                  class="icon icon-tabler icons-tabler-outline icon-tabler-route">
+                  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                  <path d="M3 19a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+                  <path d="M19 7a2 2 0 1 0 2 -2a2 2 0 1 0 -2 2" />
+                  <path d="M11 19h6.5a1.5 1.5 0 0 0 1.5 -1.5v-15a1.5 1.5 0 0 0 -1.5 -1.5h-9a1.5 1.5 0 0 0 -1.5 1.5v6.5" />
+                  <path d="M5 12l14 0" />
+                </svg>
+              </span>
+              <span class="text">Benim Rotam</span>
+            </a>
+          </li>
           <li class="nav-item">
             <a class="nav-link" href="/employee/work-region">
               <span class="nav-icon">
@@ -185,6 +286,7 @@
               <span class="text">Çalışma bölgesi seç</span>
             </a>
           </li>
+          <% } %>
           <% } %>
         </ul>
       </div>

@@ -1,14 +1,20 @@
+const http = require('http');
 const express = require("express");
 const userRoutes = require("./routes/api/userRoutes");
 const authRoutes = require("./routes/api/authRoutes");
 const regionRoutes = require("./routes/api/regionRoutes");
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const binRoutes = require('./routes/api/binRoutes');
+const statsRoutes = require('./routes/api/statsRoutes');
+const trackingRoutes = require('./routes/api/trackingRoutes');
+const wasteRequestRoutes = require('./routes/api/wasteRequestRoutes');
+const { initSocket } = require('./socket');
 const cookieParser = require('cookie-parser');
 const path = require('path');
 
 const app = express();
 const port = process.env.PORT || 2001;
+const server = http.createServer(app);
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -41,7 +47,14 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/regions', regionRoutes);
 app.use('/api/bins', binRoutes);
+app.use('/api/stats', statsRoutes);
+app.use('/api/tracking', trackingRoutes);
+app.use('/api/waste-requests', wasteRequestRoutes);
 app.use('/', dashboardRoutes);
 
+initSocket(server);
 
-app.listen(port, () => console.log(`Server running on port ${port}`));
+server.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+  console.log('Socket.io ready');
+});

@@ -76,7 +76,6 @@ const schemas = {
         .optional(),
       type: joi.string().valid('CONTAINER_LARGE', 'CONTAINER_SMALL', 'WASTE_POINT').optional(),
       capacityVolume: joi.number().positive().optional(),
-      predictedFullness: joi.number().min(0).optional(),
       regionId: joi.string().trim().allow('', null).optional(),
     })
     .min(1)
@@ -85,12 +84,40 @@ const schemas = {
     })
     .unknown(false),
 
+  collectBin: joi.object({}).unknown(false),
+
   workRegionUpdate: joi
     .object({
       regionId: joi.string().uuid().required().messages({
         'string.empty': 'Çalışma bölgesi seçilmelidir.',
         'string.guid': 'Geçersiz bölge seçimi.',
       }),
+    })
+    .unknown(false),
+
+  wasteRequestCreate: joi
+    .object({
+      wasteType: joi
+        .string()
+        .valid('DOMESTIC', 'ELECTRONIC', 'PLASTIC', 'GLASS', 'PAPER', 'GENERAL')
+        .required(),
+      latitude: joi.number().min(-90).max(90).required(),
+      longitude: joi.number().min(-180).max(180).required(),
+      note: joi.string().trim().max(500).allow('', null).optional(),
+    })
+    .unknown(false),
+
+  wasteRequestUpdate: joi
+    .object({
+      status: joi
+        .string()
+        .valid('PENDING', 'ON_ROUTE', 'COLLECTED', 'CANCELLED')
+        .optional(),
+      assignedEmployeeId: joi.string().uuid().allow(null).optional(),
+    })
+    .min(1)
+    .messages({
+      'object.min': 'En az bir alan gönderilmelidir.',
     })
     .unknown(false),
 };
