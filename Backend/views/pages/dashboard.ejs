@@ -1,6 +1,18 @@
 <%- include('../layout/header') %>
-        <div class="row row-cols-1 row-cols-xl-3 row-cols-md-3 mb-6 mt-3 g-6">
+<div class="row mb-3 mt-6 g-6">
+  <div class="col-xl-8 col-lg-6">
+    <div class="bg-gradient-mixed p-8 py-10 rounded-3 p-lg-7">
+      <!--heading-->
+      <h1 class="fs-3">👋 Merhaba <%=user.name%>,</h1>
+      <p class="mb-0">
+        Kampüsümüzün geleceği için atıklarını takip et, geri dönüşüm istatistiklerini incele ve sürdürülebilir bir çevreye katkıda bulun.
+      </p>
+    </div>
+  </div>
+</div>
+  <div class="row row-cols-1 row-cols-xl-3 row-cols-md-3 mb-6 mt-3 g-6">
   <div class="col">
+    
     <!-- card -->
     <div class="card card-lg">
       <!-- card body -->
@@ -111,17 +123,7 @@
   </div>
 </div>
 
-<div class="row mb-6 g-6">
-  <div class="col-xl-8 col-lg-6">
-    <div class="bg-gradient-mixed p-8 py-10 rounded-3 p-lg-7">
-      <!--heading-->
-      <h1 class="fs-3">👋 Merhaba <%=user.name%>,</h1>
-      <p class="mb-0">
-        Kampüsümüzün geleceği için atıklarını takip et, geri dönüşüm istatistiklerini incele ve sürdürülebilir bir çevreye katkıda bulun.
-      </p>
-    </div>
-  </div>
-</div>
+
 
 <div class="map-container col-md-8 d-flex flex-column justify-content-between align-items-center">
   <div class="map-info col-md-3 d-flex flex-column gap-3 align-items-start">
@@ -149,10 +151,10 @@
     attribution: '&copy; OpenStreetMap'
   }).addTo(map);
 
-  let currentCampusLayer = null; // Poligonlar
-  let binLayerGroup = L.layerGroup().addTo(map); // Mevcut Kovalar
-  let tempMarker = null; // Yeni eklenen kova
-  let detectedRegionId = null;
+  let currentCampusLayer = null;
+  let selectedRegionLayer = null;
+  let binLayerGroup = L.layerGroup().addTo(map);
+  let campusGeoJson = null;
 
   // Zoom ölçeklendirme için baz değerler
   const baseZoom = 15;
@@ -212,6 +214,7 @@
       const geojsonData = result.features ? result : result.data;
 
       if (geojsonData) {
+        campusGeoJson = geojsonData;
         currentCampusLayer = L.geoJSON(geojsonData, {
           style: { color: "#ff7800", weight: 2, fillOpacity: 0.1 }
         }).addTo(map);
@@ -220,6 +223,50 @@
     } catch (err) {
       console.error("Poligonlar yüklenemedi:", err);
     }
+  }
+
+  function clearSelectedRegionLayer() {
+    if (selectedRegionLayer) {
+      map.removeLayer(selectedRegionLayer);
+      selectedRegionLayer = null;
+    }
+  }
+
+  function zoomToRegionFeature(feature) {
+    if (!feature || !feature.geometry) return;
+    clearSelectedRegionLayer();
+    selectedRegionLayer = L.geoJSON(feature, {
+      style: { color: "#00a76f", weight: 3, fillOpacity: 0.25, fillColor: "#00a76f" }
+    }).addTo(map);
+    map.fitBounds(selectedRegionLayer.getBounds(), { padding: [40, 40], maxZoom: 17 });
+  }
+
+  function zoomToRegionById(regionId) {
+    if (!regionId) {
+      clearSelectedRegionLayer();
+      if (currentCampusLayer) {
+        map.fitBounds(currentCampusLayer.getBounds(), { padding: [30, 30] });
+      }
+      return;
+    }
+
+    if (campusGeoJson && campusGeoJson.features) {
+      const feature = campusGeoJson.features.find((f) => f.id === regionId);
+      if (feature) {
+        zoomToRegionFeature(feature);
+        return;
+      }
+    }
+
+    fetch('/api/regions/static/' + encodeURIComponent(regionId))
+      .then((res) => res.json())
+      .then((result) => {
+        const feature = result.data;
+        if (feature && feature.geometry) {
+          zoomToRegionFeature(feature);
+        }
+      })
+      .catch((err) => console.error('Bölge yüklenemedi:', err));
   }
 
   // 5. ZOOM DEĞİŞTİĞİNDE İKONLARI YENİDEN BOYUTLANDIR
@@ -232,86 +279,17 @@
         layer.setIcon(updatedIcon);
       }
     });
-
-    // Eğer o an yeni bir kova ekliyorsak onun ikonunu da büyüt/küçült
-    if (tempMarker) tempMarker.setIcon(updatedIcon);
   });
 
-  // 6. TIKLAYARAK YENİ KOVA EKLEME VE BÖLGE TESPİTİ
-  map.on('click', function(e) {
-    if (!currentCampusLayer) return;
-
-    const match = leafletPip.pointInLayer([e.latlng.lng, e.latlng.lat], currentCampusLayer);
-
-    if (match.length > 0) {
-      const region = match[0].feature;
-      detectedRegionId = region.id;
-
-      document.getElementById('region-display').value = region.properties.name;
-      document.getElementById('lat-input').value = e.latlng.lat.toFixed(6);
-      document.getElementById('lng-input').value = e.latlng.lng.toFixed(6);
-
-      if (tempMarker) {
-        tempMarker.setLatLng(e.latlng);
-      } else {
-        tempMarker = L.marker(e.latlng, {
-          draggable: true,
-          icon: getDynamicIcon(map.getZoom())
-        }).addTo(map);
-      }
-      document.getElementById('add-bin-panel').style.display = 'block';
-    } else {
-      alert("Lütfen bir kampüs bölgesi içine tıklayın!");
-    }
+  // 6. BÖLGE SEÇİMİNDE ZOOM
+  document.getElementById('select').addEventListener('change', function () {
+    zoomToRegionById(this.value);
   });
 
-  // 7. KAYIT FONKSİYONU
-  async function saveBinToServer() {
-    const data = {
-      latitude: parseFloat(document.getElementById('lat-input').value),
-      longitude: parseFloat(document.getElementById('lng-input').value),
-      wasteCategory: document.getElementById('waste-category').value,
-      type: document.getElementById('bin-type').value,
-      capacityVolume: parseFloat(document.getElementById('capacity').value),
-      regionId: detectedRegionId
-    };
-
-    try {
-      const res = await fetch('/api/bins/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-      if (res.ok) {
-        alert("Kova başarıyla eklendi!");
-        location.reload();
-      }
-    } catch (err) {
-      console.error("Kayıt hatası:", err);
-    }
-  }
-
-  function cancelAdd() {
-    if (tempMarker) map.removeLayer(tempMarker);
-    tempMarker = null;
-    document.getElementById('add-bin-panel').style.display = 'none';
-  }
-
-  // 8. BAŞLATICI
+  // 7. BAŞLATICI
   window.onload = () => {
-    loadCampusAreas();  // Poligonları çiz
-    loadExistingBins(); // Mevcut kovaları getir
-
-    // Kategori kısıtlama listener'ı (Önceki kodundan hatırla)
-    document.getElementById('bin-type').addEventListener('change', function() {
-      const cat = document.getElementById('waste-category');
-      if (this.value !== 'WASTE_POINT') {
-        cat.value = 'GENERAL';
-        Array.from(cat.options).forEach(o => o.disabled = (o.value !== 'GENERAL'));
-      } else {
-        Array.from(cat.options).forEach(o => o.disabled = false);
-      }
-    });
+    loadCampusAreas();
+    loadExistingBins();
   };
 </script>
 <%- include('../layout/footer') %>
