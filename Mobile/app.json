@@ -6,13 +6,13 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "mobile",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "e-atik uygulaması, kampüs haritasında konumunuzu gösterebilmek için konum erişimi istiyor.",
-        "NSLocationAlwaysUsageDescription": "e-atik uygulaması, çöp kutusu konumlarını ve sizin konumunuzu göstermek için bu izne ihtiyaç duyuyor."
+        "NSLocationWhenInUseUsageDescription": "Size en yakın atık toplama noktalarını gösterebilmek ve harita üzerinde konumunuzu takip edebilmek için konum iznine ihtiyaç duyuyoruz.",
+        "NSLocationAlwaysUsageDescription": "Uygulama kapalıyken de size yakın konteyner bildirimleri gönderebilmek için konum erişimi gereklidir."
       }
     },
     "android": {
@@ -50,13 +50,14 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "e-atik uygulaması kampüs haritasında konumunuzu göstermek için konum erişimi istiyor."
+          "locationAlwaysAndWhenInUsePermission": "Harita üzerinde yakınınızdaki atık noktalarını bulabilmeniz için konum erişimi gereklidir."
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
-      "reactCompiler": true
+      "reactCompiler": false
     }
   }
 }

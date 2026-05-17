@@ -44,6 +44,7 @@ const getBinById = async (req, res) => {
   }
 };
 
+// Yeni kutu oluştur
 const createBin = async (req, res) => {
   try {
     const { latitude, longitude, wasteCategory, type, capacityVolume, regionId: parcelKey } = req.body;

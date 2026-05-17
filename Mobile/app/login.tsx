@@ -21,6 +21,8 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     checkSession();
@@ -35,16 +37,26 @@ export default function LoginScreen() {
         const profileType = parsedSession.profileType;
         const now = new Date().getTime();
 
-        // Eğer oturum süresi dolmamışsa (30 gün) otomatik giriş yap
         if (now < expiry) {
-          console.log('[OTURUM KONTROLÜ] Geçerli bir oturum bulundu, yönlendiriliyor...');
+          // --- AUTO-MIGRATION FOR EXISTING SESSIONS ---
+          const currentUserId = await AsyncStorage.getItem('currentUserId');
+          if (!currentUserId && parsedSession.id) {
+            await AsyncStorage.setItem('currentUserId', parsedSession.id.toString());
+            // Migration tetiklemek için handleLogin'deki mantığın bir benzerini buraya da kurabiliriz 
+            // ama ID set edilmesi bile çoğu sayfanın çalışmasını sağlar.
+          }
+          // --------------------------------------------
+
+          setLoading(true);
+          setSuccessMessage('Oturumunuz açılıyor...');
           if (profileType) {
-            router.replace('/(tabs)');
+            setTimeout(() => {
+              router.replace(profileType === 'kisisel' ? '/kisisel/kisisel-index' : '/kurumsal/kurumsal-index' as any);
+            }, 1000);
           } else {
             router.replace('/profile-selection');
           }
         } else {
-          // Süresi dolmuşsa temizle
           await AsyncStorage.removeItem('userSession');
         }
       }
@@ -55,67 +67,108 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     setErrorMessage('');
+    setSuccessMessage('');
 
     if (!email || !password) {
       setErrorMessage('Lütfen e-posta ve şifre alanlarının ikisini de doldurun.');
       return;
     }
 
+    setLoading(true);
     try {
       let isValidUser;
       try {
         isValidUser = await DatabaseService.loginUser(email, password);
       } catch (err: any) {
-        setErrorMessage(err.message || 'Böyle bir hesap bulunamadı veya şifre hatalı, lütfen kayıt olun.');
+        setLoading(false);
+        if (err.message === 'kullanıcı bulunamadı') {
+          setErrorMessage('Böyle bir hesap bulunamadı. Lütfen önce hesap oluşturun.');
+        } else {
+          setErrorMessage(err.message || 'Giriş yapılamadı, lütfen tekrar deneyiniz.');
+        }
         return;
       }
 
-      Alert.alert('Başarılı', 'Giriş Başarılı, Hoşgeldiniz!');
-
-      console.log('Giriş yapılıyor:', { email, password, rememberMe });
-
-      // "Beni Hatırla" seçiliyse 30 günlük oturum kaydet
+      setSuccessMessage('Giriş başarılı! Yönlendiriliyorsunuz...');
+      
       if (rememberMe) {
         const thirtyDaysInMillis = 30 * 24 * 60 * 60 * 1000;
         const expiryDate = new Date().getTime() + thirtyDaysInMillis;
 
         const sessionData = {
+          id: isValidUser.id, // ID eklendi
           email: email,
           profileType: isValidUser.profileType,
           expiry: expiryDate
         };
 
         await AsyncStorage.setItem('userSession', JSON.stringify(sessionData));
-        console.log('[OTURUM KAYDEDİLDİ] 30 gün boyunca açık kalacak.');
       } else {
-        // Seçili değilse eski kayıt varsa temizle
         await AsyncStorage.removeItem('userSession');
       }
 
-      // Profil seçimi veya diğer ekranlar için güncel email bilgisini sakla
-      await AsyncStorage.setItem('currentUserEmail', email);
+      const userId = isValidUser.id.toString();
+      const lowerEmail = email.trim().toLowerCase();
+      
+      // --- MIGRATION LOGIC (Eski verileri ID sistemine taşı) ---
+      const keysToMigrate = [
+        { old: `userName_${lowerEmail}`, new: `userName_${userId}` },
+        { old: `userSurname_${lowerEmail}`, new: `userSurname_${userId}` },
+        { old: `userCity_${lowerEmail}`, new: `userCity_${userId}` },
+        { old: `userDistrict_${lowerEmail}`, new: `userDistrict_${userId}` },
+        { old: `profileImage_${lowerEmail}`, new: `profileImage_${userId}` },
+        { old: `profileType_${lowerEmail}`, new: `profileType_${userId}` },
+        { old: `userPhone_${lowerEmail}`, new: `userPhone_${userId}` },
+      ];
 
-      // Backend kaydetmediği için yerel hafızadan profil tipini kontrol et
-      const savedProfileType = await AsyncStorage.getItem(`profileType_${email}`);
-      const activeProfileType = savedProfileType || isValidUser.profileType;
+      for (const key of keysToMigrate) {
+        const oldData = await AsyncStorage.getItem(key.old);
+        if (oldData) {
+          await AsyncStorage.setItem(key.new, oldData);
+          // Taşıma bittikten sonra eskiyi silmiyorum ki garanti olsun (opsiyonel)
+        }
+      }
+      // -------------------------------------------------------
 
-      const isFirstLogin = !activeProfileType;
-
-      if (isFirstLogin) {
-        console.log('[YÖNLENDİRME] Kullanıcı ilk kez giriş yapıyor veya profil seçmemiş. Profil seçimine yönlendiriliyor...');
-        router.replace('/profile-selection');
-      } else {
-        console.log('[YÖNLENDİRME] Kullanıcı daha önce giriş yapmış. Profil tipine göre ana sayfaya yönlendiriliyor...');
-        if (activeProfileType) {
-          router.replace('/(tabs)');
-        } else {
-          router.replace('/profile-selection');
+      await AsyncStorage.setItem('currentUserId', userId);
+      await AsyncStorage.setItem('currentUserEmail', lowerEmail);
+      
+      if (isValidUser.name) await AsyncStorage.setItem(`userName_${userId}`, isValidUser.name);
+      if (isValidUser.surname) await AsyncStorage.setItem(`userSurname_${userId}`, isValidUser.surname);
+      if (isValidUser.city) await AsyncStorage.setItem(`userCity_${userId}`, isValidUser.city);
+      if (isValidUser.district) await AsyncStorage.setItem(`userDistrict_${userId}`, isValidUser.district);
+      if (isValidUser.profileImage) {
+        if (Platform.OS !== 'web') {
+          try {
+            await AsyncStorage.setItem(`profileImage_${userId}`, isValidUser.profileImage);
+            await AsyncStorage.setItem(`profileImage_${lowerEmail}`, isValidUser.profileImage);
+          } catch (e) {
+            console.warn('[STORAGE] Profile image cache failed:', e);
+          }
         }
       }
 
-    } catch (error) {
-      console.error('Oturum kaydedilirken veya giriş yaparken hata:', error);
-      Alert.alert('Hata', 'Giriş işlemi sırasında bir sorun oluştu.');
+      const savedProfileType = await AsyncStorage.getItem(`profileType_${userId}`);
+      const activeProfileType = isValidUser.profileType || savedProfileType;
+
+      const isFirstLogin = !activeProfileType;
+
+      setTimeout(() => {
+        if (isFirstLogin) {
+          router.replace('/profile-selection');
+        } else {
+          if (activeProfileType) {
+            router.replace(activeProfileType === 'kisisel' ? '/kisisel/kisisel-index' : '/kurumsal/kurumsal-index' as any);
+          } else {
+            router.replace('/profile-selection');
+          }
+        }
+      }, 1500);
+
+    } catch (error: any) {
+      setLoading(false);
+      console.error('Giriş hatası:', error);
+      setErrorMessage(error.message || 'Giriş işlemi sırasında bir sorun oluştu.');
     }
   };
 
@@ -139,6 +192,7 @@ export default function LoginScreen() {
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
+            editable={!loading}
           />
 
           <View style={styles.passwordContainer}>
@@ -149,23 +203,26 @@ export default function LoginScreen() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
+              editable={!loading}
             />
             <TouchableOpacity
               style={styles.eyeIcon}
               onPress={() => setShowPassword(!showPassword)}
+              disabled={loading}
             >
               <Ionicons name={showPassword ? "eye-off" : "eye"} size={24} color="#999" />
             </TouchableOpacity>
           </View>
 
           {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+          {successMessage ? <Text style={styles.successText}>{successMessage}</Text> : null}
 
           <View style={styles.row}>
-            {/* BENİ HATIRLA - Hitbox sadece içerik kadar */}
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => setRememberMe(!rememberMe)}
               style={styles.checkboxRow}
+              disabled={loading}
             >
               <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
                 {rememberMe && <Text style={styles.checkmark}>✓</Text>}
@@ -173,10 +230,10 @@ export default function LoginScreen() {
               <Text style={styles.checkboxLabel}>Beni hatırla</Text>
             </TouchableOpacity>
 
-            {/* ŞİFREMİ UNUTTUM - Sağa yapışık ve görünür */}
             <TouchableOpacity
               style={styles.forgotPasswordContainer}
               onPress={() => router.push('/forgot-password' as any)}
+              disabled={loading}
             >
               <Text style={styles.forgotPasswordText}>Şifremi unuttum</Text>
             </TouchableOpacity>
@@ -184,15 +241,21 @@ export default function LoginScreen() {
 
           <View style={styles.buttonRow}>
             <TouchableOpacity
-              style={[styles.baseButton, styles.loginButton]}
+              style={[styles.baseButton, styles.loginButton, loading && styles.disabledButton]}
               onPress={handleLogin}
+              disabled={loading}
             >
-              <Text style={styles.loginButtonText}>Giriş Yap</Text>
+              <Text style={styles.loginButtonText}>
+                {successMessage 
+                  ? 'Giriş Başarılı!' 
+                  : (loading ? 'Giriş Yapılıyor...' : 'Giriş Yap')}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.baseButton, styles.registerButton]}
               onPress={() => router.push('/register' as any)}
+              disabled={loading}
             >
               <Text style={styles.registerButtonText}>Kayıt Ol</Text>
             </TouchableOpacity>
@@ -212,7 +275,7 @@ const styles = StyleSheet.create({
   container: {
     padding: 24,
     width: '100%',
-    maxWidth: 500, // Çok geniş ekranlarda (Web gibi) dağılmayı önler
+    maxWidth: 500,
     alignSelf: 'center',
   },
   title: {
@@ -261,7 +324,6 @@ const styles = StyleSheet.create({
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    // Hitbox'ı sınırlamak için padding'i küçülttük
     paddingVertical: 5,
   },
   checkbox: {
@@ -329,5 +391,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 16,
     textAlign: 'center',
+  },
+  successText: {
+    color: '#2e7d32',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  disabledButton: {
+    opacity: 0.7,
   },
 });

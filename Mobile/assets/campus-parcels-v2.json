@@ -1,0 +1,65 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Fen Fakültesi Parseli",
+        "fill": "#3498db",
+        "stroke": "#2980b9"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [27.2285, 38.4585],
+            [27.2305, 38.4585],
+            [27.2305, 38.4570],
+            [27.2285, 38.4570],
+            [27.2285, 38.4585]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Mühendislik Fakültesi Parseli",
+        "fill": "#e67e22",
+        "stroke": "#d35400"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [27.2320, 38.4575],
+            [27.2345, 38.4575],
+            [27.2345, 38.4560],
+            [27.2320, 38.4560],
+            [27.2320, 38.4575]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Kütüphane Bölgesi",
+        "fill": "#9b59b6",
+        "stroke": "#8e44ad"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [27.2305, 38.4565],
+            [27.2315, 38.4565],
+            [27.2315, 38.4555],
+            [27.2305, 38.4555],
+            [27.2305, 38.4565]
+          ]
+        ]
+      }
+    }
+  ]
+}

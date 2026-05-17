@@ -1,0 +1,27 @@
+# Node modules and libraries (all directories)
+**/node_modules/
+**/dist/
+**/build/
+**/.expo/
+**/public/libs/
+
+# IDE settings
+**/.idea/
+**/.vscode/
+
+# Environment files and logs
+*.log
+.env
+.DS_Store
+Thumbs.db
+
+# Mobile specific cache
+Mobile/.expo/
+Mobile/npm-debug.log*
+
+# Backend specific
+Backend/.env
+Backend/npm-debug.log*
+
+# Local Docker settings (only for this PC)
+docker-compose.yaml

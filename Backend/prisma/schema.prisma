@@ -52,11 +52,14 @@ enum TransactionType {
 model User {
   id                String             @id @default(uuid())
   name              String
+  surname           String?
   email             String             @unique
   password          String
   phoneNumber       String             @unique @db.VarChar(10)
   role              Role               @default(USER)
   employeeType      EmployeeType?
+  city              String?
+  district          String?
   regionId          String?
   region            Region?            @relation(fields: [regionId], references: [id])
   wasteRequests     WasteRequest[]
@@ -65,11 +68,14 @@ model User {
   transactions      Transaction[]
   redemptions       Redemption[]
   isVerified        Boolean            @default(false)
+  profileImage      String?            @db.Text
+  profileType       String?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   refreshTokens     RefreshToken[]
   verificationCodes VerificationCode[]
   resetTokens       ResetToken[]
+  scannedQRCodes    ScannedQRCode[]
 }
 
 model RefreshToken {
@@ -83,12 +89,13 @@ model RefreshToken {
 }
 
 model VerificationCode {
-  id        String   @id @default(uuid())
-  code      String
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id])
-  createdAt DateTime @default(now())
-  expiredAt DateTime
+  id          String   @id @default(uuid())
+  code        String
+  userId      String   @unique
+  targetEmail String?  // Kodun hangi mail için üretildiğini takip etmek için
+  user        User     @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+  expiredAt   DateTime
 }
 
 model ResetToken {
@@ -150,14 +157,15 @@ model Region {
 
 model Bin {
   id                String          @id @default(uuid())
+  name              String?         @db.Text
   type              BinType
   wasteCategory     WasteCategory   @default(GENERAL)
   latitude          Float
   longitude         Float
-  capacityVolume    Float
+  capacityVolume    Float           @default(100.0)
   predictedFullness Float           @default(0.0)
-  regionId          String
-  region            Region          @relation(fields: [regionId], references: [id])
+  regionId          String?
+  region            Region?         @relation(fields: [regionId], references: [id])
   logs              CollectionLog[]
   createdAt         DateTime        @default(now())
 }
@@ -187,4 +195,13 @@ model WasteRequest {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model ScannedQRCode {
+  id          String   @id @default(uuid())
+  code        String   @unique // The unique content of the QR code
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  coinsEarned Int
+  createdAt   DateTime @default(now())
 }
