@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -9,8 +9,11 @@ import {
   StatusBar, 
   ScrollView,
   Image,
-  Alert
+  Alert,
+  ActivityIndicator,
+  Modal
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,11 +22,217 @@ import DatabaseService from '../../database/DatabaseService';
 
 const DEFAULT_AVATAR = require('../../assets/images/default-avatar.png');
 
+const getCropHtml = (base64Image: string) => {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+      <style>
+        body {
+          margin: 0;
+          padding: 0;
+          background-color: #0f172a;
+          color: #fff;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100vh;
+          overflow: hidden;
+        }
+        #header {
+          text-align: center;
+          padding: 15px;
+        }
+        h2 { margin: 0 0 5px 0; font-size: 20px; font-weight: 800; }
+        p { margin: 0; font-size: 13px; color: #94a3b8; line-height: 18px; padding: 0 15px; }
+        #cropContainer {
+          position: relative;
+          width: 280px;
+          height: 280px;
+          border-radius: 50%;
+          border: 4px solid #2e7d32;
+          overflow: hidden;
+          background: #000;
+          margin: 25px 0;
+          box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+        }
+        #previewImage {
+          position: absolute;
+          top: 0;
+          left: 0;
+          transform-origin: top left;
+          user-select: none;
+          -webkit-user-drag: none;
+        }
+        #controls {
+          display: flex;
+          gap: 15px;
+          margin-top: 15px;
+          width: 85%;
+          justify-content: center;
+        }
+        .btn {
+          flex: 1;
+          padding: 16px;
+          border-radius: 16px;
+          border: none;
+          font-weight: 800;
+          font-size: 15px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        #cancelBtn { background-color: #475569; color: #fff; }
+        #saveBtn { background-color: #2e7d32; color: #fff; }
+      </style>
+    </head>
+    <body>
+      <div id="header">
+        <h2>Fotoğrafı Düzenle</h2>
+        <p>Resmi parmağınızla sürükleyerek veya iki parmağınızla büyüterek yeşil daireye ortalayın</p>
+      </div>
+      
+      <div id="cropContainer">
+        <img id="previewImage" src="${base64Image}" alt="" />
+      </div>
+
+      <div id="controls">
+        <button class="btn" id="cancelBtn" onclick="cancel()">GERİ</button>
+        <button class="btn" id="saveBtn" onclick="crop()">TAMAM</button>
+      </div>
+
+      <script>
+        const img = document.getElementById('previewImage');
+        const container = document.getElementById('cropContainer');
+        
+        let scale = 1;
+        let x = 0;
+        let y = 0;
+        
+        let startX = 0;
+        let startY = 0;
+        let isDragging = false;
+        let startDistance = 0;
+        
+        img.onload = () => {
+          const minScale = Math.max(280 / img.naturalWidth, 280 / img.naturalHeight);
+          scale = minScale;
+          
+          x = (280 - img.naturalWidth * scale) / 2;
+          y = (280 - img.naturalHeight * scale) / 2;
+          
+          updateTransform();
+        };
+        
+        // Eğer görsel cache'den hızlıca yüklendiyse onload'u tetikle
+        if (img.complete) {
+          img.onload();
+        }
+        
+        function updateTransform() {
+          img.style.transform = 'translate(' + x + 'px, ' + y + 'px) scale(' + scale + ')';
+        }
+        
+        container.addEventListener('touchstart', (e) => {
+          if (e.touches.length === 1) {
+            isDragging = true;
+            startX = e.touches[0].clientX - x;
+            startY = e.touches[0].clientY - y;
+          } else if (e.touches.length === 2) {
+            isDragging = false;
+            startDistance = Math.hypot(
+              e.touches[0].clientX - e.touches[1].clientX,
+              e.touches[0].clientY - e.touches[1].clientY
+            );
+          }
+        });
+        
+        container.addEventListener('touchmove', (e) => {
+          e.preventDefault();
+          if (isDragging && e.touches.length === 1) {
+            x = e.touches[0].clientX - startX;
+            y = e.touches[0].clientY - startY;
+            updateTransform();
+          } else if (e.touches.length === 2) {
+            const distance = Math.hypot(
+              e.touches[0].clientX - e.touches[1].clientX,
+              e.touches[0].clientY - e.touches[1].clientY
+            );
+            const factor = distance / startDistance;
+            scale *= factor;
+            startDistance = distance;
+            
+            const centerX = 140;
+            const centerY = 140;
+            x = centerX - (centerX - x) * factor;
+            y = centerY - (centerY - y) * factor;
+            
+            updateTransform();
+          }
+        });
+        
+        container.addEventListener('touchend', () => {
+          isDragging = false;
+        });
+        
+        function cancel() {
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'cancel' }));
+        }
+        
+        function crop() {
+          const cropCanvas = document.createElement('canvas');
+          cropCanvas.width = 300;
+          cropCanvas.height = 300;
+          const cropCtx = cropCanvas.getContext('2d');
+          
+          cropCtx.drawImage(
+            img,
+            -x / scale,
+            -y / scale,
+            280 / scale,
+            280 / scale,
+            0,
+            0,
+            300,
+            300
+          );
+          
+          const croppedBase64 = cropCanvas.toDataURL('image/jpeg', 0.85);
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'crop', base64: croppedBase64 }));
+        }
+      </script>
+    </body>
+    </html>
+  `;
+};
+
 export default function KisiselSettingsScreen() {
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [userEmail, setUserEmail] = useState('');
   const [address, setAddress] = useState('');
   const [userName, setUserName] = useState('');
+  
+  // HTML5 Kırpma Değerleri ve State
+  const [webViewImage, setWebViewImage] = useState<string | null>(null);
+  const [showCropWebView, setShowCropWebView] = useState(false);
+  const webViewRef = useRef<WebView>(null);
+
+  const [customAlert, setCustomAlert] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'warning';
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'success'
+  });
 
   useEffect(() => {
     loadUserData();
@@ -63,6 +272,50 @@ export default function KisiselSettingsScreen() {
       if (email) {
         setUserEmail(email.trim().toLowerCase());
       }
+
+      // Backend'den en güncel profil bilgilerini çekip eşitle (Web ile senkronizasyon)
+      const currentUser = await DatabaseService.getCurrentUser();
+      if (currentUser) {
+        if (currentUser.name) {
+          const fullName = currentUser.name + (currentUser.surname ? ' ' + currentUser.surname : '');
+          setUserName(fullName);
+          if (userId) {
+            await AsyncStorage.setItem(`userName_${userId}`, currentUser.name);
+            if (currentUser.surname) {
+              await AsyncStorage.setItem(`userSurname_${userId}`, currentUser.surname);
+            }
+          }
+        }
+        if (currentUser.profileImage) {
+          setProfileImage(currentUser.profileImage);
+          if (Platform.OS !== 'web') {
+            try {
+              if (userId) {
+                await AsyncStorage.setItem(`profileImage_${userId}`, currentUser.profileImage);
+              }
+              if (email) {
+                await AsyncStorage.setItem(`profileImage_${email.trim().toLowerCase()}`, currentUser.profileImage);
+              }
+            } catch (e) {
+              console.warn('[STORAGE] Profile image cache failed:', e);
+            }
+          }
+        } else {
+          setProfileImage(null);
+          if (Platform.OS !== 'web') {
+            try {
+              if (userId) {
+                await AsyncStorage.removeItem(`profileImage_${userId}`);
+              }
+              if (email) {
+                await AsyncStorage.removeItem(`profileImage_${email.trim().toLowerCase()}`);
+              }
+            } catch (e) {
+              console.warn('[STORAGE] Profile image remove failed:', e);
+            }
+          }
+        }
+      }
     } catch (error) {
       console.error('Veri yükleme hatası:', error);
     }
@@ -70,50 +323,110 @@ export default function KisiselSettingsScreen() {
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.3,
+      mediaTypes: 'images',
+      allowsEditing: false, // Yerleşik kırpıcıyı kapatıyoruz, bizim HTML5 kırpıcımız devralıyor!
+      quality: 0.8,
       base64: true,
     });
-
+ 
     if (!result.canceled) {
       const base64Data = `data:image/jpeg;base64,${result.assets[0].base64}`;
-      setProfileImage(base64Data);
-      
-      const userId = await AsyncStorage.getItem('currentUserId');
-      const email = await AsyncStorage.getItem('currentUserEmail');
-      
-      if (userId) {
-        await AsyncStorage.setItem(`profileImage_${userId}`, base64Data);
-        
+      setWebViewImage(base64Data);
+      setShowCropWebView(true);
+    }
+  };
+
+  const saveProfileImage = async (croppedBase64: string) => {
+    setUploading(true);
+    setProfileImage(croppedBase64);
+    DatabaseService.notifyProfilePhotoChanged(croppedBase64);
+    
+    const userId = await AsyncStorage.getItem('currentUserId');
+    const email = await AsyncStorage.getItem('currentUserEmail');
+    
+    if (userId) {
+      if (Platform.OS !== 'web') {
         try {
+          await AsyncStorage.setItem(`profileImage_${userId}`, croppedBase64);
           if (email) {
-            await DatabaseService.updateUser(email.trim().toLowerCase(), { profileImage: base64Data });
+            await AsyncStorage.setItem(`profileImage_${email.toLowerCase()}`, croppedBase64);
           }
-        } catch (err) {
-          console.warn('[PROFIL] Backend kayıt hatası:', err);
+        } catch (e) {
+          console.warn('[STORAGE] Profile image cache failed:', e);
         }
       }
+      
+      try {
+        if (email) {
+          await DatabaseService.updateUser(email.trim().toLowerCase(), { profileImage: croppedBase64 });
+          setCustomAlert({
+            visible: true,
+            title: 'Başarılı',
+            message: 'Profil fotoğrafınız başarıyla güncellendi! ✅',
+            type: 'success'
+          });
+        }
+      } catch (err) {
+        console.warn('[PROFIL] Backend kayıt hatası:', err);
+        setCustomAlert({
+          visible: true,
+          title: 'Hata',
+          message: 'Profil fotoğrafı kaydedilirken bir sunucu hatası oluştu.',
+          type: 'error'
+        });
+      } finally {
+        setUploading(false);
+      }
+    } else {
+      setUploading(false);
     }
   };
 
   const deleteImage = async () => {
     if (!profileImage) return;
-    setProfileImage(null);
+    
+    Alert.alert(
+      "Profil Fotoğrafını Sil",
+      "Profil fotoğrafınızı silmek istediğinize emin misiniz?",
+      [
+        { text: "İptal", style: "cancel" },
+        { 
+          text: "Sil", 
+          style: "destructive",
+          onPress: async () => {
+            setUploading(true);
+            setProfileImage(null);
+            DatabaseService.notifyProfilePhotoChanged(null);
 
-    try {
-      const userId = await AsyncStorage.getItem('currentUserId');
-      const email = await AsyncStorage.getItem('currentUserEmail');
-      if (userId) {
-        await AsyncStorage.removeItem(`profileImage_${userId}`);
-        if (email) {
-          await DatabaseService.updateUser(email.trim().toLowerCase(), { profileImage: null });
+            try {
+              const userId = await AsyncStorage.getItem('currentUserId');
+              const email = await AsyncStorage.getItem('currentUserEmail');
+              if (userId) {
+                if (Platform.OS !== 'web') {
+                  try {
+                    await AsyncStorage.removeItem(`profileImage_${userId}`);
+                    if (email) {
+                      await AsyncStorage.removeItem(`profileImage_${email.toLowerCase()}`);
+                    }
+                  } catch (e) {
+                    console.warn('[STORAGE] Profile image remove failed:', e);
+                  }
+                }
+                if (email) {
+                  await DatabaseService.updateUser(email.trim().toLowerCase(), { profileImage: null });
+                }
+                Alert.alert("Başarılı", "Profil fotoğrafınız başarıyla silindi! 🗑️");
+              }
+            } catch (err) {
+              console.warn('[PROFIL] Silme işlemi sırasında hata:', err);
+              Alert.alert("Hata", "Profil fotoğrafı silinirken bir sorun oluştu.");
+            } finally {
+              setUploading(false);
+            }
+          }
         }
-      }
-    } catch (err) {
-      console.warn('[PROFIL] Silme işlemi sırasında hata:', err);
-    }
+      ]
+    );
   };
   
   const handleLogout = async () => {
@@ -149,18 +462,28 @@ export default function KisiselSettingsScreen() {
               <Text style={styles.userEmailText}>{userEmail}</Text>
               
               <View style={styles.actionButtons}>
-                <TouchableOpacity style={styles.uploadBtn} onPress={pickImage}>
-                  <Ionicons name="camera" size={16} color="#fff" />
-                  <Text style={styles.btnText}>Yükle</Text>
+                <TouchableOpacity 
+                  style={[styles.uploadBtn, uploading && styles.disabledBtn]} 
+                  onPress={pickImage}
+                  disabled={uploading}
+                >
+                  {uploading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="camera" size={16} color="#fff" />
+                      <Text style={styles.btnText}>Yükle</Text>
+                    </>
+                  )}
                 </TouchableOpacity>
 
                 <TouchableOpacity 
-                  style={[styles.deleteBtn, !profileImage && styles.disabledBtn]} 
+                  style={[styles.deleteBtn, (!profileImage || uploading) && styles.disabledBtn]} 
                   onPress={deleteImage}
-                  disabled={!profileImage}
+                  disabled={!profileImage || uploading}
                 >
-                  <Ionicons name="trash" size={16} color={profileImage ? "#fff" : "#94a3b8"} />
-                  <Text style={[styles.btnText, !profileImage && styles.disabledText]}>Sil</Text>
+                  <Ionicons name="trash" size={16} color={profileImage && !uploading ? "#fff" : "#94a3b8"} />
+                  <Text style={[styles.btnText, (!profileImage || uploading) && styles.disabledText]}>Sil</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -240,6 +563,84 @@ export default function KisiselSettingsScreen() {
         <Text style={styles.versionText}>Versiyon 1.0.4</Text>
 
       </ScrollView>
+
+      {/* PREMİUM CUSTOM YUVARLAK ALERT MODALI */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={customAlert.visible}
+        onRequestClose={() => setCustomAlert({ ...customAlert, visible: false })}
+      >
+        <View style={styles.alertOverlay}>
+          <View style={styles.alertContent}>
+            <View style={[
+              styles.alertIconContainer,
+              customAlert.type === 'success' && { backgroundColor: '#f0fdf4' },
+              customAlert.type === 'error' && { backgroundColor: '#fef2f2' },
+              customAlert.type === 'warning' && { backgroundColor: '#fff7ed' },
+            ]}>
+              <Ionicons 
+                name={
+                  customAlert.type === 'success' ? 'checkmark-circle' :
+                  customAlert.type === 'error' ? 'close-circle' : 'warning'
+                } 
+                size={48} 
+                color={
+                  customAlert.type === 'success' ? '#16a34a' :
+                  customAlert.type === 'error' ? '#dc2626' : '#ea580c'
+                } 
+              />
+            </View>
+            <Text style={styles.alertTitle}>{customAlert.title}</Text>
+            <Text style={styles.alertMessage}>{customAlert.message}</Text>
+            <TouchableOpacity 
+              style={[
+                styles.alertBtn,
+                customAlert.type === 'success' && { backgroundColor: '#2e7d32' },
+                customAlert.type === 'error' && { backgroundColor: '#dc2626' },
+                customAlert.type === 'warning' && { backgroundColor: '#ea580c' },
+              ]}
+              onPress={() => setCustomAlert({ ...customAlert, visible: false })}
+            >
+              <Text style={styles.alertBtnText}>TAMAM</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* HTML5 WEBVIEW PREMİUM KIRPMA MODALI */}
+      <Modal
+        animationType="slide"
+        transparent={false}
+        visible={showCropWebView}
+        onRequestClose={() => {
+          setShowCropWebView(false);
+          setWebViewImage(null);
+        }}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#0f172a' }}>
+          <WebView
+            originWhitelist={['*']}
+            source={{ html: getCropHtml(webViewImage || '') }}
+            onMessage={(event) => {
+              const res = JSON.parse(event.nativeEvent.data);
+              if (res.type === 'cancel') {
+                setShowCropWebView(false);
+                setWebViewImage(null);
+              } else if (res.type === 'crop') {
+                setShowCropWebView(false);
+                setWebViewImage(null);
+                saveProfileImage(res.base64);
+              }
+            }}
+            ref={webViewRef}
+            style={{ flex: 1 }}
+            scrollEnabled={false}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+          />
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -395,5 +796,62 @@ const styles = StyleSheet.create({
     color: '#cbd5e1',
     fontSize: 12,
     marginTop: 25,
-  }
+  },
+  // CUSTOM PREMIUM ALERT STYLES (32 RADIUS!)
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)', // Slate koyu arka plan
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  alertContent: {
+    width: '85%',
+    maxWidth: 320,
+    backgroundColor: '#fff',
+    borderRadius: 32, // Belirgin, premium 32 radius kavis!
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+  },
+  alertIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  alertTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1e293b',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  alertMessage: {
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  alertBtn: {
+    width: '100%',
+    paddingVertical: 14,
+    borderRadius: 16, // Oval buton
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alertBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
 });

@@ -36,15 +36,19 @@ const register = async (req, res) => {
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError) {
       if (err.code === 'P2002') {
-        const fieldNames = {
-          email: 'e-posta adresi',
-          phoneNumber: 'telefon numarası'
-        };
-        const friendlyField = fieldNames[field] || field;
+        const target = err.meta && err.meta.target;
+        let duplicateField = 'veri';
+        if (Array.isArray(target)) {
+          if (target.includes('email')) duplicateField = 'e-posta adresi';
+          else if (target.includes('phoneNumber')) duplicateField = 'telefon numarası';
+        } else if (typeof target === 'string') {
+          if (target.includes('email')) duplicateField = 'e-posta adresi';
+          else if (target.includes('phoneNumber')) duplicateField = 'telefon numarası';
+        }
         return res.status(400).json({
-          message: `Bu ${friendlyField} zaten sisteme kayıtlıdır.`,
+          message: `Bu ${duplicateField} zaten başka bir hesap tarafından kullanılmaktadır.`,
           error: 'DUPLICATE_FIELD'
-        })
+        });
       }
     }
 

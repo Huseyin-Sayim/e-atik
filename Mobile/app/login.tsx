@@ -133,14 +133,23 @@ export default function LoginScreen() {
       await AsyncStorage.setItem('currentUserId', userId);
       await AsyncStorage.setItem('currentUserEmail', lowerEmail);
       
-      // Backend'den gelen güncel verileri de ID üzerine yaz (En taze veri)
       if (isValidUser.name) await AsyncStorage.setItem(`userName_${userId}`, isValidUser.name);
       if (isValidUser.surname) await AsyncStorage.setItem(`userSurname_${userId}`, isValidUser.surname);
       if (isValidUser.city) await AsyncStorage.setItem(`userCity_${userId}`, isValidUser.city);
       if (isValidUser.district) await AsyncStorage.setItem(`userDistrict_${userId}`, isValidUser.district);
+      if (isValidUser.profileImage) {
+        if (Platform.OS !== 'web') {
+          try {
+            await AsyncStorage.setItem(`profileImage_${userId}`, isValidUser.profileImage);
+            await AsyncStorage.setItem(`profileImage_${lowerEmail}`, isValidUser.profileImage);
+          } catch (e) {
+            console.warn('[STORAGE] Profile image cache failed:', e);
+          }
+        }
+      }
 
       const savedProfileType = await AsyncStorage.getItem(`profileType_${userId}`);
-      const activeProfileType = savedProfileType || isValidUser.profileType;
+      const activeProfileType = isValidUser.profileType || savedProfileType;
 
       const isFirstLogin = !activeProfileType;
 

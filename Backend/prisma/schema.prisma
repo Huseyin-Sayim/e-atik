@@ -69,12 +69,13 @@ model User {
   redemptions       Redemption[]
   isVerified        Boolean            @default(false)
   profileImage      String?            @db.Text
-  profileType       String?            @default("kisisel")
+  profileType       String?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   refreshTokens     RefreshToken[]
   verificationCodes VerificationCode[]
   resetTokens       ResetToken[]
+  scannedQRCodes    ScannedQRCode[]
 }
 
 model RefreshToken {
@@ -194,4 +195,13 @@ model WasteRequest {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model ScannedQRCode {
+  id          String   @id @default(uuid())
+  code        String   @unique // The unique content of the QR code
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  coinsEarned Int
+  createdAt   DateTime @default(now())
 }

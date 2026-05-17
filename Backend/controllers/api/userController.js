@@ -60,7 +60,10 @@ const getUserProfile = async (req, res) => {
   try {
     const {userId} = req.user; // isAuth middleware'inden geliyor
     const user = await prisma.user.findUnique({
-      where: { id: userId }
+      where: { id: userId },
+      include: {
+        wallet: true
+      }
     });
     
     if (!user) {
@@ -76,9 +79,119 @@ const getUserProfile = async (req, res) => {
   }
 }
 
+const normalizeCode = (code) => {
+  if (!code) return "";
+  let normalized = code.toString().trim();
+  // Barkodlar için sayısal normalizasyon (Örn: 12 haneli UPC-A ise başına 0 koyarak EAN-13'e eşitleriz)
+  if (/^\d+$/.test(normalized)) {
+    if (normalized.length === 12) {
+      normalized = "0" + normalized;
+    }
+  }
+  return normalized;
+};
+
+const scanQrCode = async (req, res) => {
+  try {
+    const { userId } = req.user;
+    const { code, coins, description, scanType } = req.body;
+
+    if (!code || !coins) {
+      return res.status(400).json({ message: "QR Kodu ve coin değeri gereklidir." });
+    }
+
+    const normalizedCode = normalizeCode(code);
+
+    // Check if the QR/Barcode code was already scanned (using findFirst for extra safety)
+    const existingScan = await prisma.scannedQRCode.findFirst({
+      where: { code: normalizedCode }
+    });
+
+    if (existingScan) {
+      return res.status(400).json({ message: "Bu kod daha önce kullanılmış." });
+    }
+
+    // Run transaction: create scan record, update wallet, and record transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Create the scanned record
+      const newScan = await tx.scannedQRCode.create({
+        data: {
+          code: normalizedCode,
+          userId,
+          coinsEarned: coins
+        }
+      });
+
+      // 2. Update user's wallet
+      const wallet = await tx.wallet.upsert({
+        where: { userId },
+        update: {
+          balance: { increment: coins }
+        },
+        create: {
+          userId,
+          balance: coins
+        }
+      });
+
+      // 3. Create a transaction log
+      const displayCode = scanType === 'barcode' 
+        ? normalizedCode 
+        : (normalizedCode.length > 8 ? normalizedCode.substring(0, 8) + '...' : normalizedCode);
+      
+      let formattedDesc = description || "Geri Dönüşüm Ödülü";
+      const suffix = `(${scanType === 'barcode' ? 'barkod' : 'qr'} | ${displayCode})`;
+      
+      if (!formattedDesc.includes('(qr |') && !formattedDesc.includes('(barkod |')) {
+        formattedDesc = `${formattedDesc} ${suffix}`;
+      }
+
+      await tx.transaction.create({
+        data: {
+          amount: coins,
+          type: "EARNED",
+          description: formattedDesc,
+          userId
+        }
+      });
+
+      return wallet;
+    });
+
+    res.status(200).json({
+      message: `${scanType === 'barcode' ? 'Barkod' : 'QR Kod'} başarıyla okundu ve coinler hesabınıza eklendi.`,
+      balance: result.balance
+    });
+  } catch (err) {
+    console.error("Tarama kodu okuma hatası:", err);
+    res.status(500).json({ message: "Tarama kodu işlenirken bir hata oluştu.", error: err.message });
+  }
+}
+
+const getUserTransactions = async (req, res) => {
+  try {
+    const { userId } = req.user;
+    const transactions = await prisma.transaction.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.status(200).json({
+      message: "İşlem geçmişi başarıyla getirildi.",
+      data: transactions
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: "İşlem geçmişi getirilirken bir hata oluştu.",
+      error: err.message
+    });
+  }
+}
+
 module.exports = {
   getUsers,
   deleteUser,
   updateProfile,
-  getUserProfile
+  getUserProfile,
+  scanQrCode,
+  getUserTransactions
 }

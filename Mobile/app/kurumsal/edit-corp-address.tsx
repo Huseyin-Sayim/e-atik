@@ -10,8 +10,8 @@ import {
   StatusBar, 
   KeyboardAvoidingView,
   ScrollView,
-  Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  Modal
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +23,17 @@ export default function EditCorpAddressScreen() {
   const [district, setDistrict] = useState('');
   const [loading, setLoading] = useState(false);
   const [initialData, setInitialData] = useState({ city: '', district: '' });
+  const [customAlert, setCustomAlert] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'warning';
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'success'
+  });
 
   useEffect(() => {
     loadCurrentInfo();
@@ -62,7 +73,7 @@ export default function EditCorpAddressScreen() {
 
   const handleSave = async () => {
     if (!city.trim() && !district.trim()) {
-      Alert.alert('Uyarı', 'Lütfen en az bir alanı doldurunuz.');
+      setCustomAlert({ visible: true, title: 'Uyarı', message: 'Lütfen en az bir alanı doldurunuz.', type: 'warning' });
       return;
     }
 
@@ -91,11 +102,21 @@ export default function EditCorpAddressScreen() {
         setCity('');
         setDistrict('');
 
-        Alert.alert('Başarılı', `Kurumsal adres bilgileriniz (${finalCity} / ${finalDistrict}) başarıyla güncellendi.`);
+        setCustomAlert({
+          visible: true,
+          title: 'Başarılı',
+          message: `Kurumsal adres bilgileriniz (${finalCity} / ${finalDistrict}) başarıyla güncellendi.`,
+          type: 'success'
+        });
       }
     } catch (error) {
       console.error('Güncelleme hatası:', error);
-      Alert.alert('Hata', 'Adres bilgileri güncellenirken bir sorun oluştu.');
+      setCustomAlert({
+        visible: true,
+        title: 'Hata',
+        message: 'Adres bilgileri güncellenirken bir sorun oluştu.',
+        type: 'error'
+      });
     } finally {
       setLoading(false);
     }
@@ -164,6 +185,50 @@ export default function EditCorpAddressScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* PREMİUM CUSTOM YUVARLAK ALERT MODALI */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={customAlert.visible}
+        onRequestClose={() => setCustomAlert({ ...customAlert, visible: false })}
+      >
+        <View style={styles.alertOverlay}>
+          <View style={styles.alertContent}>
+            <View style={[
+              styles.alertIconContainer,
+              customAlert.type === 'success' && { backgroundColor: '#f0fdf4' },
+              customAlert.type === 'error' && { backgroundColor: '#fef2f2' },
+              customAlert.type === 'warning' && { backgroundColor: '#fff7ed' },
+            ]}>
+              <Ionicons 
+                name={
+                  customAlert.type === 'success' ? 'checkmark-circle' :
+                  customAlert.type === 'error' ? 'close-circle' : 'warning'
+                } 
+                size={44} 
+                color={
+                  customAlert.type === 'success' ? '#16a34a' :
+                  customAlert.type === 'error' ? '#dc2626' : '#ea580c'
+                } 
+              />
+            </View>
+            <Text style={styles.alertTitle}>{customAlert.title}</Text>
+            <Text style={styles.alertMessage}>{customAlert.message}</Text>
+            <TouchableOpacity 
+              style={[
+                styles.alertBtn,
+                customAlert.type === 'success' && { backgroundColor: '#2e7d32' },
+                customAlert.type === 'error' && { backgroundColor: '#dc2626' },
+                customAlert.type === 'warning' && { backgroundColor: '#ea580c' },
+              ]}
+              onPress={() => setCustomAlert({ ...customAlert, visible: false })}
+            >
+              <Text style={styles.alertBtnText}>TAMAM</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -187,7 +252,7 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 24,
     backgroundColor: '#f1f5f9',
     justifyContent: 'center',
     alignItems: 'center',
@@ -202,7 +267,7 @@ const styles = StyleSheet.create({
   },
   formCard: {
     backgroundColor: '#fff',
-    borderRadius: 20,
+    borderRadius: 28,
     padding: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -224,7 +289,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    borderRadius: 12,
+    borderRadius: 18,
     paddingHorizontal: 15,
     paddingVertical: 12,
     fontSize: 16,
@@ -245,7 +310,7 @@ const styles = StyleSheet.create({
   saveButton: {
     backgroundColor: '#2e7d32',
     paddingVertical: 16,
-    borderRadius: 16,
+    borderRadius: 20,
     alignItems: 'center',
     shadowColor: '#2e7d32',
     shadowOffset: { width: 0, height: 4 },
@@ -257,6 +322,61 @@ const styles = StyleSheet.create({
     backgroundColor: '#a5d6a7',
   },
   saveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  // CUSTOM PREMIUM ALERT STYLES
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)', // Slate renginde koyu transparan katman
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  alertContent: {
+    width: '85%',
+    maxWidth: 320,
+    backgroundColor: '#fff',
+    borderRadius: 32, // Belirgin, premium 32 radius kavis!
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  alertIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  alertTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1e293b',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  alertMessage: {
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  alertBtn: {
+    width: '100%',
+    paddingVertical: 14,
+    borderRadius: 16, // Premium buton radiusu
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alertBtnText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',

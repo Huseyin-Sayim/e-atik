@@ -18,7 +18,15 @@ export default function KurumsalIndexScreen() {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [topBins, setTopBins] = useState<any[]>([]);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [isMapActive, setIsMapActive] = useState(false);
 
+
+  React.useEffect(() => {
+    const unsubscribe = DatabaseService.subscribeToProfilePhoto((newPhoto) => {
+      setProfileImage(newPhoto);
+    });
+    return unsubscribe;
+  }, []);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -93,8 +101,61 @@ export default function KurumsalIndexScreen() {
         const savedPhoto = await AsyncStorage.getItem(`profileImage_${lowerEmail}`);
         setProfileImage(savedPhoto);
 
-        await AsyncStorage.setItem(`userPoints_${lowerEmail}`, '50');
-        setPoints(50);
+        const savedPoints = await AsyncStorage.getItem(`userPoints_${lowerEmail}`);
+        if (savedPoints) {
+          setPoints(parseInt(savedPoints));
+        } else {
+          await AsyncStorage.setItem(`userPoints_${lowerEmail}`, '0');
+          setPoints(0);
+        }
+
+        // Backend'den en güncel profil bilgilerini çekip eşitle (Web ile senkronizasyon)
+        const currentUser = await DatabaseService.getCurrentUser();
+        if (currentUser) {
+          if (currentUser.wallet !== undefined) {
+            const actualBalance = currentUser.wallet ? currentUser.wallet.balance : 0;
+            setPoints(actualBalance);
+            await AsyncStorage.setItem(`userPoints_${lowerEmail}`, actualBalance.toString());
+          }
+
+          if (currentUser.name) {
+            const fullCorpName = currentUser.name + (currentUser.surname ? ' ' + currentUser.surname : '');
+            setCorpName(fullCorpName);
+            await AsyncStorage.setItem(`userName_${lowerEmail}`, currentUser.name);
+            if (currentUser.surname) {
+              await AsyncStorage.setItem(`userSurname_${lowerEmail}`, currentUser.surname);
+            }
+          }
+          if (currentUser.profileImage) {
+            setProfileImage(currentUser.profileImage);
+            DatabaseService.notifyProfilePhotoChanged(currentUser.profileImage);
+            if (Platform.OS !== 'web') {
+              try {
+                await AsyncStorage.setItem(`profileImage_${lowerEmail}`, currentUser.profileImage);
+                const userId = await AsyncStorage.getItem('currentUserId');
+                if (userId) {
+                  await AsyncStorage.setItem(`profileImage_${userId}`, currentUser.profileImage);
+                }
+              } catch (e) {
+                console.warn('[STORAGE] Profile image cache failed:', e);
+              }
+            }
+          } else {
+            setProfileImage(null);
+            DatabaseService.notifyProfilePhotoChanged(null);
+            if (Platform.OS !== 'web') {
+              try {
+                await AsyncStorage.removeItem(`profileImage_${lowerEmail}`);
+                const userId = await AsyncStorage.getItem('currentUserId');
+                if (userId) {
+                  await AsyncStorage.removeItem(`profileImage_${userId}`);
+                }
+              } catch (e) {
+                console.warn('[STORAGE] Profile image remove failed:', e);
+              }
+            }
+          }
+        }
       } else {
         setCorpName(fullName);
       }
@@ -155,8 +216,29 @@ export default function KurumsalIndexScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={styles.container} 
+        showsVerticalScrollIndicator={false}
+        scrollEnabled={!isMapActive}
+      >
         
+        {/* Yapılan Son İşlemleri Gör Buton Kartı */}
+        <TouchableOpacity 
+          style={styles.transactionsButtonCard} 
+          onPress={() => router.push('/kurumsal/kurumsal-transactions' as any)}
+        >
+          <View style={styles.transactionsButtonLeft}>
+            <View style={styles.transactionsIconBg}>
+              <MaterialCommunityIcons name="history" size={24} color="#2e7d32" />
+            </View>
+            <View>
+              <Text style={styles.transactionsButtonTitle}>Yapılan Son İşlemler</Text>
+              <Text style={styles.transactionsButtonSubtitle}>Firma faaliyet geçmişinizi görüntüleyin</Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#64748b" />
+        </TouchableOpacity>
+
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Öncelikli Bildirimler Listesi</Text>
           <TouchableOpacity onPress={() => router.push('/kurumsal/kurumsal-notifications')}>
@@ -203,10 +285,15 @@ export default function KurumsalIndexScreen() {
                   latitudeDelta: 0.0135,
                   longitudeDelta: 0.0135,
                 }}
-                scrollEnabled={false}
-                zoomEnabled={false}
-                pitchEnabled={false}
-                rotateEnabled={false}
+                scrollEnabled={isMapActive}
+                zoomEnabled={isMapActive}
+                pitchEnabled={isMapActive}
+                rotateEnabled={isMapActive}
+                campusParcels={{
+                  ...campusParcels,
+                  features: (campusParcels as any).features.filter((f: any) => f.geometry.type !== 'Point')
+                }}
+                bins={topBins}
               >
                 <Geojson 
                   geojson={{
@@ -223,6 +310,30 @@ export default function KurumsalIndexScreen() {
                   </View>
                 </Marker>
               </MapView>
+
+              {/* Dokun-Odaklan Aktivasyon Katmanı */}
+              {!isMapActive && (
+                <TouchableOpacity 
+                  activeOpacity={0.9}
+                  style={styles.mapOverlay}
+                  onPress={() => setIsMapActive(true)}
+                >
+                  <Ionicons name="finger-print" size={32} color="#fff" style={{ marginBottom: 8 }} />
+                  <Text style={styles.mapOverlayText}>Haritayı İncelemek İçin Dokunun</Text>
+                  <Text style={styles.mapOverlaySubtext}>Sayfa kaydırması geçici olarak durdurulur</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* İncelemeyi Bitir Yüzen Rozeti */}
+              {isMapActive && (
+                <TouchableOpacity 
+                  style={styles.mapActiveBadge}
+                  onPress={() => setIsMapActive(false)}
+                >
+                  <Ionicons name="close-circle" size={16} color="#fff" style={{ marginRight: 6 }} />
+                  <Text style={styles.mapActiveBadgeText}>İncelemeyi Bitir</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         )}
@@ -394,7 +505,7 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   miniMapWrapper: {
-    height: 220,
+    height: 320,
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
@@ -415,5 +526,85 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#fff',
     elevation: 5,
+  },
+  mapOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  mapOverlayText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    fontFamily: 'System',
+  },
+  mapOverlaySubtext: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 12,
+    marginTop: 4,
+    fontFamily: 'System',
+  },
+  mapActiveBadge: {
+    position: 'absolute',
+    bottom: 16,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#d32f2f',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    zIndex: 999,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+  },
+  mapActiveBadgeText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  transactionsButtonCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+  },
+  transactionsButtonLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  transactionsIconBg: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#e8f5e9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  transactionsButtonTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1e293b',
+  },
+  transactionsButtonSubtitle: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 2,
   }
 });

@@ -18,6 +18,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DatabaseService from '../../database/DatabaseService';
+import CustomAlert from '../../components/CustomAlert';
 
 export default function EditCorpEmailScreen() {
   const [currentEmailInput, setCurrentEmailInput] = useState('');
@@ -27,6 +28,19 @@ export default function EditCorpEmailScreen() {
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [initialData, setInitialData] = useState({ email: '' });
+
+  const [customAlert, setCustomAlert] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'warning';
+    onClose?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'success'
+  });
 
   useEffect(() => {
     loadCurrentInfo();
@@ -48,17 +62,32 @@ export default function EditCorpEmailScreen() {
 
   const handleRequestCode = async () => {
     if (!newEmail.trim() || !confirmEmail.trim()) {
-      Alert.alert('Uyarı', 'Lütfen yeni e-posta alanlarını doldurunuz.');
+      setCustomAlert({
+        visible: true,
+        title: 'Uyarı',
+        message: 'Lütfen yeni e-posta alanlarını doldurunuz.',
+        type: 'warning'
+      });
       return;
     }
 
     if (newEmail.trim().toLowerCase() !== confirmEmail.trim().toLowerCase()) {
-      Alert.alert('Hata', 'Yeni kurumsal e-posta adresleri birbiriyle eşleşmiyor.');
+      setCustomAlert({
+        visible: true,
+        title: 'Hata',
+        message: 'Yeni kurumsal e-posta adresleri birbiriyle eşleşmiyor.',
+        type: 'error'
+      });
       return;
     }
 
     if (!newEmail.includes('@')) {
-      Alert.alert('Hata', 'Geçerli bir e-posta adresi giriniz.');
+      setCustomAlert({
+        visible: true,
+        title: 'Hata',
+        message: 'Geçerli bir e-posta adresi giriniz.',
+        type: 'error'
+      });
       return;
     }
 
@@ -68,7 +97,12 @@ export default function EditCorpEmailScreen() {
       setModalVisible(true);
     } catch (error: any) {
       console.error('Kod isteme hatası:', error);
-      Alert.alert('Hata', error.message || 'Doğrulama kodu gönderilemedi.');
+      setCustomAlert({
+        visible: true,
+        title: 'Hata',
+        message: error.message || 'Doğrulama kodu gönderilemedi.',
+        type: 'error'
+      });
     } finally {
       setLoading(false);
     }
@@ -76,7 +110,12 @@ export default function EditCorpEmailScreen() {
 
   const handleVerifyAndSave = async () => {
     if (verificationCode.length !== 6) {
-      Alert.alert('Uyarı', 'Lütfen 6 haneli doğrulama kodunu giriniz.');
+      setCustomAlert({
+        visible: true,
+        title: 'Uyarı',
+        message: 'Lütfen 6 haneli doğrulama kodunu giriniz.',
+        type: 'warning'
+      });
       return;
     }
 
@@ -98,10 +137,20 @@ export default function EditCorpEmailScreen() {
       setConfirmEmail('');
       setVerificationCode('');
 
-      Alert.alert('Başarılı', `Kurumsal e-posta adresiniz başarıyla güncellendi. Yeni adresinizle tekrar giriş yapmanız gerekebilir.`);
+      setCustomAlert({
+        visible: true,
+        title: 'Başarılı',
+        message: 'Kurumsal e-posta adresiniz başarıyla güncellendi. Yeni adresinizle tekrar giriş yapmanız gerekebilir.',
+        type: 'success'
+      });
     } catch (error: any) {
       console.error('Doğrulama hatası:', error);
-      Alert.alert('Hata', error.message || 'Kod doğrulanamadı.');
+      setCustomAlert({
+        visible: true,
+        title: 'Hata',
+        message: error.message || 'Kod doğrulanamadı.',
+        type: 'error'
+      });
     } finally {
       setLoading(false);
     }
@@ -263,7 +312,7 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 24,
     backgroundColor: '#f1f5f9',
     justifyContent: 'center',
     alignItems: 'center',
@@ -278,7 +327,7 @@ const styles = StyleSheet.create({
   },
   formCard: {
     backgroundColor: '#fff',
-    borderRadius: 20,
+    borderRadius: 28,
     padding: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -300,7 +349,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    borderRadius: 12,
+    borderRadius: 18,
     paddingHorizontal: 15,
     paddingVertical: 12,
     fontSize: 16,
@@ -321,7 +370,7 @@ const styles = StyleSheet.create({
   saveButton: {
     backgroundColor: '#2e7d32',
     paddingVertical: 16,
-    borderRadius: 16,
+    borderRadius: 20,
     alignItems: 'center',
     shadowColor: '#2e7d32',
     shadowOffset: { width: 0, height: 4 },

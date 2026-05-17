@@ -17,11 +17,25 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DatabaseService from '../../database/DatabaseService';
+import CustomAlert from '../../components/CustomAlert';
 
 export default function EditCorpInfoScreen() {
   const [corpName, setCorpName] = useState('');
   const [loading, setLoading] = useState(false);
   const [initialData, setInitialData] = useState({ name: '' });
+
+  const [customAlert, setCustomAlert] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'warning';
+    onClose?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'success'
+  });
 
   useEffect(() => {
     loadCurrentInfo();
@@ -55,7 +69,12 @@ export default function EditCorpInfoScreen() {
 
   const handleSave = async () => {
     if (!corpName.trim()) {
-      Alert.alert('Uyarı', 'Lütfen firma adını doldurunuz.');
+      setCustomAlert({
+        visible: true,
+        title: 'Uyarı',
+        message: 'Lütfen firma adını doldurunuz.',
+        type: 'warning'
+      });
       return;
     }
 
@@ -100,11 +119,21 @@ export default function EditCorpInfoScreen() {
         setInitialData({ name: fullName });
         setCorpName('');
 
-        Alert.alert('Başarılı', `Kurumsal bilgileriniz (${fullName}) başarıyla güncellendi.`);
+        setCustomAlert({
+          visible: true,
+          title: 'Başarılı',
+          message: `Kurumsal bilgileriniz (${fullName}) başarıyla güncellendi.`,
+          type: 'success'
+        });
       }
     } catch (error) {
       console.error('Güncelleme hatası:', error);
-      Alert.alert('Hata', 'Bilgiler güncellenirken bir sorun oluştu.');
+      setCustomAlert({
+        visible: true,
+        title: 'Hata',
+        message: 'Bilgiler güncellenirken bir sorun oluştu.',
+        type: 'error'
+      });
     } finally {
       setLoading(false);
     }
@@ -162,6 +191,19 @@ export default function EditCorpInfoScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      <CustomAlert
+        visible={customAlert.visible}
+        title={customAlert.title}
+        message={customAlert.message}
+        type={customAlert.type}
+        onClose={() => {
+          setCustomAlert({ ...customAlert, visible: false });
+          if (customAlert.onClose) {
+            customAlert.onClose();
+          }
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -185,7 +227,7 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 24,
     backgroundColor: '#f1f5f9',
     justifyContent: 'center',
     alignItems: 'center',
@@ -200,7 +242,7 @@ const styles = StyleSheet.create({
   },
   formCard: {
     backgroundColor: '#fff',
-    borderRadius: 20,
+    borderRadius: 28,
     padding: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -222,7 +264,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    borderRadius: 12,
+    borderRadius: 18,
     paddingHorizontal: 15,
     paddingVertical: 12,
     fontSize: 16,
@@ -243,7 +285,7 @@ const styles = StyleSheet.create({
   saveButton: {
     backgroundColor: '#2e7d32',
     paddingVertical: 16,
-    borderRadius: 16,
+    borderRadius: 20,
     alignItems: 'center',
     shadowColor: '#2e7d32',
     shadowOffset: { width: 0, height: 4 },

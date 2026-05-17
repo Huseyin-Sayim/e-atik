@@ -88,6 +88,12 @@ export default function KurumsalLayout() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="kurumsal-transactions"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

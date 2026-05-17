@@ -67,7 +67,7 @@ export default function KisiselLocationScreen() {
       await loadBins();
       setupLocation();
     };
-    
+
     initApp();
   }, []);
 
@@ -87,7 +87,7 @@ export default function KisiselLocationScreen() {
     try {
       setLoading(true);
       let fetchedBins = await DatabaseService.getBins();
-      
+
       const mappedBins = fetchedBins.map(b => ({
         id: b.id.toString(),
         name: b.name || 'İsimsiz Kutu',
@@ -100,7 +100,7 @@ export default function KisiselLocationScreen() {
 
       setBins(mappedBins);
     } catch (e) {
-      console.error('❌ Yükleme hatası:', e);
+      console.log('❌ Yükleme hatası (Offline Mod):', e);
     } finally {
       setLoading(false);
     }
@@ -146,33 +146,10 @@ export default function KisiselLocationScreen() {
         ref={mapRef}
         style={styles.map}
         initialRegion={CAMPUS_CENTER}
-        showsUserLocation={true}
-        onPress={() => setSelectedBin(null)}
-      >
-        <Geojson 
-          geojson={{
-            ...campusParcels,
-            features: (campusParcels as any).features.filter((f: any) => f.geometry.type !== 'Point')
-          } as any} 
-          strokeColor="#ff7800" 
-          fillColor="rgba(255, 120, 0, 0.1)" 
-          strokeWidth={2} 
-        />
-        {filteredBins.map((bin) => (
-          <Marker key={`bin-${bin.id}`} coordinate={{ latitude: bin.latitude, longitude: bin.longitude }} onPress={() => setSelectedBin(bin)}>
-            <View style={styles.pinWrapper}>
-              <View style={[styles.tooltipContainer, { backgroundColor: getPinColor(bin.fillPercentage) }]}>
-                <View style={styles.tooltipContent}>
-                  <MaterialCommunityIcons name="trash-can" size={18} color="#fff" />
-                  <View style={styles.divider} />
-                  <Text style={styles.tooltipText}>%{bin.fillPercentage}</Text>
-                </View>
-              </View>
-              <View style={[styles.tooltipTail, { borderTopColor: getPinColor(bin.fillPercentage) }]} />
-            </View>
-          </Marker>
-        ))}
-      </MapView>
+        campusParcels={campusParcels}
+        bins={filteredBins}
+        onMarkerPress={setSelectedBin}
+      />
 
       <View style={styles.headerBar}>
         <View style={styles.headerContent}>
@@ -181,7 +158,7 @@ export default function KisiselLocationScreen() {
             <Text style={styles.headerSubtitle}>{filteredBins.length} Aktif Kutu</Text>
           </View>
           <View style={styles.headerActions}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.binCountBadge}
               onPress={() => setIsListModalVisible(true)}
             >
@@ -217,11 +194,16 @@ export default function KisiselLocationScreen() {
       {selectedBin && (
         <Animated.View style={[styles.detailCard, { transform: [{ translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [200, 0] }) }] }]}>
           <View style={styles.cardHeader}>
-            <View>
+            <View style={{ flex: 1, marginRight: 32 }}>
               <Text style={styles.cardName}>{selectedBin.name}</Text>
               <Text style={styles.cardUpdate}>{selectedBin.lastUpdated} güncellendi</Text>
             </View>
-            <TouchableOpacity onPress={() => setSelectedBin(null)}><Ionicons name="close-circle" size={26} color="#ccc" /></TouchableOpacity>
+            <TouchableOpacity 
+              style={{ position: 'absolute', right: 0, top: 0, padding: 4 }} 
+              onPress={() => setSelectedBin(null)}
+            >
+              <Ionicons name="close-circle" size={26} color="#ccc" />
+            </TouchableOpacity>
           </View>
           <View style={styles.cardBody}>
             <View style={styles.coordDisplayRow}>
@@ -233,10 +215,6 @@ export default function KisiselLocationScreen() {
                 <Text style={styles.coordLabel}>BOYLAM:</Text>
                 <Text style={styles.coordValue}>{selectedBin.longitude.toFixed(6)}</Text>
               </View>
-            </View>
-
-            <View style={styles.progressContainer}>
-              <View style={[styles.progressBar, { width: `${selectedBin.fillPercentage}%`, backgroundColor: getPinColor(selectedBin.fillPercentage) }]} />
             </View>
           </View>
         </Animated.View>
@@ -258,17 +236,17 @@ export default function KisiselLocationScreen() {
 
             <ScrollView showsVerticalScrollIndicator={false}>
               {filteredBins.map((bin) => (
-                <TouchableOpacity 
-                  key={`list-bin-${bin.id}`} 
+                <TouchableOpacity
+                  key={`list-bin-${bin.id}`}
                   style={styles.listItem}
                   onPress={() => {
                     setIsListModalVisible(false);
                     setSelectedBin(bin);
-                    mapRef.current?.animateToRegion({ 
-                      latitude: bin.latitude, 
-                      longitude: bin.longitude, 
-                      latitudeDelta: 0.002, 
-                      longitudeDelta: 0.002 
+                    mapRef.current?.animateToRegion({
+                      latitude: bin.latitude,
+                      longitude: bin.longitude,
+                      latitudeDelta: 0.002,
+                      longitudeDelta: 0.002
                     }, 800);
                   }}
                 >
@@ -312,12 +290,11 @@ const styles = StyleSheet.create({
   filterBtnTextActive: { color: '#fff' },
   actionButtons: { position: 'absolute', right: 16, bottom: 200, gap: 12 },
   actionBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', elevation: 6 },
-  pinWrapper: { alignItems: 'center' },
-  tooltipContainer: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, minWidth: 65 },
-  tooltipContent: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  divider: { width: 1, height: 14, backgroundColor: 'rgba(255,255,255,0.4)' },
-  tooltipText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
-  tooltipTail: { width: 0, height: 0, borderLeftWidth: 8, borderRightWidth: 8, borderTopWidth: 10, borderLeftColor: 'transparent', borderRightColor: 'transparent', marginTop: -2 },
+  pinWrapper: { width: 95, height: 60, alignItems: 'center' },
+  tooltipContainer: { width: 95, height: 34, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  tooltipContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  divider: { width: 1, height: 16, backgroundColor: 'rgba(255,255,255,0.4)', marginHorizontal: 6 },
+  tooltipText: { width: 36, textAlign: 'center', color: '#fff', fontSize: 13, fontWeight: 'bold' },
   detailCard: { position: 'absolute', bottom: 20, left: 16, right: 16, backgroundColor: '#fff', borderRadius: 20, padding: 16, elevation: 12 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   cardName: { fontSize: 18, fontWeight: 'bold', color: '#1e293b' },
@@ -329,13 +306,13 @@ const styles = StyleSheet.create({
   coordValue: { fontSize: 13, fontWeight: '700', color: '#1e293b', fontFamily: 'monospace' },
   progressContainer: { height: 8, backgroundColor: '#f1f5f9', borderRadius: 4, overflow: 'hidden' },
   progressBar: { height: '100%', borderRadius: 4 },
-  
+
   // MODAL STYLES
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 24, maxHeight: '80%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 20, fontWeight: '800', color: '#1e293b' },
-  
+
   // LİSTE STYLES
   listItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   listColorDot: { width: 12, height: 12, borderRadius: 6 },

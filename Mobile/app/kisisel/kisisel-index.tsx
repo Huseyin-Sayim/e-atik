@@ -1,25 +1,134 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Platform, StatusBar, TouchableOpacity, Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, Platform, StatusBar, TouchableOpacity, Image, Alert } from 'react-native';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from 'expo-router';
+import DatabaseService from '../../database/DatabaseService';
 
 const DEFAULT_AVATAR = require('../../assets/images/default-avatar.png');
 
-const RECENT_TRANSACTIONS = [
-  { id: '1', title: 'Akıllı Kova - Plastik Atık', type: 'qr', points: '+10', date: 'Bugün, 14:30' },
-  { id: '2', title: 'Market İadesi - Cam Şişe', type: 'market', points: '+5', date: 'Dün, 09:15' },
-  { id: '3', title: 'Akıllı Kova - Kağıt Atık', type: 'qr', points: '+15', date: '12 Mayıs, 16:45' },
-  { id: '4', title: 'Market İadesi - Pil', type: 'market', points: '+20', date: '10 Mayıs, 11:20' },
-  { id: '5', title: 'Akıllı Kova - Genel Atık', type: 'qr', points: '+5', date: '08 Mayıs, 13:10' },
-  { id: '6', title: 'Market İadesi - Plastik Poşet', type: 'market', points: '+5', date: '05 Mayıs, 18:00' },
-];
+const parseTransactionDescription = (fullDesc: string | null) => {
+  if (!fullDesc) return { name: 'Atık Dönüşüm Ödülü', option: 'QR Kod' };
 
+  // Clean up duplicate suffixes if any first
+  let desc = fullDesc;
+  const suffixRegex = /\s*\((qr|barkod)\s*\|\s*[^)]+\)/g;
+  const matches = desc.match(suffixRegex);
+  if (matches && matches.length > 1) {
+    desc = desc.replace(suffixRegex, '');
+    desc = `${desc} ${matches[0].trim()}`;
+  }
+
+  // Check if it matches "(barkod | <code>)"
+  const barcodeMatch = desc.match(/(.*?)\s*\(barkod\s*\|\s*([^)]+)\)/);
+  if (barcodeMatch) {
+    return {
+      name: barcodeMatch[1].trim(),
+      option: `Barkod (${barcodeMatch[2].trim()})`
+    };
+  }
+
+  // Check if it matches "(qr | <code>)"
+  const qrMatch = desc.match(/(.*?)\s*\(qr\s*\|\s*([^)]+)\)/);
+  if (qrMatch) {
+    return {
+      name: qrMatch[1].trim(),
+      option: `QR Kod (${qrMatch[2].trim()})`
+    };
+  }
+
+  // Check if it matches "(qr)"
+  const qrOnlyMatch = desc.match(/(.*?)\s*\(qr\)/);
+  if (qrOnlyMatch) {
+    return {
+      name: qrOnlyMatch[1].trim(),
+      option: 'QR Kod'
+    };
+  }
+
+  // Check if it's a purchase (Market)
+  if (desc.includes('Market') || desc.includes('Satın Alma')) {
+    return {
+      name: desc,
+      option: 'Market Harcaması'
+    };
+  }
+
+  // Default fallback
+  return {
+    name: desc,
+    option: 'QR Kod'
+  };
+};
+
+const formatTransactionDescription = (description: string | null, amount: number) => {
+  if (!description || description === 'QR Kod Tarama Ödülü' || description === 'Geri Dönüşüm Ödülü' || description === 'Atık Dönüşüm Ödülü') {
+    switch (amount) {
+      case 2: return 'Plastik Kapak Geri Dönüştürme Ödülü';
+      case 3: return 'Kağıt / Naylon Poşet Geri Dönüştürme Ödülü';
+      case 4: return 'Karton / Cam Kavanoz Geri Dönüştürme Ödülü';
+      case 5: return 'Pet Şişe / Geri Dönüştürme Ödülü';
+      case 7: return 'Metal Kutu Geri Dönüştürme Ödülü';
+      case 8: return 'Cam Şişe Geri Dönüştürme Ödülü';
+      case 10: return 'Atık Lastik Geri Dönüştürme Ödülü';
+      case 12: return 'Tekstil Geri Dönüştürme Ödülü';
+      case 15: return 'Pil / Ahşap Geri Dönüştürme Ödülü';
+      case 20: return 'Bitkisel Yağ Geri Dönüştürme Ödülü';
+      case 50: return 'E-Atık Geri Dönüştürme Ödülü';
+      default: return 'Atık Dönüşüm Ödülü';
+    }
+  }
+
+  // Remove any suffixes like " (barkod | 123)" or " (qr | 123)" or " (qr)" for clean list display
+  return description.replace(/\s*\((qr|barkod)\s*(\|\s*[^)]+)?\)/g, '').replace(/\s*\(qr\)/g, '').trim();
+};
+
+const formatTransactionDate = (dateStr: string) => {
+  try {
+    const date = new Date(dateStr);
+    const now = new Date();
+    
+    if (isNaN(date.getTime())) return 'Bilinmeyen Tarih';
+
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const timeStr = `${hours}:${minutes}`;
+
+    const dateZero = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const nowZero = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffMs = nowZero.getTime() - dateZero.getTime();
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) {
+      return `Bugün, ${timeStr}`;
+    } else if (diffDays === 1) {
+      return `Dün, ${timeStr}`;
+    } else {
+      const months = [
+        'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 
+        'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
+      ];
+      const day = date.getDate();
+      const month = months[date.getMonth()];
+      return `${day} ${month}, ${timeStr}`;
+    }
+  } catch (error) {
+    return 'Bilinmeyen Tarih';
+  }
+};
 
 export default function KisiselIndexScreen() {
   const [userName, setUserName] = useState('...');
   const [points, setPoints] = useState(0);
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [transactions, setTransactions] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    const unsubscribe = DatabaseService.subscribeToProfilePhoto((newPhoto) => {
+      setProfileImage(newPhoto);
+    });
+    return unsubscribe;
+  }, []);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -43,15 +152,63 @@ export default function KisiselIndexScreen() {
         if (savedName) setUserName(savedName);
         
         const savedPhoto = await AsyncStorage.getItem(`profileImage_${lowerEmail}`);
-        setProfileImage(savedPhoto); // null ise null set eder, eskiyi temizler
+        setProfileImage(savedPhoto); 
 
         const savedPoints = await AsyncStorage.getItem(`userPoints_${lowerEmail}`);
         if (savedPoints) {
           setPoints(parseInt(savedPoints));
         } else {
-          // Varsayılan başlangıç puanı
-          await AsyncStorage.setItem(`userPoints_${lowerEmail}`, '50');
-          setPoints(50);
+          await AsyncStorage.setItem(`userPoints_${lowerEmail}`, '0');
+          setPoints(0);
+        }
+
+        // Backend'den dinamik işlem geçmişini (son işlemler) çek
+        const fetchedTransactions = await DatabaseService.getTransactions();
+        setTransactions(fetchedTransactions);
+
+        // Backend'den en güncel profil bilgilerini çekip eşitle (Web ile senkronizasyon)
+        const currentUser = await DatabaseService.getCurrentUser();
+        if (currentUser) {
+          if (currentUser.wallet !== undefined) {
+            const actualBalance = currentUser.wallet ? currentUser.wallet.balance : 0;
+            setPoints(actualBalance);
+            await AsyncStorage.setItem(`userPoints_${lowerEmail}`, actualBalance.toString());
+          }
+
+          if (currentUser.name) {
+            const fullName = currentUser.name + (currentUser.surname ? ' ' + currentUser.surname : '');
+            setUserName(fullName);
+            await AsyncStorage.setItem(`userName_${lowerEmail}`, fullName);
+          }
+          if (currentUser.profileImage) {
+            setProfileImage(currentUser.profileImage);
+            DatabaseService.notifyProfilePhotoChanged(currentUser.profileImage);
+            if (Platform.OS !== 'web') {
+              try {
+                await AsyncStorage.setItem(`profileImage_${lowerEmail}`, currentUser.profileImage);
+                const userId = await AsyncStorage.getItem('currentUserId');
+                if (userId) {
+                  await AsyncStorage.setItem(`profileImage_${userId}`, currentUser.profileImage);
+                }
+              } catch (e) {
+                console.warn('[STORAGE] Profile image cache failed:', e);
+              }
+            }
+          } else {
+            setProfileImage(null);
+            DatabaseService.notifyProfilePhotoChanged(null);
+            if (Platform.OS !== 'web') {
+              try {
+                await AsyncStorage.removeItem(`profileImage_${lowerEmail}`);
+                const userId = await AsyncStorage.getItem('currentUserId');
+                if (userId) {
+                  await AsyncStorage.removeItem(`profileImage_${userId}`);
+                }
+              } catch (e) {
+                console.warn('[STORAGE] Profile image remove failed:', e);
+              }
+            }
+          }
         }
       }
     } catch (error) {
@@ -90,22 +247,61 @@ export default function KisiselIndexScreen() {
           <Text style={styles.sectionTitle}>Son İşlemler</Text>
           
           <View style={styles.transactionsList}>
-            {RECENT_TRANSACTIONS.map((item, index) => (
-              <View key={item.id} style={[styles.transactionItem, index === RECENT_TRANSACTIONS.length - 1 && { borderBottomWidth: 0 }]}>
-                <View style={[styles.transactionIconContainer, { backgroundColor: item.type === 'qr' ? '#e8f5e9' : '#e3f2fd' }]}>
-                  <Ionicons 
-                    name={item.type === 'qr' ? 'qr-code-outline' : 'cart-outline'} 
-                    size={22} 
-                    color={item.type === 'qr' ? '#2e7d32' : '#1565c0'} 
-                  />
-                </View>
-                <View style={styles.transactionDetails}>
-                  <Text style={styles.transactionName}>{item.title}</Text>
-                  <Text style={styles.transactionDate}>{item.date}</Text>
-                </View>
-                <Text style={styles.transactionPoints}>{item.points} Puan</Text>
+            {transactions.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="receipt-outline" size={36} color="#94a3b8" style={{ marginBottom: 8 }} />
+                <Text style={styles.emptyText}>Henüz bir işleminiz bulunmuyor.</Text>
               </View>
-            ))}
+            ) : (
+              transactions.map((item, index) => {
+                const isMarket = item.description && item.description.includes('Market');
+                const isSpent = item.type === 'SPENT';
+                const pointsPrefix = isSpent ? '-' : '+';
+                const pointsColor = isSpent ? '#ef4444' : '#2e7d32';
+                const iconBgColor = isMarket ? '#e3f2fd' : '#e8f5e9';
+                const iconColor = isMarket ? '#1565c0' : '#2e7d32';
+                const isBarcode = item.description && item.description.includes('barkod');
+                const iconName = isMarket 
+                  ? 'cart-outline' 
+                  : (isBarcode ? 'barcode-outline' : 'qr-code-outline');
+
+                return (
+                  <TouchableOpacity 
+                    key={item.id} 
+                    style={[styles.transactionItem, index === transactions.length - 1 && { borderBottomWidth: 0 }]}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      const cleanDesc = formatTransactionDescription(item.description, item.amount);
+                      const parsed = parseTransactionDescription(item.description || 'Geri Dönüşüm Ödülü');
+                      const conversionLine = isMarket 
+                        ? `⚙️ İşlem Türü: ${parsed.option}` 
+                        : `⚙️ Dönüştürme Seçeneği: ${parsed.option}`;
+
+                      Alert.alert(
+                        'İşlem Detayları',
+                        `📝 Açıklama: ${cleanDesc}\n\n${conversionLine}\n\n🪙 Puan Değişimi: ${pointsPrefix}${item.amount} Puan\n\n📅 İşlem Tarihi: ${formatTransactionDate(item.createdAt)}\n\n🆔 İşlem Numarası: ${item.id}`,
+                        [{ text: 'Tamam', style: 'default' }]
+                      );
+                    }}
+                  >
+                    <View style={[styles.transactionIconContainer, { backgroundColor: iconBgColor }]}>
+                      <Ionicons 
+                        name={iconName} 
+                        size={22} 
+                        color={iconColor} 
+                      />
+                    </View>
+                    <View style={styles.transactionDetails}>
+                      <Text style={styles.transactionName}>{formatTransactionDescription(item.description, item.amount)}</Text>
+                      <Text style={styles.transactionDate}>{formatTransactionDate(item.createdAt)}</Text>
+                    </View>
+                    <Text style={[styles.transactionPoints, { color: pointsColor }]}>
+                      {pointsPrefix}{item.amount} Puan
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })
+            )}
           </View>
         </View>
 
@@ -340,5 +536,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: 'bold',
     color: '#2e7d32',
+  },
+  emptyContainer: {
+    padding: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#94a3b8',
+    textAlign: 'center',
   }
 });

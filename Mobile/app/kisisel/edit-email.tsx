@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 24,
     backgroundColor: '#f1f5f9',
     justifyContent: 'center',
     alignItems: 'center',
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   },
   formCard: {
     backgroundColor: '#fff',
-    borderRadius: 20,
+    borderRadius: 28,
     padding: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    borderRadius: 12,
+    borderRadius: 18,
     paddingHorizontal: 15,
     paddingVertical: 12,
     fontSize: 16,
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
   saveButton: {
     backgroundColor: '#2e7d32',
     paddingVertical: 16,
-    borderRadius: 16,
+    borderRadius: 20,
     alignItems: 'center',
     shadowColor: '#2e7d32',
     shadowOffset: { width: 0, height: 4 },

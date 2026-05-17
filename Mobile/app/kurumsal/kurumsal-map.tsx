@@ -133,7 +133,7 @@ export default function KurumsalMapScreen() {
       await loadBins();
       setupLocation();
     };
-    
+
     initApp();
   }, []);
 
@@ -158,7 +158,7 @@ export default function KurumsalMapScreen() {
     try {
       setLoading(true);
       let fetchedBins = await DatabaseService.getBins();
-      
+
       console.log('--- MEVCUT KUTULARIN DÖKÜMÜ ---');
       console.table(fetchedBins.map(b => ({ isim: b.name, enlem: b.latitude, boylam: b.longitude })));
       console.log('✅ Toplam', fetchedBins.length, 'Atık Kutusu yüklendi.');
@@ -326,42 +326,13 @@ export default function KurumsalMapScreen() {
         onRegionChangeComplete={(region) => {
           if (region?.latitude) {
             currentRegionRef.current = region;
-            // Uzak zoom'larda kaybolmayı önlemek için state'i sadece hareket bitince güncelle
             setCoordsDisplay({ lat: region.latitude, lng: region.longitude });
           }
         }}
-        onLongPress={(e) => {
-          const coord = e.nativeEvent?.coordinate;
-          if (coord) {
-            setEditBin({ latitude: coord.latitude, longitude: coord.longitude, fillPercentage: 0 });
-            setIsModalVisible(true);
-          }
-        }}
-      >
-        <Geojson 
-          geojson={{
-            ...campusParcels,
-            features: (campusParcels as any).features.filter((f: any) => f.geometry.type !== 'Point')
-          } as any} 
-          strokeColor="#ff7800" 
-          fillColor="rgba(255, 120, 0, 0.1)" 
-          strokeWidth={2} 
-        />
-        {filteredBins.map((bin) => (
-          <Marker key={`bin-${bin.id}`} coordinate={{ latitude: bin.latitude, longitude: bin.longitude }} onPress={() => setSelectedBin(bin)}>
-            <View style={styles.pinWrapper}>
-              <View style={[styles.tooltipContainer, { backgroundColor: getPinColor(bin.fillPercentage) }]}>
-                <View style={styles.tooltipContent}>
-                  <MaterialCommunityIcons name="trash-can" size={18} color="#fff" />
-                  <View style={styles.divider} />
-                  <Text style={styles.tooltipText}>%{bin.fillPercentage}</Text>
-                </View>
-              </View>
-              <View style={[styles.tooltipTail, { borderTopColor: getPinColor(bin.fillPercentage) }]} />
-            </View>
-          </Marker>
-        ))}
-      </MapView>
+        campusParcels={campusParcels}
+        bins={filteredBins}
+        onMarkerPress={setSelectedBin}
+      />
 
       <View style={styles.headerBar}>
         <View style={styles.headerContent}>
@@ -370,7 +341,7 @@ export default function KurumsalMapScreen() {
             <Text style={styles.headerSubtitle}>{filteredBins.length} Aktif Kutu</Text>
           </View>
           <View style={styles.headerActions}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.binCountBadge}
               onPress={() => setIsListModalVisible(true)}
             >
@@ -442,11 +413,16 @@ export default function KurumsalMapScreen() {
       {selectedBin && (
         <Animated.View style={[styles.detailCard, { transform: [{ translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [200, 0] }) }] }]}>
           <View style={styles.cardHeader}>
-            <View>
+            <View style={{ flex: 1, marginRight: 32 }}>
               <Text style={styles.cardName}>{selectedBin.name}</Text>
               <Text style={styles.cardUpdate}>{selectedBin.lastUpdated} güncellendi</Text>
             </View>
-            <TouchableOpacity onPress={() => setSelectedBin(null)}><Ionicons name="close-circle" size={26} color="#ccc" /></TouchableOpacity>
+            <TouchableOpacity 
+              style={{ position: 'absolute', right: 0, top: 0, padding: 4 }} 
+              onPress={() => setSelectedBin(null)}
+            >
+              <Ionicons name="close-circle" size={26} color="#ccc" />
+            </TouchableOpacity>
           </View>
           <View style={styles.cardBody}>
             <View style={styles.coordDisplayRow}>
@@ -458,10 +434,6 @@ export default function KurumsalMapScreen() {
                 <Text style={styles.coordLabel}>BOYLAM:</Text>
                 <Text style={styles.coordValue}>{selectedBin.longitude.toFixed(6)}</Text>
               </View>
-            </View>
-
-            <View style={styles.progressContainer}>
-              <View style={[styles.progressBar, { width: `${selectedBin.fillPercentage}%`, backgroundColor: getPinColor(selectedBin.fillPercentage) }]} />
             </View>
             <View style={styles.cardActions}>
               <TouchableOpacity
@@ -501,17 +473,17 @@ export default function KurumsalMapScreen() {
 
             <ScrollView showsVerticalScrollIndicator={false}>
               {filteredBins.map((bin) => (
-                <TouchableOpacity 
-                  key={`list-bin-${bin.id}`} 
+                <TouchableOpacity
+                  key={`list-bin-${bin.id}`}
                   style={styles.listItem}
                   onPress={() => {
                     setIsListModalVisible(false);
                     setSelectedBin(bin);
-                    mapRef.current?.animateToRegion({ 
-                      latitude: bin.latitude, 
-                      longitude: bin.longitude, 
-                      latitudeDelta: 0.002, 
-                      longitudeDelta: 0.002 
+                    mapRef.current?.animateToRegion({
+                      latitude: bin.latitude,
+                      longitude: bin.longitude,
+                      latitudeDelta: 0.002,
+                      longitudeDelta: 0.002
                     }, 800);
                   }}
                 >
@@ -654,12 +626,11 @@ const styles = StyleSheet.create({
   filterBtnTextActive: { color: '#fff' },
   actionButtons: { position: 'absolute', right: 16, bottom: 200, gap: 12 },
   actionBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', elevation: 6 },
-  pinWrapper: { alignItems: 'center' },
-  tooltipContainer: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, minWidth: 65 },
-  tooltipContent: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  divider: { width: 1, height: 14, backgroundColor: 'rgba(255,255,255,0.4)' },
-  tooltipText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
-  tooltipTail: { width: 0, height: 0, borderLeftWidth: 8, borderRightWidth: 8, borderTopWidth: 10, borderLeftColor: 'transparent', borderRightColor: 'transparent', marginTop: -2 },
+  pinWrapper: { width: 95, height: 60, alignItems: 'center' },
+  tooltipContainer: { width: 95, height: 34, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  tooltipContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  divider: { width: 1, height: 16, backgroundColor: 'rgba(255,255,255,0.4)', marginHorizontal: 6 },
+  tooltipText: { width: 36, textAlign: 'center', color: '#fff', fontSize: 13, fontWeight: 'bold' },
   detailCard: { position: 'absolute', bottom: 20, left: 16, right: 16, backgroundColor: '#fff', borderRadius: 20, padding: 16, elevation: 12 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   cardName: { fontSize: 18, fontWeight: 'bold', color: '#1e293b' },
