@@ -9,6 +9,7 @@ services:
       - /home/node/eAtik/node_modules
     environment:
       - NODE_ENV=development
+      - SEED_DEMO_USERS=true
       - PORT=${PORT}
       - DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
     depends_on:

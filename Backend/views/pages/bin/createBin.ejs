@@ -1,7 +1,9 @@
 <%- include('../../layout/header') %>
 
-<div id="add-bin-panel" style="display:none; position: absolute; top: 20px; right: 20px; z-index: 1000; background: #FCFAF8; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); width: 280px; font-family: sans-serif;">
-    <h5 style="margin-top:0;">🗑️ Yeni Çöp Kovası</h5>
+<div id="region-banner" class="alert alert-warning mb-2" style="display:none;" role="alert"></div>
+
+<div id="bin-panel" style="display:none; position: absolute; top: 20px; right: 20px; z-index: 1000; background: #FCFAF8; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); width: 300px; font-family: sans-serif;">
+    <h5 id="panel-title" style="margin-top:0;">Yeni çöp kovası</h5>
 
     <label>Koordinatlar</label>
     <div style="display:flex; gap:5px; margin-bottom:10px;">
@@ -9,44 +11,57 @@
         <input type="text" id="lng-input" readonly style="width:50%; font-size:11px; padding:5px; background:#eee; border:1px solid #ccc;">
     </div>
 
-    <label>Bölge (Otomatik)</label>
+    <label>Bölge (parsel)</label>
     <input type="text" id="region-display" readonly style="width:100%; font-size:12px; padding:5px; margin-bottom:10px; background:#e9ecef; border:1px solid #ced4da; font-weight:bold;">
 
-    <label>Kova Türü</label>
+    <label>Kova türü</label>
     <select id="bin-type" class="form-select mb-2">
-        <option value="CONTAINER_LARGE">Büyük Konteyner</option>
-        <option value="CONTAINER_SMALL">Küçük Konteyner</option>
-        <option value="WASTE_POINT">Atık Noktası</option>
+        <option value="CONTAINER_LARGE">Büyük konteyner</option>
+        <option value="CONTAINER_SMALL">Küçük konteyner</option>
+        <option value="WASTE_POINT">Atık noktası</option>
     </select>
 
-    <label>Atık Kategorisi</label>
+    <label>Atık kategorisi</label>
     <select id="waste-category" class="form-select mb-2">
         <option value="GENERAL">Genel (GENERAL)</option>
-        <option value="DOMESTIC">Evsel Atık (DOMESTIC)</option>
+        <option value="DOMESTIC">Evsel (DOMESTIC)</option>
         <option value="ELECTRONIC">Elektronik (ELECTRONIC)</option>
         <option value="PLASTIC">Plastik (PLASTIC)</option>
         <option value="GLASS">Cam (GLASS)</option>
         <option value="PAPER">Kağıt (PAPER)</option>
     </select>
 
-    <label>Kapasite (Litre)</label>
-    <input type="number" id="capacity" class="form-control mb-3" value="100">
+    <label>Kapasite (litre)</label>
+    <input type="number" id="capacity" class="form-control mb-2" value="100" min="1" step="1">
 
-    <div style="display:flex; gap:10px;">
-        <button onclick="saveBinToServer()" class="btn btn-success btn-sm w-100">Kaydet</button>
-        <button onclick="cancelAdd()" class="btn btn-danger btn-sm w-100">İptal</button>
+    <div id="fullness-wrap" style="display:none;">
+        <label>Tahmini doluluk (0+)</label>
+        <input type="number" id="predicted-fullness" class="form-control mb-2" value="0" min="0" step="0.01">
     </div>
+
+    <div id="panel-error" class="text-danger small mb-2" style="display:none;"></div>
+
+    <div style="display:flex; flex-wrap:wrap; gap:8px;">
+        <button type="button" onclick="saveBin()" class="btn btn-success btn-sm">Kaydet</button>
+        <button type="button" id="btn-delete-bin" onclick="deleteSelectedBin()" class="btn btn-outline-danger btn-sm" style="display:none;">Sil</button>
+        <button type="button" onclick="cancelPanel()" class="btn btn-secondary btn-sm">İptal</button>
+    </div>
+    <p class="small text-muted mt-2 mb-0">Kayıt için <strong>ADMIN</strong> veya <strong>BOSS</strong> oturumu gerekir.</p>
+</div>
+
+<div class="mb-2">
+    <button type="button" class="btn btn-sm btn-primary" onclick="startAddMode()">Yeni kova ekle</button>
 </div>
 
 <div id="map" style="height: 600px; width: 100%;"></div>
 
-<!-- Kütüphaneler (SIRALAMA ÖNEMLİ) -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/@mapbox/leaflet-pip@latest/leaflet-pip.js"></script>
 
 <script>
   const map = L.map('map').setView([38.459, 27.228], 15);
+  const fetchOpts = { credentials: 'include' };
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap'
@@ -58,40 +73,68 @@
     iconAnchor: [12, 41]
   });
 
+  const savedBinIcon = L.icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+  });
+
   let tempMarker = null;
   let campusLayer = null;
-  let detectedRegionId = null;
+  let detectedParcelKey = null;
+  let binMarkersLayer = L.layerGroup().addTo(map);
+  let editMarker = null;
+  let panelMode = 'idle';
+  let editingBinId = null;
+
+  function showPanelError(msg) {
+    const el = document.getElementById('panel-error');
+    el.textContent = msg || '';
+    el.style.display = msg ? 'block' : 'none';
+  }
 
   async function loadCampusAreas() {
     try {
-      const response = await fetch('/api/regions/static');
+      const response = await fetch('/api/regions/static', fetchOpts);
       const result = await response.json();
-
-      // Senin paylaştığın yapıda veri ya direkt result'tır ya da result.data içindedir
       const geojsonData = result.features ? result : result.data;
-
       if (!geojsonData) {
-        console.error("GeoJSON verisi bulunamadı!");
+        console.error('GeoJSON verisi bulunamadı.');
         return;
       }
-
+      if (campusLayer) map.removeLayer(campusLayer);
       campusLayer = L.geoJSON(geojsonData, {
-        style: { color: "#ff7800", weight: 2, fillOpacity: 0.1 }
+        style: { color: '#ff7800', weight: 2, fillOpacity: 0.1 }
       }).addTo(map);
-
       map.fitBounds(campusLayer.getBounds());
-      console.log("Kampüs bölgeleri başarıyla yüklendi.");
     } catch (err) {
-      console.error("Yükleme Hatası:", err);
+      console.error(err);
+    }
+  }
+
+  async function checkRegionsInDb() {
+    const banner = document.getElementById('region-banner');
+    try {
+      const res = await fetch('/api/regions/get/g', fetchOpts);
+      const json = await res.json();
+      const list = (json.region || []).map(r => r.region_id);
+      const need = ['akademik', 'hastane', 'kyk'];
+      const missing = need.filter(k => !list.includes(k));
+      if (missing.length) {
+        banner.style.display = 'block';
+        banner.innerHTML = 'Veritabanında eksik parsel kayıtları: <code>' + missing.join(', ') +
+          '</code>. <a href="/region/create">Bölge ekle</a> sayfasından <code>region_id</code> bu değerlerle eşleşmeli.';
+      } else {
+        banner.style.display = 'none';
+      }
+    } catch (e) {
+      console.warn(e);
     }
   }
 
   function getRegionAt(lat, lng) {
     if (!campusLayer || !window.leafletPip) return null;
-
-    // Pip kütüphanesi [lng, lat] bekler
     const match = leafletPip.pointInLayer([lng, lat], campusLayer);
-
     if (match && match.length > 0) {
       return {
         id: match[0].feature.id,
@@ -101,74 +144,233 @@
     return null;
   }
 
-  map.on('click', function(e) {
-    const region = getRegionAt(e.latlng.lat, e.latlng.lng);
+  async function loadExistingBins() {
+    binMarkersLayer.clearLayers();
+    try {
+      const res = await fetch('/api/bins', fetchOpts);
+      if (!res.ok) return;
+      const bins = await res.json();
+      bins.forEach((bin) => {
+        const m = L.marker([bin.latitude, bin.longitude], { icon: savedBinIcon, draggable: false });
+        m.binRecord = bin;
+        m.bindPopup(
+          '<strong>' + (bin.region && bin.region.name ? bin.region.name : 'Bölge') + '</strong><br>' +
+          bin.type + ' · ' + bin.wasteCategory
+        );
+        m.on('click', (e) => {
+          L.DomEvent.stopPropagation(e);
+          openEditPanel(bin);
+        });
+        m.addTo(binMarkersLayer);
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }
 
+  function applyWasteCategoryRules() {
+    const binType = document.getElementById('bin-type');
+    const wasteCat = document.getElementById('waste-category');
+    if (binType.value !== 'WASTE_POINT') {
+      wasteCat.value = 'GENERAL';
+      Array.from(wasteCat.options).forEach(o => { o.disabled = (o.value !== 'GENERAL'); });
+    } else {
+      Array.from(wasteCat.options).forEach(o => { o.disabled = false; });
+    }
+  }
+
+  document.getElementById('bin-type').onchange = applyWasteCategoryRules;
+
+  function startAddMode() {
+    cancelPanel();
+    panelMode = 'add';
+    document.getElementById('panel-title').textContent = 'Yeni çöp kovası';
+    document.getElementById('btn-delete-bin').style.display = 'none';
+    document.getElementById('fullness-wrap').style.display = 'none';
+    showPanelError('');
+  }
+
+  function cancelPanel() {
+    if (tempMarker) {
+      map.removeLayer(tempMarker);
+      tempMarker = null;
+    }
+    if (editMarker) {
+      map.removeLayer(editMarker);
+      editMarker = null;
+    }
+    document.getElementById('bin-panel').style.display = 'none';
+    detectedParcelKey = null;
+    editingBinId = null;
+    panelMode = 'idle';
+    showPanelError('');
+  }
+
+  function openEditPanel(bin) {
+    if (tempMarker) {
+      map.removeLayer(tempMarker);
+      tempMarker = null;
+    }
+    panelMode = 'edit';
+    editingBinId = bin.id;
+    document.getElementById('panel-title').textContent = 'Çöp kovasını düzenle';
+    document.getElementById('btn-delete-bin').style.display = 'inline-block';
+    document.getElementById('fullness-wrap').style.display = 'block';
+
+    detectedParcelKey = bin.region ? bin.region.region_id : null;
+    document.getElementById('region-display').value = bin.region ? bin.region.name : '';
+    document.getElementById('lat-input').value = Number(bin.latitude).toFixed(6);
+    document.getElementById('lng-input').value = Number(bin.longitude).toFixed(6);
+    document.getElementById('bin-type').value = bin.type;
+    document.getElementById('waste-category').value = bin.wasteCategory;
+    document.getElementById('capacity').value = bin.capacityVolume;
+    document.getElementById('predicted-fullness').value = bin.predictedFullness != null ? bin.predictedFullness : 0;
+
+    applyWasteCategoryRules();
+
+    if (editMarker) map.removeLayer(editMarker);
+    editMarker = L.marker([bin.latitude, bin.longitude], { icon: binIcon, draggable: true }).addTo(map);
+    editMarker.on('dragend', () => {
+      const ll = editMarker.getLatLng();
+      document.getElementById('lat-input').value = ll.lat.toFixed(6);
+      document.getElementById('lng-input').value = ll.lng.toFixed(6);
+      const region = getRegionAt(ll.lat, ll.lng);
+      if (!region) {
+        showPanelError('İşaretçi bir parsel dışına taşındı.');
+        return;
+      }
+      showPanelError('');
+      detectedParcelKey = region.id;
+      document.getElementById('region-display').value = region.name;
+    });
+
+    document.getElementById('bin-panel').style.display = 'block';
+  }
+
+  map.on('click', function (e) {
+    if (panelMode !== 'add') return;
+    const region = getRegionAt(e.latlng.lat, e.latlng.lng);
     if (!region) {
-      alert("Lütfen bir poligon içine tıklayın!");
+      alert('Lütfen turuncu parsel alanının içine tıklayın.');
       return;
     }
-
-    detectedRegionId = region.id;
+    detectedParcelKey = region.id;
     document.getElementById('region-display').value = region.name;
     document.getElementById('lat-input').value = e.latlng.lat.toFixed(6);
     document.getElementById('lng-input').value = e.latlng.lng.toFixed(6);
-
     if (tempMarker) {
       tempMarker.setLatLng(e.latlng);
     } else {
       tempMarker = L.marker(e.latlng, { draggable: true, icon: binIcon }).addTo(map);
+      tempMarker.on('dragend', () => {
+        const ll = tempMarker.getLatLng();
+        document.getElementById('lat-input').value = ll.lat.toFixed(6);
+        document.getElementById('lng-input').value = ll.lng.toFixed(6);
+        const r = getRegionAt(ll.lat, ll.lng);
+        if (!r) {
+          showPanelError('İşaretçi parsel dışında.');
+          return;
+        }
+        showPanelError('');
+        detectedParcelKey = r.id;
+        document.getElementById('region-display').value = r.name;
+      });
     }
-
-    document.getElementById('add-bin-panel').style.display = 'block';
+    document.getElementById('bin-panel').style.display = 'block';
   });
 
-  const binType = document.getElementById('bin-type');
-  const wasteCat = document.getElementById('waste-category');
-
-  binType.onchange = () => {
-    if (binType.value !== 'WASTE_POINT') {
-      wasteCat.value = 'GENERAL';
-      Array.from(wasteCat.options).forEach(o => o.disabled = (o.value !== 'GENERAL'));
-    } else {
-      Array.from(wasteCat.options).forEach(o => o.disabled = false);
+  async function parseError(res) {
+    try {
+      const j = await res.json();
+      return j.message || JSON.stringify(j);
+    } catch {
+      return res.statusText || 'İstek başarısız';
     }
-  };
+  }
 
-  async function saveBinToServer() {
-    const data = {
-      latitude: parseFloat(document.getElementById('lat-input').value),
-      longitude: parseFloat(document.getElementById('lng-input').value),
-      wasteCategory: wasteCat.value,
-      type: binType.value,
-      capacityVolume: parseFloat(document.getElementById('capacity').value),
-      regionId: detectedRegionId
+  async function saveBin() {
+    showPanelError('');
+    const lat = parseFloat(document.getElementById('lat-input').value);
+    const lng = parseFloat(document.getElementById('lng-input').value);
+    const wasteCategory = document.getElementById('waste-category').value;
+    const type = document.getElementById('bin-type').value;
+    const capacityVolume = parseFloat(document.getElementById('capacity').value);
+    if (!detectedParcelKey) {
+      showPanelError('Parsel seçilemedi.');
+      return;
+    }
+    const body = {
+      latitude: lat,
+      longitude: lng,
+      wasteCategory,
+      type,
+      capacityVolume,
+      regionId: detectedParcelKey
     };
 
     try {
-      const res = await fetch('/api/bins/create', {
+      if (panelMode === 'edit' && editingBinId) {
+        const pf = parseFloat(document.getElementById('predicted-fullness').value);
+        body.predictedFullness = isNaN(pf) ? 0 : pf;
+        const res = await fetch('/api/bins/' + editingBinId, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          ...fetchOpts,
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) {
+          showPanelError(await parseError(res));
+          return;
+        }
+        alert('Güncellendi.');
+        cancelPanel();
+        await loadExistingBins();
+        return;
+      }
+
+      const res = await fetch('/api/bins', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        ...fetchOpts,
+        body: JSON.stringify(body)
       });
-      if (res.ok) {
-        alert("Başarılı!");
-        location.reload();
-      } else {
-        alert("Sunucu hatası!");
+      if (!res.ok) {
+        showPanelError(await parseError(res));
+        return;
       }
-    } catch (e) { console.error(e); }
+      alert('Kaydedildi.');
+      cancelPanel();
+      await loadExistingBins();
+    } catch (e) {
+      console.error(e);
+      showPanelError('Ağ hatası.');
+    }
   }
 
-  function cancelAdd() {
-    if (tempMarker) map.removeLayer(tempMarker);
-    tempMarker = null;
-    document.getElementById('add-bin-panel').style.display = 'none';
+  async function deleteSelectedBin() {
+    if (!editingBinId) return;
+    if (!confirm('Bu çöp kovasını silmek istediğinize emin misiniz?')) return;
+    try {
+      const res = await fetch('/api/bins/' + editingBinId, { method: 'DELETE', ...fetchOpts });
+      if (!res.ok) {
+        alert(await parseError(res));
+        return;
+      }
+      alert('Silindi.');
+      cancelPanel();
+      await loadExistingBins();
+    } catch (e) {
+      console.error(e);
+      alert('Silinemedi.');
+    }
   }
 
-  window.onload = () => {
-    loadCampusAreas();
-    binType.dispatchEvent(new Event('change'));
+  window.onload = async () => {
+    await loadCampusAreas();
+    await checkRegionsInDb();
+    await loadExistingBins();
+    applyWasteCategoryRules();
+    startAddMode();
   };
 </script>
 

@@ -26,6 +26,7 @@ const schemas = {
     role: joi.string().valid('USER', 'EMPLOYEE').default('USER'),
     employeeType: joi.string().valid('TRASH_COLLECTOR', 'WASTE_COLLECTOR').allow('', null).empty('').default(null).optional()
   }),
+
   login: joi.object({
     email: joi.string().email().trim().required().min(3).max(100).required().messages({
       'string.base': 'email alanı metin olmalıdır',
@@ -35,18 +36,64 @@ const schemas = {
       'string.required': 'şifre alanı zorunludur'
     })
   }),
+  
   resetPassMail: joi.object({
     email: joi.string().email().trim().required().min(3).max(100).required().messages({
       'string.base': 'email alanı metin olmalıdır',
       'string.required': 'email alanı zorunludur'
     }),
   }),
+
   resetPassword: joi.object({
     password: joi.string().required().trim().min(6).max(20).messages({
       'string.required': 'şifre alanı zorunludur'
     })
-  })
-}
+  }),
+
+  binCreate: joi
+    .object({
+      latitude: joi.number().min(-90).max(90).required(),
+      longitude: joi.number().min(-180).max(180).required(),
+      wasteCategory: joi
+        .string()
+        .valid('DOMESTIC', 'ELECTRONIC', 'PLASTIC', 'GLASS', 'PAPER', 'GENERAL')
+        .required(),
+      type: joi.string().valid('CONTAINER_LARGE', 'CONTAINER_SMALL', 'WASTE_POINT').required(),
+      capacityVolume: joi.number().positive().required(),
+      regionId: joi.string().trim().required().messages({
+        'string.empty': 'Parsel / bölge bilgisi zorunludur.',
+      }),
+    })
+    .unknown(false),
+
+  binUpdate: joi
+    .object({
+      latitude: joi.number().min(-90).max(90).optional(),
+      longitude: joi.number().min(-180).max(180).optional(),
+      wasteCategory: joi
+        .string()
+        .valid('DOMESTIC', 'ELECTRONIC', 'PLASTIC', 'GLASS', 'PAPER', 'GENERAL')
+        .optional(),
+      type: joi.string().valid('CONTAINER_LARGE', 'CONTAINER_SMALL', 'WASTE_POINT').optional(),
+      capacityVolume: joi.number().positive().optional(),
+      predictedFullness: joi.number().min(0).optional(),
+      regionId: joi.string().trim().allow('', null).optional(),
+    })
+    .min(1)
+    .messages({
+      'object.min': 'En az bir alan gönderilmelidir.',
+    })
+    .unknown(false),
+
+  workRegionUpdate: joi
+    .object({
+      regionId: joi.string().uuid().required().messages({
+        'string.empty': 'Çalışma bölgesi seçilmelidir.',
+        'string.guid': 'Geçersiz bölge seçimi.',
+      }),
+    })
+    .unknown(false),
+};
 
 
 module.exports = schemas;

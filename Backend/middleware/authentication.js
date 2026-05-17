@@ -14,7 +14,7 @@ const isAuth = (req, res, next) => {
     req.user = jwt.verify(token, process.env.ACCESS_SECRET_KEY);
     next();
   } catch (err) {
-    if (req.accept('html') && !req.path.startsWith('/api') ) {
+    if (req.accepts('html') && !req.path.startsWith('/api') ) {
       return res.render('pages/auth/login')
     }
     return res.status(401).json({message: 'Token geçersiz!'});
