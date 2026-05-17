@@ -6,6 +6,7 @@ const {
   getLastEmptiedAt,
 } = require('../../services/binFullness');
 const { findLatestEmptiedAtByBinIds } = require('../../services/binFullnessRepository');
+const { emitBinFullnessUpdated } = require('../../services/binFullnessBroadcast');
 
 const prisma = new PrismaClient();
 
@@ -246,6 +247,10 @@ const collectBin = async (req, res) => {
     ]);
 
     const enriched = enrichBinWithFullness(updatedBin, log.emptiedAt);
+
+    emitBinFullnessUpdated(id).catch((err) => {
+      console.error('[collectBin] fullness broadcast', err);
+    });
 
     res.status(201).json({
       message: 'Kova boşaltma kaydı oluşturuldu.',

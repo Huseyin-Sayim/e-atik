@@ -8,6 +8,7 @@ const binRoutes = require('./routes/api/binRoutes');
 const statsRoutes = require('./routes/api/statsRoutes');
 const trackingRoutes = require('./routes/api/trackingRoutes');
 const wasteRequestRoutes = require('./routes/api/wasteRequestRoutes');
+const employeeRouteRoutes = require('./routes/api/employeeRouteRoutes');
 const { initSocket } = require('./socket');
 const cookieParser = require('cookie-parser');
 const path = require('path');
@@ -50,6 +51,7 @@ app.use('/api/bins', binRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/tracking', trackingRoutes);
 app.use('/api/waste-requests', wasteRequestRoutes);
+app.use('/api/employee', employeeRouteRoutes);
 app.use('/', dashboardRoutes);
 
 initSocket(server);

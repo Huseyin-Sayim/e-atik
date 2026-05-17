@@ -130,6 +130,7 @@
           icon: getBinIcon(bin.type, currentZoom, markerIconOptions(bin)),
         });
 
+        marker.binId = bin.id;
         marker.binType = bin.type;
         marker.binWasteCategory = bin.wasteCategory;
         marker.binRecord = bin;
@@ -234,11 +235,44 @@
     zoomToRegionById(this.value);
   });
 
+  function updateBinMarkerFullness(payload) {
+    if (!payload?.binId) return;
+    let updated = false;
+    binLayerGroup.eachLayer((layer) => {
+      if (!(layer instanceof L.Marker) || layer.binId !== payload.binId) return;
+      updated = true;
+      layer.binRecord.predictedFullness = payload.predictedFullness;
+      const pct = payload.fullnessPercent ?? Math.round(payload.predictedFullness * 100);
+      const barClass = payload.predictedFullness > 0.8 ? 'bg-danger' : 'bg-success';
+      const bin = layer.binRecord;
+      layer.setPopupContent(`
+          <div class="text-center">
+            <h6 class="mb-1">${getBinTypeLabel(bin.type, bin.wasteCategory)}</h6>
+            <p class="small mb-1">${bin.type === 'WASTE_POINT' ? getWasteCategoryLabel(bin.wasteCategory) : bin.wasteCategory}</p>
+            <div class="progress" style="height: 8px;">
+              <div class="progress-bar ${barClass}" style="width: ${pct}%"></div>
+            </div>
+            <small>%${pct} Dolu</small>
+          </div>
+        `);
+    });
+    return updated;
+  }
+
+  function initFullnessSocket() {
+    if (!window.EAtikSocket) return;
+    EAtikSocket.onFullnessUpdated(updateBinMarkerFullness);
+    EAtikSocket.onFullnessIncreased(updateBinMarkerFullness);
+  }
+
   // 7. BAŞLATICI
   window.onload = () => {
     renderMapLegend();
     loadCampusAreas();
     loadExistingBins();
+    initFullnessSocket();
   };
 </script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/assets/js/socketClient.js"></script>
 <%- include('../layout/footer') %>

@@ -1,6 +1,8 @@
 const { Server } = require('socket.io');
 const { socketAuth } = require('./middleware/auth');
 const { attachEmployeeTracking } = require('./handlers/employeeTracking');
+const { attachBinFullness } = require('./handlers/binFullness');
+const { startFullnessBroadcast } = require('../services/binFullnessBroadcast');
 
 let io = null;
 
@@ -14,6 +16,8 @@ function initSocket(httpServer) {
 
   socketAuth(io);
   attachEmployeeTracking(io);
+  attachBinFullness(io);
+  startFullnessBroadcast(io);
 
   return io;
 }

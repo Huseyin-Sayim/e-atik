@@ -62,6 +62,7 @@ router.get('/', (req, res) => {
 // DASHBOARD
 
 const staffRoles = requirePageRole('ADMIN', 'BOSS', 'EMPLOYEE');
+const binManagerRoles = requirePageRole('ADMIN', 'BOSS');
 
 router.get('/dashboard', isAuth, loadCurrentUser, async (req, res) => {
   const tasks = [
@@ -103,7 +104,7 @@ router.get('/region/create', isAuth, loadCurrentUser, staffRoles, (req, res) => 
 
 // BİN
 
-router.get('/bin/create', isAuth, loadCurrentUser, staffRoles, (req, res) => {
+router.get('/bin/create', isAuth, loadCurrentUser, binManagerRoles, (req, res) => {
   res.render('pages/bin/createBin');
 });
 

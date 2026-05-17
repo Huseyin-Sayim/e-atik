@@ -99,6 +99,22 @@ async function seedUsers() {
   }
 }
 
+/** Demo çalışan: Spor ve Giriş Hattı (kyk) — Benim Rotam önizlemesi için. */
+async function assignDemoEmployeeWorkRegion() {
+  if (!shouldSeedDemoUsers()) return;
+
+  const kykRegion = await prisma.region.findFirst({
+    where: { region_id: 'kyk' },
+  });
+
+  if (!kykRegion) return;
+
+  await prisma.user.updateMany({
+    where: { email: 'employee@info.com', role: 'EMPLOYEE' },
+    data: { regionId: kykRegion.id },
+  });
+}
+
 async function main() {
   await seedRegions();
   console.log('Seed: kampüs bölgeleri upsert edildi.');
@@ -106,6 +122,8 @@ async function main() {
   await seedUsers();
   if (shouldSeedDemoUsers()) {
     console.log('Seed: demo kullanıcılar upsert edildi.');
+    await assignDemoEmployeeWorkRegion();
+    console.log('Seed: employee@info.com → Ege Üniversitesi Spor ve Giriş Hattı (kyk).');
   }
 }
 
