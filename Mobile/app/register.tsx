@@ -7,7 +7,8 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  ScrollView
+  ScrollView,
+  Alert
 } from 'react-native';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,7 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import DatabaseService from '../database/DatabaseService';
 
 export default function RegisterScreen() {
-  const [fullName, setFullName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [city, setCity] = useState('');
   const [district, setDistrict] = useState('');
   const [email, setEmail] = useState('');
@@ -30,45 +32,67 @@ export default function RegisterScreen() {
     setErrorMessage('');
     setSuccessMessage('');
 
-    if (!fullName || !city || !district || !email || !phoneNumber || !password || !confirmPassword) {
-      setErrorMessage('Lütfen tüm alanları doldurun.');
+    if (!firstName || !lastName || !city || !district || !email || !phoneNumber || !password || !confirmPassword) {
+      const msg = 'Lütfen tüm alanları doldurun.';
+      setErrorMessage(msg);
+      Alert.alert('Eksik Bilgi', msg);
       return;
     }
 
     if (phoneNumber.length !== 10 || !/^[0-9]+$/.test(phoneNumber)) {
-      setErrorMessage('Telefon numarası başında 0 olmadan tam 10 haneli olmalıdır.');
+      const msg = 'Telefon numarası başında 0 olmadan tam 10 haneli olmalıdır.';
+      setErrorMessage(msg);
+      Alert.alert('Geçersiz Telefon', msg);
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      setErrorMessage('Lütfen geçerli bir e-posta adresi girin.');
+      const msg = 'Lütfen geçerli bir e-posta adresi giriniz.';
+      setErrorMessage(msg);
+      Alert.alert('Geçersiz E-posta', msg);
       return;
     }
 
     if (password !== confirmPassword) {
-      setErrorMessage('Şifreler eşleşmiyor, lütfen kontrol edin.');
+      const msg = 'Şifreler eşleşmiyor, lütfen kontrol edin.';
+      setErrorMessage(msg);
+      Alert.alert('Şifre Hatası', msg);
       return;
     }
 
     if (password.length < 6) {
-      setErrorMessage('Şifreniz en az 6 karakter olmalıdır.');
+      const msg = 'Şifreniz en az 6 karakter olmalıdır.';
+      setErrorMessage(msg);
+      Alert.alert('Zayıf Şifre', msg);
       return;
     }
 
     try {
       // Yeni kullanıcıyı oluştur ve kaydet
       const newUser = {
-        name: fullName,
+        name: firstName,
+        surname: lastName,
         phoneNumber,
         email: email.toLowerCase(),
         password,
+        city,
+        district
       };
 
+      console.log('[KAYIT] İstek gönderiliyor:', newUser);
       await DatabaseService.addUser(newUser);
+
+      // Kayıt başarılı olduktan sonra yerel hafızaya da atalım ki hemen görünsün
+      const lowerEmail = email.toLowerCase();
+      await AsyncStorage.setItem(`userName_${lowerEmail}`, firstName);
+      await AsyncStorage.setItem(`userSurname_${lowerEmail}`, lastName);
+      await AsyncStorage.setItem(`userCity_${lowerEmail}`, city);
+      await AsyncStorage.setItem(`userDistrict_${lowerEmail}`, district);
 
       console.log('Kayıt başarılı:', newUser.email);
 
+      Alert.alert('Başarılı', 'Hesabınız oluşturuldu. Giriş sayfasına yönlendiriliyorsunuz...');
       setSuccessMessage('Hesabınız oluşturuldu. Giriş sayfasına yönlendiriliyorsunuz...');
 
       // Kısa bir süre sonra giriş yap ekranına yönlendir
@@ -78,7 +102,9 @@ export default function RegisterScreen() {
 
     } catch (error: any) {
       console.error('Kayıt işlemi sırasında hata:', error);
-      setErrorMessage(error.message || 'Kayıt işlemi sırasında beklenmeyen bir hata oluştu.');
+      const msg = error.message || 'Kayıt işlemi sırasında beklenmeyen bir hata oluştu.';
+      setErrorMessage(msg);
+      Alert.alert('Kayıt Hatası', msg);
     }
   };
 
@@ -96,10 +122,19 @@ export default function RegisterScreen() {
 
           <TextInput
             style={styles.input}
-            placeholder="Ad Soyad"
+            placeholder="Ad"
             placeholderTextColor="#999"
-            value={fullName}
-            onChangeText={setFullName}
+            value={firstName}
+            onChangeText={setFirstName}
+            autoCapitalize="words"
+          />
+
+          <TextInput
+            style={styles.input}
+            placeholder="Soyad"
+            placeholderTextColor="#999"
+            value={lastName}
+            onChangeText={setLastName}
             autoCapitalize="words"
           />
 

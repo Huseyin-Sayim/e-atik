@@ -6,6 +6,7 @@ import DatabaseService from '../database/DatabaseService';
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const isValidEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -14,6 +15,7 @@ export default function ForgotPasswordScreen() {
 
   const handleResetPassword = async () => {
     setErrorMessage('');
+    setSuccessMessage('');
     
     if (!email.trim() || !isValidEmail(email)) {
       setErrorMessage('Lütfen geçerli bir e-posta adresi girin.');
@@ -22,15 +24,11 @@ export default function ForgotPasswordScreen() {
     
     try {
       await DatabaseService.forgotPassword(email);
+      setSuccessMessage("Şifre sıfırlama bağlantısı e-posta adresinize gönderildi. Lütfen e-postanızı kontrol edin.");
       
-      // Arkadaşının backend sistemi link gönderdiği için doğrulama sayfasına gitmek yerine alert gösteriyoruz.
-      Alert.alert(
-        "E-posta Gönderildi",
-        "Şifre sıfırlama bağlantısı e-posta adresinize gönderildi. Lütfen e-postanızı kontrol edin ve linke tıklayarak şifrenizi sıfırlayın.",
-        [
-          { text: "Tamam", onPress: () => router.replace('/login') }
-        ]
-      );
+      setTimeout(() => {
+        router.replace('/login');
+      }, 3000);
     } catch (error: any) {
       if (error.message === 'Böyle bir e-posta kayıtlı değil.') {
         setErrorMessage(error.message);
@@ -57,6 +55,7 @@ export default function ForgotPasswordScreen() {
       />
 
       {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+      {successMessage ? <Text style={styles.successText}>{successMessage}</Text> : null}
 
       <TouchableOpacity style={styles.button} onPress={handleResetPassword}>
         <Text style={styles.buttonText}>Gönder</Text>
@@ -122,5 +121,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 16,
     textAlign: 'center',
+  },
+  successText: {
+    color: '#2e7d32',
+    fontSize: 14,
+    marginBottom: 16,
+    textAlign: 'center',
+    fontWeight: '600',
   },
 });

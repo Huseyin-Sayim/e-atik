@@ -4,7 +4,7 @@ const isAuth = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1] || req.cookies.accessToken;
 
   if (!token) {
-    if (req.accepts('html') && !req.path.startsWith('/api') ) {
+    if (req.accepts('html') && !req.originalUrl.startsWith('/api') ) {
       return res.redirect('/login');
     }
     return res.status(401).json({message: 'Giriş yapınız'});

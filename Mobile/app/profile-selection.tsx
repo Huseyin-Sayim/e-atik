@@ -8,26 +8,28 @@ export default function ProfileSelectionScreen() {
   const handleSelectProfile = async (type: 'kisisel' | 'kurumsal') => {
     try {
       console.log(`[PROFİL SEÇİMİ] Kullanıcı profili seçti: ${type}`);
+      const userId = await AsyncStorage.getItem('currentUserId');
       const email = await AsyncStorage.getItem('currentUserEmail');
 
-      if (!email) {
+      if (!userId || !email) {
         Alert.alert('Hata', 'Kullanıcı bilgisi bulunamadı. Lütfen tekrar giriş yapın.');
         router.replace('/login');
         return;
       }
 
-      // Mevcut oturum varsa (Beni Hatırla seçilmişse) oturumu güncelle
+      // Mevcut oturum varsa oturumu güncelle
       const sessionStr = await AsyncStorage.getItem('userSession');
       if (sessionStr) {
         const session = JSON.parse(sessionStr);
+        session.id = userId;
         session.profileType = type;
         await AsyncStorage.setItem('userSession', JSON.stringify(session));
       }
 
       try {
-        await AsyncStorage.setItem(`profileType_${email}`, type);
-        
-        await DatabaseService.updateUser(email, {
+        await AsyncStorage.setItem(`profileType_${userId}`, type);
+
+        await DatabaseService.updateUser(email.trim().toLowerCase(), {
           profileType: type,
           isFirstLogin: false
         });
@@ -35,8 +37,12 @@ export default function ProfileSelectionScreen() {
         console.warn('Backend update failed, but proceeding to route:', err);
       }
 
-      // Profil seçimine göre yönlendirme (Artık her ikisi de ortak Tabs yapısını kullanıyor)
-      router.replace('/(tabs)');
+      // Profil seçimine göre yönlendirme
+      if (type === 'kisisel') {
+        router.replace('/kisisel/kisisel-index' as any);
+      } else {
+        router.replace('/kurumsal/kurumsal-index' as any);
+      }
     } catch (error) {
       console.error('Profil kaydedilirken hata:', error);
       Alert.alert('Hata', 'Profil seçimi kaydedilirken bir sorun oluştu.');
