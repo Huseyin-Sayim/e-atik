@@ -6,6 +6,14 @@ Node.js + Express + Prisma + PostgreSQL tabanlı E-Atık kampüs atık yönetimi
 
 Tüm API istekleri: `http://localhost:2001/api/...`
 
+**Socket (canlı konum):** `http://localhost:2001` — path `/socket.io/` (`/api` öneki yok)
+
+### Son özellikler (özet)
+
+- **Çalışan Durumları** (`/admin/employee-status`): ADMIN/BOSS için canlı harita, çalışan listesi, kalan iş ve sonraki rota adımı
+- **Konum takibi API:** `GET/POST /api/tracking/*` + Socket.IO `location:update` (mobil/web `EMPLOYEE` gönderir)
+- **Rota ilerlemesi:** `GET/PUT /api/employee/route-progress` — admin panelinde ilerleme görünürlüğü
+
 ---
 
 ## İçindekiler
@@ -24,9 +32,10 @@ Tüm API istekleri: `http://localhost:2001/api/...`
   - [Çöp kovaları (Bins)](#çöp-kovaları-bins)
   - [İstatistikler (Stats)](#istatistikler-stats)
   - [Atık talepleri (Waste requests)](#atık-talepleri-waste-requests)
-  - [Çalışan rotası (Employee)](#çalışan-rotası-employee) — `route-plan`, `route-leg`, `region-bins`, `region-alerts`
-  - [Konum takibi (Tracking)](#konum-takibi-tracking)
+  - [Çalışan rotası (Employee)](#çalışan-rotası-employee) — `route-plan`, `route-leg`, `route-progress`, `region-bins`, `region-alerts`
+  - [Konum takibi (Tracking)](#konum-takibi-tracking) — `employees`, `employees/:id`, `location`
 - [Web arayüzü](#web-arayüzü)
+  - [Çalışan Durumları (Admin / BOSS)](#çalışan-durumları-admin--boss)
 - [Socket.io](#socketio)
 - [İş kuralları](#iş-kuralları)
 
@@ -86,6 +95,13 @@ Manuel seed: `npx prisma db seed`
 | `ROUTE_DEMO_START_LNG` | Rota demo başlangıç boylamı | `27.227533` |
 | `OSRM_URL` | OSRM yol servisi | `https://router.project-osrm.org` |
 | `OSRM_TIMEOUT_MS` | OSRM istek zaman aşımı (ms) | `15000` |
+| `SOCKET_CORS_ORIGIN` | Socket.IO CORS kökeni (`*` geliştirme; production'da kısıtlayın) | `*` |
+| `ROUTE_MIN_FULLNESS` | Rota aday eşiği | `0.05` |
+| `ROUTE_RELATIVE_TOP_N` | Göreli rota üst-N | `5` |
+| `ROUTE_RELATIVE_MIN` | Göreli rota minimum doluluk | `0.02` |
+| `FULLNESS_POLL_INTERVAL_MS` | Doluluk socket yayın aralığı | `60000` |
+
+**URL notu:** REST → `http://<HOST>:<PORT>/api` · Socket → `http://<HOST>:<PORT>` (ör. `http://localhost:2001`)
 
 ---
 
@@ -95,8 +111,8 @@ Docker veya `npm run dev` ile uygulama başlarken `npx prisma db seed` otomatik 
 
 | Rol | E-posta | Şifre | Not |
 |-----|---------|-------|-----|
-| ADMIN | `admin@info.com` | `password` | Çalışan konum takibi, atık talepleri yönetimi |
-| BOSS | `huseyinn.sayim@gmail.com` | `password` | Çöp kovası ekleme/düzenleme/silme |
+| ADMIN | `admin@info.com` | `password` | Çalışan Durumları, atık talepleri yönetimi |
+| BOSS | `huseyinn.sayim@gmail.com` | `password` | Çöp kovası yönetimi, Çalışan Durumları (canlı harita) |
 | USER | `user@info.com` | `password` | Son kullanıcı, atık talebi |
 | EMPLOYEE | `employee@info.com` | `password` | Çöp toplayıcı (`TRASH_COLLECTOR`), KYK bölgesine atanır |
 
@@ -1133,6 +1149,67 @@ OSRM erişilemezse düz çizgi yedeklenir (`onRoads: false`, `warning` dolu olab
 
 ---
 
+#### `GET /api/employee/route-progress`
+
+Çalışanın sunucudaki rota ilerlemesini döner (admin paneli ve çoklu cihaz senkronu).
+
+| | |
+|---|---|
+| **Yetki** | Giriş + rol `EMPLOYEE` |
+
+**Başarı `200`:**
+
+```json
+{
+  "progress": {
+    "currentStep": 2,
+    "completedCount": 2,
+    "regionParcelId": "kyk",
+    "updatedAt": "2026-05-19T10:30:00.000Z"
+  }
+}
+```
+
+Kayıt yoksa: `{ "progress": { "currentStep": 0, "completedCount": 0, "regionParcelId": null } }`
+
+Depolama: bellek (`services/employeeRouteProgressStore.js`); sunucu yeniden başlatılınca sıfırlanır. İstemci `sessionStorage` yedek kullanabilir.
+
+---
+
+#### `PUT /api/employee/route-progress`
+
+Rota ilerlemesini sunucuya yazar (`Benim Rotam` her durak toplandığında).
+
+| | |
+|---|---|
+| **Yetki** | Giriş + rol `EMPLOYEE` |
+
+**Body:**
+
+| Alan | Zorunlu | Açıklama |
+|------|---------|----------|
+| `currentStep` | Evet | 0 tabanlı aktif durak indeksi |
+| `completedCount` | Hayır | Tamamlanan durak sayısı |
+| `regionParcelId` | Hayır | `akademik`, `hastane`, `kyk` |
+
+**Başarı `200`:**
+
+```json
+{
+  "message": "OK",
+  "progress": {
+    "currentStep": 3,
+    "completedCount": 3,
+    "regionParcelId": "kyk",
+    "updatedAt": "2026-05-19T10:35:00.000Z"
+  }
+}
+```
+
+**Hata `400`:** Geçersiz `currentStep`
+
+---
+
 #### `GET /api/employee/region-bins`
 
 Çalışanın atanmış bölgesindeki tüm kovaları doluluk bilgisiyle döner (rota planı olmadan liste).
@@ -1223,7 +1300,38 @@ Tüm `EMPLOYEE` kullanıcılarını canlı konum, bölge ve rota ilerleme özeti
 |---|---|
 | **Yetki** | Giriş + rol `ADMIN` veya `BOSS` |
 
-**Başarı `200`:** `data[]` her çalışan için `userId`, `name`, `online`, `latitude`, `longitude`, `regionName`, `needsRegionSelection`, `progress` (kalan durak / konteyner / atık noktası sayıları).
+**Başarı `200`:**
+
+```json
+{
+  "message": "OK",
+  "data": [
+    {
+      "userId": "employee-uuid",
+      "name": "Demo Collector",
+      "email": "employee@info.com",
+      "employeeType": "TRASH_COLLECTOR",
+      "regionName": "Ege Üniversitesi Spor ve Giriş Hattı",
+      "needsRegionSelection": false,
+      "online": true,
+      "latitude": 38.461,
+      "longitude": 27.22,
+      "accuracy": 10,
+      "updatedAt": "2026-05-19T10:00:00.000Z",
+      "progress": {
+        "currentStep": 2,
+        "totalStops": 10,
+        "remainingStops": 8,
+        "remainingContainers": 5,
+        "remainingWastePoints": 3,
+        "noCollectionNeeded": false
+      }
+    }
+  ]
+}
+```
+
+Çevrimdışı çalışanlar listede görünür (`online: false`); konumu olmayanlarda `latitude` / `longitude` `null` olabilir.
 
 #### `GET /api/tracking/employees/:userId`
 
@@ -1233,9 +1341,47 @@ Seçili çalışanın detayı: rota planı, `currentStop`, `nextLeg` (OSRM polyl
 |---|---|
 | **Yetki** | Giriş + rol `ADMIN` veya `BOSS` |
 
+**Başarı `200` (özet alanlar):**
+
+```json
+{
+  "message": "OK",
+  "data": {
+    "userId": "employee-uuid",
+    "name": "Demo Collector",
+    "online": true,
+    "latitude": 38.461,
+    "longitude": 27.22,
+    "parcelKey": "akademik",
+    "progress": {
+      "currentStep": 2,
+      "totalStops": 10,
+      "remainingStops": 8,
+      "remainingContainers": 5,
+      "remainingWastePoints": 3
+    },
+    "currentStop": {
+      "order": 3,
+      "binId": "bin-uuid",
+      "label": "Küçük konteyner",
+      "fullnessPercent": 75
+    },
+    "nextLeg": {
+      "polyline": [{ "lat": 38.46, "lng": 27.22 }],
+      "distanceKm": 0.35,
+      "durationMin": 1.1,
+      "onRoads": true
+    },
+    "plan": { "stops": [], "summary": {} }
+  }
+}
+```
+
+Bölge atanmamışsa: `needsRegionSelection: true`, `plan: null`, `nextLeg: null`.
+
 #### `POST /api/tracking/location`
 
-Çalışan konumunu WebSocket alternatifi olarak gönderir (aynı kurallar: kampüs içi, throttle, `EMPLOYEE`).
+Çalışan konumunu WebSocket alternatifi olarak gönderir (aynı kurallar: kampüs içi, throttle, `EMPLOYEE`). Ortak mantık: `employeeLocationService.applyEmployeeLocationUpdate`.
 
 | | |
 |---|---|
@@ -1243,9 +1389,38 @@ Seçili çalışanın detayı: rota planı, `currentStop`, `nextLeg` (OSRM polyl
 
 **Body:** `{ "latitude": number, "longitude": number, "accuracy"?: number }`
 
-**Başarı `200`:** `{ "message": "OK", "data": { ...konum kaydı } }` — admin/BOSS odasına `location:employee:update` yayınlanır.
+**Başarı `200`:**
 
-Konumlar **5 dakikadan** eskiyse otomatik temizlenir. Güncelleme throttle: **5 saniye**. Socket kopunca konum hemen silinmez; `online: false` olur, stale süresi dolunca düşer.
+```json
+{
+  "message": "OK",
+  "data": {
+    "userId": "employee-uuid",
+    "name": "Demo Collector",
+    "role": "EMPLOYEE",
+    "latitude": 38.461,
+    "longitude": 27.22,
+    "accuracy": 10,
+    "parcelKey": "akademik",
+    "parcelLabel": "Ege Üniversitesi Akademik ve Sosyal Yerleşke",
+    "online": true,
+    "updatedAt": "2026-05-19T10:00:00.000Z"
+  }
+}
+```
+
+Admin/BOSS socket odasına `location:employee:update` yayınlanır.
+
+**Hatalar:**
+
+| HTTP | `reason` (gövdede) | Ne zaman |
+|------|---------------------|----------|
+| `400` | `outside_campus` | Kampüs parseli dışı |
+| `400` | `invalid_coordinates` | Geçersiz enlem/boylam |
+| `403` | `unauthorized` | Rol `EMPLOYEE` değil |
+| `429` | `throttled` | 5 saniye içinde ikinci istek |
+
+Konumlar **5 dakikadan** eskiyse otomatik temizlenir. Güncelleme throttle: **5 saniye**. Socket kopunca konum hemen silinmez; `online: false` olur, stale süresi dolunca düşer. Konumlar veritabanında saklanmaz (`services/locationStore.js`, bellek).
 
 ---
 
@@ -1284,6 +1459,38 @@ HTML sayfaları (JSON API değildir). Yetkisiz erişim `requirePageRole` ile `/d
 | **ADMIN** | + `/admin/employee-status`, tüm atık talepleri API |
 | **BOSS** | Dashboard (tam), `/bin/create`, `/region/create`, `/admin/employee-status` |
 | **EMPLOYEE** | Dashboard (uyarılar), `/employee/work-region`, `/employee/my-route` — çöp kovası ve bölge ekleme ekranı yok |
+
+### Çalışan Durumları (Admin / BOSS)
+
+**URL:** `/admin/employee-status` (eski `/admin/employee-tracking` → `301` yönlendirme)
+
+**Yetki:** `ADMIN`, `BOSS`
+
+**Amaç:** Kampüsteki çalışanların canlı konumunu, kalan toplama işini ve seçili çalışan için bir sonraki rota adımını tek ekranda göstermek.
+
+**Davranış:**
+
+1. Sayfa açılışı: `GET /api/tracking/employees` — tüm `EMPLOYEE` kullanıcıları (çevrimiçi/çevrimdışı)
+2. Harita: kampüs parsel sınırı + çevrimiçi çalışan marker'ları (`latitude`/`longitude` olanlar)
+3. Socket: `location:employees:snapshot` (bağlantıda), `location:employee:update` (canlı)
+4. Sağ liste: çalışan adı, bölge, `4/12 durak` özeti, çevrimiçi rozeti
+5. Çalışana tıklanınca: `GET /api/tracking/employees/:userId` — üst panelde kalan konteyner / atık noktası sayıları; haritada `nextLeg` polyline ve hedef durak
+
+**Konum kaynağı:** Mobil veya web `EMPLOYEE` istemcisi → Socket `location:update` veya `POST /api/tracking/location`. Mobile repo'da gönderici henüz yok; backend kontratı hazır.
+
+**Dosyalar:** `views/pages/admin/employeeStatus.ejs`, `public/assets/js/map/employeeStatusMap.js`
+
+```mermaid
+sequenceDiagram
+  participant Client as EmployeeClient
+  participant API as Backend
+  participant Admin as AdminPanel
+
+  Client->>API: location:update veya POST /tracking/location
+  API->>Admin: location:employee:update
+  Admin->>API: GET /tracking/employees/:id
+  API->>Admin: plan + nextLeg + progress
+```
 
 ### Benim Rotam (önizleme)
 
@@ -1325,7 +1532,11 @@ socket.on('connect', () => {
 socket.on('location:error', (err) => console.warn(err.message));
 ```
 
-Ortak mantık: [`services/employeeLocationService.js`](services/employeeLocationService.js). Admin oda: `tracking:admin`.
+Ortak mantık: [`services/employeeLocationService.js`](services/employeeLocationService.js). Admin oda: `tracking:admin`. Konumlar bellekte tutulur ([`services/locationStore.js`](services/locationStore.js)); PostgreSQL'e yazılmaz.
+
+`location:employees:snapshot` içindeki her öğe, `locationStore` kaydı ile aynı yapıdadır (`parcelKey`, `parcelLabel`, `online` dahil).
+
+**Mobil not:** Backend mobil konum almaya hazır; Mobile uygulama tarafında `socket.io-client` entegrasyonu ayrı yapılacaktır.
 
 ### Client → Server
 
@@ -1382,6 +1593,15 @@ Kampüs dışı konum reddedilir → `location:error` event'i:
 - **Çöp kovası oluşturma/güncelleme:** Nokta belirtilen parsel poligonu içinde (`assertPointInParcel`)
 - GeoJSON: `public/data/geojson/kampusParsel.geojson`
 
+### Canlı konum takibi
+
+- **Gönderim:** Socket `location:update` veya `POST /api/tracking/location` — yalnızca `EMPLOYEE`
+- **Ortak servis:** `employeeLocationService.applyEmployeeLocationUpdate` (kampüs, throttle, rol kontrolü)
+- **Depolama:** `locationStore` (bellek); throttle **5 sn**; stale **5 dk**
+- **Disconnect:** Kayıt anında silinmez; `online: false` olur
+- **Yayın:** `tracking:admin` odasındaki `ADMIN` ve `BOSS` istemcilerine `location:employee:update`
+- **Rota ilerlemesi:** `employeeRouteProgressStore` (bellek) + `GET/PUT /api/employee/route-progress`
+
 ### Bölge seed
 
 ```bash
@@ -1396,4 +1616,4 @@ npx prisma db seed
 npm test
 ```
 
-Kapsam: `tests/binFullness.test.js`, `campusParcels.test.js`, `recyclingStats.test.js`, `routePlanner.test.js`, `employeeRegionAlerts.test.js`, `locationStore.test.js`, `roadRouting.test.js`
+Kapsam: `binFullness.test.js`, `binFullnessBroadcast.test.js`, `campusParcels.test.js`, `employeeLocationService.test.js`, `employeeRegionAlerts.test.js`, `employeeRouteProgressStore.test.js`, `employeeTrackingService.test.js`, `employeeTrackingSocket.test.js`, `locationStore.test.js`, `recyclingStats.test.js`, `roadRouting.test.js`, `routePlanner.test.js`
