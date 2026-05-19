@@ -1,4 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
+const { assertPointInParcel } = require('../../services/campusParcels');
+
 const prisma = new PrismaClient();
 const fs = require('fs');
 const path = require('path');
@@ -21,46 +23,36 @@ const backupBins = async () => {
   }
 };
 
-// Varsayılan Kampüs Noktaları (Ege Üniversitesi)
-const DEFAULT_BINS = [
-  { latitude: 38.455490, longitude: 27.214470, fillPercentage: 10, type: 'kagit', name: 'Ziraat Fakültesi' },
-  { latitude: 38.452668, longitude: 27.210986, fillPercentage: 35, type: 'cam', name: 'Su Ürünleri Fakültesi' },
-  { latitude: 38.452331, longitude: 27.212005, fillPercentage: 70, type: 'plastik', name: 'Spor Bilimleri Fakültesi' },
-  { latitude: 38.453303, longitude: 27.213233, fillPercentage: 5, type: 'genel', name: 'Ziraat Fakültesi Dekanlık' },
-  { latitude: 38.454228, longitude: 27.214150, fillPercentage: 45, type: 'kagit', name: 'Ziraat Kampüs İçi' },
-  { latitude: 38.456671, longitude: 27.214275, fillPercentage: 80, type: 'plastik', name: 'Fen Fakültesi Otopark' },
-  { latitude: 38.456314, longitude: 27.212711, fillPercentage: 20, type: 'cam', name: 'Ege MYO' },
-  { latitude: 38.455823, longitude: 27.210996, fillPercentage: 90, type: 'genel', name: 'Diş Hekimliği Fakültesi' },
-  { latitude: 38.454707, longitude: 27.209355, fillPercentage: 15, type: 'kagit', name: 'Tıp Fakültesi Hastanesi' },
-  { latitude: 38.453396, longitude: 27.209230, fillPercentage: 60, type: 'plastik', name: 'Hemşirelik Fakültesi' },
-  { latitude: 38.455896, longitude: 27.218559, fillPercentage: 30, type: 'cam', name: 'İletişim Fakültesi' },
-  { latitude: 38.457850, longitude: 27.220138, fillPercentage: 50, type: 'genel', name: 'Merkezi Kütüphane' },
-  { latitude: 38.459385, longitude: 27.218320, fillPercentage: 75, type: 'kagit', name: 'Edebiyat Fakültesi' },
-  { latitude: 38.460113, longitude: 27.216345, fillPercentage: 40, type: 'plastik', name: 'Eğitim Fakültesi' },
-  { latitude: 38.461019, longitude: 27.215560, fillPercentage: 85, type: 'cam', name: 'İktisadi ve İdari Bilimler Fakültesi' },
-  { latitude: 38.463378, longitude: 27.213960, fillPercentage: 10, type: 'genel', name: 'Mühendislik Fakültesi' },
-  { latitude: 38.465110, longitude: 27.215855, fillPercentage: 95, type: 'kagit', name: 'Yabancı Diller Yüksekokulu' },
-  { latitude: 38.461972, longitude: 27.221503, fillPercentage: 25, type: 'plastik', name: 'Öğrenci Köyü' },
-  { latitude: 38.459972, longitude: 27.223847, fillPercentage: 65, type: 'cam', name: 'KYK Kız Yurdu' },
-  { latitude: 38.456389, longitude: 27.225501, fillPercentage: 55, type: 'genel', name: 'Ege Üniversitesi Hastanesi' },
-  { latitude: 38.453531, longitude: 27.221376, fillPercentage: 15, type: 'kagit', name: 'Tıp Fakültesi Dekanlık' }
-];
+async function resolveRegionFromParcelKey(parcelKey) {
+  if (!parcelKey) return null;
+  return prisma.region.findFirst({
+    where: { region_id: String(parcelKey) },
+  });
+}
 
-// Tüm kutuları getir
 const getBins = async (req, res) => {
-  try {
+    const { regionId } = req.query;
     const backupPath = path.join(__dirname, '../../data-backups/bins-backup.json');
     if (fs.existsSync(backupPath)) {
       const raw = fs.readFileSync(backupPath, 'utf-8');
-      const bins = JSON.parse(raw);
+      let bins = JSON.parse(raw);
       console.log('📖 [OKUMA] Çöp kutuları doğrudan bins-backup.json dosyasından okundu.');
+      if (regionId && typeof regionId === 'string') {
+        bins = bins.filter(b => b.regionId === regionId || (b.region && b.region.region_id === regionId));
+      }
       return res.status(200).json(bins);
     }
 
     // Eğer yedek dosyası yoksa veritabanından çek ve yedek dosyasını sıfırdan oluştur
     console.log('⚠️ [OKUMA] bins-backup.json bulunamadı. Veritabanından okunuyor...');
+    const where = {};
+    if (regionId && typeof regionId === 'string') {
+      where.regionId = regionId;
+    }
     const bins = await prisma.bin.findMany({
-      orderBy: { createdAt: 'desc' }
+      where,
+      include: { region: { select: { id: true, name: true, region_id: true } } },
+      orderBy: { createdAt: 'desc' },
     });
 
     const backupDir = path.dirname(backupPath);
@@ -73,79 +65,153 @@ const getBins = async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-}
+};
+
+const getBinById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const bin = await prisma.bin.findUnique({
+      where: { id },
+      include: { region: { select: { id: true, name: true, region_id: true } } },
+    });
+    if (!bin) {
+      return res.status(404).json({ message: 'Çöp kutusu bulunamadı.' });
+    }
+    res.status(200).json(bin);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
 
 // Yeni kutu oluştur
 const createBin = async (req, res) => {
   try {
-    const { name, latitude, longitude, wasteCategory, type, capacityVolume, regionId, predictedFullness } = req.body;
-    
-    const dataPayload = {
-      name: name || 'Adsız Kutu',
-      latitude: parseFloat(latitude),
-      longitude: parseFloat(longitude),
-      wasteCategory: wasteCategory || 'GENERAL',
-      type: type || 'WASTE_POINT',
-      capacityVolume: parseFloat(capacityVolume || 100),
-      predictedFullness: parseFloat(predictedFullness || 0),
-    };
+    const { latitude, longitude, wasteCategory, type, capacityVolume, regionId: parcelKey } = req.body;
 
-    if (regionId) {
-      dataPayload.regionId = regionId;
+    const inside = assertPointInParcel(latitude, longitude, parcelKey);
+    if (!inside.ok) {
+      return res.status(400).json({ message: inside.message });
     }
 
-    const newBin = await prisma.bin.create({
-      data: dataPayload
+    const region = await resolveRegionFromParcelKey(parcelKey);
+    if (!region) {
+      return res.status(400).json({
+        message:
+          'Bu parsel için veritabanında bölge kaydı yok. Önce bölge ekleyin (region_id = ' + parcelKey + ').',
+      });
+    }
+
+    const bin = await prisma.bin.create({
+      data: {
+        latitude,
+        longitude,
+        wasteCategory,
+        type,
+        capacityVolume,
+        regionId: region.id,
+      },
+      include: { region: { select: { id: true, name: true, region_id: true } } },
     });
 
     await backupBins();
 
-    res.status(201).json({ message: 'Çöp Kutusu başarıyla oluşturuldu.', bin: newBin });
+    res.status(201).json({ message: 'Çöp kutusu başarıyla oluşturuldu.', data: bin });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
-}
+};
 
-// Kutuyu güncelle
 const updateBin = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, latitude, longitude, predictedFullness, wasteCategory } = req.body;
-
-    const updatedBin = await prisma.bin.update({
+    const existing = await prisma.bin.findUnique({
       where: { id },
-      data: {
-        name,
-        latitude: latitude !== undefined ? parseFloat(latitude) : undefined,
-        longitude: longitude !== undefined ? parseFloat(longitude) : undefined,
-        predictedFullness: predictedFullness !== undefined ? parseFloat(predictedFullness) : undefined,
-        wasteCategory
+      include: { region: true },
+    });
+    if (!existing) {
+      return res.status(404).json({ message: 'Çöp kutusu bulunamadı.' });
+    }
+
+    const {
+      latitude,
+      longitude,
+      wasteCategory,
+      type,
+      capacityVolume,
+      predictedFullness,
+      regionId: parcelKey,
+    } = req.body;
+
+    const nextLat = latitude !== undefined ? latitude : existing.latitude;
+    const nextLng = longitude !== undefined ? longitude : existing.longitude;
+
+    let nextRegionId = existing.regionId;
+    let parcelForCheck = existing.region?.region_id;
+
+    if (parcelKey !== undefined && parcelKey !== null && parcelKey !== '') {
+      const region = await resolveRegionFromParcelKey(parcelKey);
+      if (!region) {
+        return res.status(400).json({
+          message:
+            'Bu parsel için veritabanında bölge kaydı yok. region_id = ' + parcelKey,
+        });
       }
+      nextRegionId = region.id;
+      parcelForCheck = region.region_id;
+    }
+
+    const inside = assertPointInParcel(nextLat, nextLng, parcelForCheck);
+    if (!inside.ok) {
+      return res.status(400).json({ message: inside.message });
+    }
+
+    const data = {};
+    if (latitude !== undefined) data.latitude = latitude;
+    if (longitude !== undefined) data.longitude = longitude;
+    if (wasteCategory !== undefined) data.wasteCategory = wasteCategory;
+    if (type !== undefined) data.type = type;
+    if (capacityVolume !== undefined) data.capacityVolume = capacityVolume;
+    if (predictedFullness !== undefined) data.predictedFullness = predictedFullness;
+    if (parcelKey !== undefined && parcelKey !== null && parcelKey !== '') {
+      data.regionId = nextRegionId;
+    }
+
+    if (Object.keys(data).length === 0) {
+      return res.status(400).json({ message: 'Güncellenecek alan yok.' });
+    }
+
+    const bin = await prisma.bin.update({
+      where: { id },
+      data,
+      include: { region: { select: { id: true, name: true, region_id: true } } },
     });
 
     await backupBins();
 
-    res.status(200).json({ message: 'Kutu başarıyla güncellendi.', bin: updatedBin });
+    res.status(200).json({ message: 'Çöp kutusu güncellendi.', data: bin });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
-}
+};
 
-// Kutuyu sil
 const deleteBin = async (req, res) => {
   try {
     const { id } = req.params;
-    await prisma.bin.delete({
-      where: { id }
-    });
+    const existing = await prisma.bin.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ message: 'Çöp kutusu bulunamadı.' });
+    }
+    await prisma.bin.delete({ where: { id } });
 
     await backupBins();
 
-    res.status(200).json({ message: 'Kutu başarıyla silindi.' });
+    res.status(200).json({ message: 'Çöp kutusu silindi.' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-}
+};
 
 // ZORLA 21 NOKTAYI DB'YE EKLEME FONKSİYONU
 const seedDefaultBins = async (req, res) => {
@@ -181,6 +247,7 @@ const seedDefaultBins = async (req, res) => {
 
     // Yedek yoksa varsayılan listeyi kullan
     if (!dataToInsert) {
+      const DEFAULT_BINS = [];
       dataToInsert = DEFAULT_BINS.map(bin => {
         let wasteCat = 'GENERAL';
         if (bin.type === 'plastik') wasteCat = 'PLASTIC';
@@ -214,12 +281,12 @@ const seedDefaultBins = async (req, res) => {
   } catch (err) {
     res.status(500).json({ success: false, error: err.message, stack: err.stack });
   }
-}
+};
 
 module.exports = {
   getBins,
+  getBinById,
   createBin,
   updateBin,
   deleteBin,
-  seedDefaultBins
-}
+};

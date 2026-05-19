@@ -7,6 +7,20 @@ Bu dokümantasyon, E-Atık backend uygulamasında bulunan istekleri (endpointler
 Tüm istekler ana sunucu adresinden sonrasına eklenerek gönderilir.
 Örn: `http://localhost:2001/api/...`
 
+## Geliştirme demo hesapları
+
+Docker veya `npm run dev` ile uygulama başlarken `npx prisma db seed` otomatik çalışır (bölgeler + demo kullanıcılar). **Yalnızca geliştirme ortamı içindir** — varsayılan şifreleri production'da kullanmayın.
+
+| Rol | E-posta | Şifre | Not |
+|-----|---------|-------|-----|
+| BOSS | `huseyinn.sayim@gmail.com` | `password` | Çöp kovası ekleme/düzenleme/silme (`/bin/create`, `POST/PATCH/DELETE /api/bins`) |
+| USER | `user@info.com` | `password` | Son kullanıcı |
+| EMPLOYEE | `employee@info.com` | `password` | Çöp toplayıcı (`TRASH_COLLECTOR`) |
+
+Şifreyi değiştirmek için ortam değişkeni: `SEED_PASSWORD`. Production'da demo kullanıcı seed'i varsayılan olarak kapalıdır; açmak için `SEED_DEMO_USERS=true` gerekir.
+
+Manuel seed: `npx prisma db seed`
+
 ### Yetkilendirme (Authentication)
 
 Giriş (Login) gerektiren isteklerde, sistemin sizi tanıması için bir token iletmeniz gereklidir. Bu token iki şekilde alınarak doğrulanabilir:
@@ -113,3 +127,59 @@ API'nin ayakta olup olmadığını ve düzgün çalışıp çalışmadığını 
 
 - **URL:** `/api-health`
 - **Metot:** `GET`
+
+---
+
+## Çöp kovaları (Bins)
+
+Parsel GeoJSON dosyası: `public/data/geojson/kampusParsel.geojson`. Her parselin `id` değeri (`akademik`, `hastane`, `kyk`) veritabanında `Region.region_id` ile **aynı string** olmalıdır. Üç bölgeyi otomatik oluşturmak için:
+
+```bash
+npx prisma db seed
+```
+
+### 1. Çöp kovalarını listele
+
+- **URL:** `/api/bins`
+- **Metot:** `GET`
+- **Yetki:** Gerekmez.
+- **Sorgu (isteğe bağlı):** `regionId` — bölgenin Prisma UUID değeri (`Region.id`).
+
+### 2. Tek çöp kovası
+
+- **URL:** `/api/bins/:id`
+- **Metot:** `GET`
+- **Yetki:** Gerekmez.
+
+### 3. Yeni çöp kovası oluştur
+
+- **URL:** `/api/bins` veya `/api/bins/create`
+- **Metot:** `POST`
+- **Yetki:** Giriş + rol `ADMIN` veya `BOSS`. Cookie (`accessToken`) veya `Authorization: Bearer ...`.
+- **Body (JSON):**
+  - `latitude` (zorunlu, sayı)
+  - `longitude` (zorunlu, sayı)
+  - `wasteCategory`: `DOMESTIC` | `ELECTRONIC` | `PLASTIC` | `GLASS` | `PAPER` | `GENERAL`
+  - `type`: `CONTAINER_LARGE` | `CONTAINER_SMALL` | `WASTE_POINT`
+  - `capacityVolume` (zorunlu, pozitif sayı, litre)
+  - `regionId` (zorunlu, metin): Parsel anahtarı — GeoJSON `feature.id` ile aynı (`akademik`, `hastane`, `kyk`).
+
+Sunucu, noktanın seçilen parsel poligonu içinde olduğunu doğrular; aksi halde `400` döner.
+
+### 4. Çöp kovasını güncelle
+
+- **URL:** `/api/bins/:id`
+- **Metot:** `PATCH`
+- **Yetki:** Giriş + `ADMIN` veya `BOSS`.
+- **Body:** En az bir alan; tümü isteğe bağlı: `latitude`, `longitude`, `wasteCategory`, `type`, `capacityVolume`, `predictedFullness`, `regionId` (parsel anahtarı — bölge değişiminde).
+
+### 5. Çöp kovasını sil
+
+- **URL:** `/api/bins/:id`
+- **Metot:** `DELETE`
+- **Yetki:** Giriş + `ADMIN` veya `BOSS`.
+
+### Web arayüzü
+
+- **URL:** `/bin/create` (giriş gerekir)
+- Haritada mevcut kutular, tıklayınca düzenleme/silme; yeni ekleme için parsel içine tıklama.

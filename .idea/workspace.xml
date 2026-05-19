@@ -5,24 +5,19 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="891b3278-7a2e-4be4-a4f8-2b784f7fd9f8" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/Backend/controllers/api/binController.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/public/assets/images/trash.jpg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/public/data/geojson/kampus.geojson" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/public/data/geojson/kampusParsel.geojson" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/public/data/geojson/mahalleler.geojson" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/routes/api/binRoutes.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/views/pages/bin/createBin.ejs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/views/pages/region/createRegion.ejs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/controllers/api/regionController.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/controllers/api/regionController.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/prisma/schema.prisma" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/prisma/schema.prisma" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/routes/api/regionRoutes.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/routes/api/regionRoutes.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/controllers/api/binController.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/controllers/api/binController.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/middleware/authentication.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/middleware/authentication.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/public/data/geojson/bornova.geojson" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/public/data/geojson/mahalleler.geojson" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/routes/api/binRoutes.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/routes/api/binRoutes.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Backend/routes/dashboardRoutes.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/routes/dashboardRoutes.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/server.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/server.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/views/layout/auth-header.ejs" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/views/layout/auth-header.ejs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/validations/validateSchema.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/validations/validateSchema.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Backend/views/layout/header.ejs" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/views/layout/header.ejs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/views/pages/dashboard.ejs" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/views/pages/dashboard.ejs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/views/pages/map.ejs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/views/pages/bin/createBin.ejs" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/views/pages/bin/createBin.ejs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -30,8 +25,7 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="11190" />
-    <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
+    <option name="cachedIndexableFilesCount" value="11195" />
   </component>
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
@@ -75,16 +69,21 @@
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
     "git-widget-placeholder": "main",
+    "ignore.virus.scanning.warn.message": "true",
     "javascript.preferred.runtime.type.id": "node",
-    "last_opened_file_path": "C:/Users/husos/OneDrive/Masaüstü/Programlama/E-Atık/Backend/public/assets/images",
+    "junie.onboarding.icon.badge.shown": "true",
+    "last_opened_file_path": "C:/project/e-atik",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "preferences.pluginManager",
-    "ts.external.directory.path": "C:\\Program Files\\JetBrains\\WebStorm 2025.2.3\\plugins\\javascript-plugin\\jsLanguageServicesImpl\\external",
+    "settings.editor.selected.configurable": "terminal",
+    "to.speed.mode.migration.done": "true",
+    "ts.external.directory.path": "C:\\Program Files\\JetBrains\\WebStorm 2026.1.1\\plugins\\javascript-plugin\\jsLanguageServicesImpl\\external",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
@@ -110,7 +109,7 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-WS-253.30387.83" />
+        <option value="bundled-js-predefined-d6986cc7102b-31caf2ab9e3c-JavaScript-WS-261.23567.141" />
       </set>
     </attachedChunks>
   </component>
@@ -138,6 +137,9 @@
       <workItem from="1777975791067" duration="5459000" />
       <workItem from="1778150754856" duration="18074000" />
       <workItem from="1778238798963" duration="4854000" />
+      <workItem from="1778570244329" duration="105000" />
+      <workItem from="1778570377833" duration="1595000" />
+      <workItem from="1778858554093" duration="1146000" />
     </task>
     <servers />
   </component>

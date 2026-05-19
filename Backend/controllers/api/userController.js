@@ -6,16 +6,57 @@ const getUsers =  async (req, res) => {
   try {
     const users = await prisma.user.findMany();
     res.status(200).json({
-      message: "Kullanıcılar başarıyla getirildi.",
+      message: "success",
       data: users
     })
   } catch (err) {
     res.status(500).json({
-      message: "Kullanıcı listesi getirilemedi.",
+      message: "Kullanıcılar getirilemedi.",
       error: err.message
     })
   }
 }
+
+const updateWorkRegion = async (req, res) => {
+  try {
+    const { regionId } = req.body;
+    const userId = req.user.userId;
+
+    const region = await prisma.region.findUnique({
+      where: { id: regionId },
+    });
+
+    if (!region) {
+      return res.status(404).json({ message: 'Bölge bulunamadı.' });
+    }
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { regionId },
+      select: {
+        id: true,
+        regionId: true,
+        region: {
+          select: {
+            id: true,
+            name: true,
+            region_id: true,
+          },
+        },
+      },
+    });
+
+    return res.status(200).json({
+      message: 'Çalışma bölgeniz kaydedildi.',
+      data: user,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      message: 'Çalışma bölgesi kaydedilemedi.',
+      error: err.message,
+    });
+  }
+};
 
 const deleteUser = async (req, res) => {
   try {
@@ -212,9 +253,10 @@ const getUserTransactions = async (req, res) => {
 
 module.exports = {
   getUsers,
+  updateWorkRegion,
   deleteUser,
   updateProfile,
   getUserProfile,
   scanQrCode,
   getUserTransactions
-}
+};
