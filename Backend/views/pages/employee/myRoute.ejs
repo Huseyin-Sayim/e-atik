@@ -2,10 +2,14 @@
 
 <div class="row mb-3 mt-3">
   <div class="col-12">
-    <h1 class="fs-3 mb-2">Benim Rotam</h1>
+    <h1 class="fs-3 mb-2"><%= user.employeeType === 'WASTE_COLLECTOR' ? 'Atık toplama rotası' : 'Benim Rotam' %></h1>
     <p class="text-secondary mb-0">
-      Durak sırası doluluk ve yakınlığa göre belirlenir. Haritada yalnızca <strong>şu anki adımın</strong> yol tarifi
-      gösterilir; bir durağı topladıktan sonra sonraki durağa geçersiniz.
+      <% if (user.employeeType === 'WASTE_COLLECTOR') { %>
+        Evden atık talepleri mesafe ve bekleme süresine göre sıralanır. Haritada yalnızca <strong>şu anki adımın</strong> yol tarifi gösterilir.
+      <% } else { %>
+        Durak sırası doluluk ve yakınlığa göre belirlenir. Haritada yalnızca <strong>şu anki adımın</strong> yol tarifi
+        gösterilir; bir durağı topladıktan sonra sonraki durağa geçersiniz.
+      <% } %>
     </p>
   </div>
 </div>
@@ -53,7 +57,7 @@
               <p class="fw-semibold mb-0" id="route-drive-min">—</p>
             </div>
             <div>
-              <p class="text-secondary small mb-1">Ort. doluluk</p>
+              <p class="text-secondary small mb-1" id="route-avg-label">Ort. doluluk</p>
               <p class="fw-semibold mb-0" id="route-avg-fullness">0%</p>
             </div>
           </div>

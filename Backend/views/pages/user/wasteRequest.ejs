@@ -1,0 +1,87 @@
+<%- include('../../layout/header') %>
+
+<div class="row mb-3 mt-3">
+<div class="col-12">
+<h1 class="fs-3 mb-2">Evden atık talebi</h1>
+<p class="text-secondary mb-0">
+  Kampüs içindeki adresinizi ve atık konumunu haritadan işaretleyin. Talebiniz atık toplayıcı rotasına eklenir.
+</p>
+</div>
+</div>
+
+<div class="row g-4">
+<div class="col-lg-7">
+<div class="card border-0 shadow-sm">
+<div class="card-body p-3">
+<div id="waste-request-map" class="waste-request-map"></div>
+<p class="text-secondary small mt-2 mb-0">Pin konumu kampüs sınırları içinde olmalıdır.</p>
+</div>
+</div>
+</div>
+<div class="col-lg-5">
+<div class="card border-0 shadow-sm">
+<div class="card-body p-4">
+<form id="waste-request-form">
+<div class="mb-3">
+<label class="form-label" for="wasteType">Atık türü</label>
+<select id="wasteType" name="wasteType" class="form-select" required>
+  <option value="DOMESTIC">Evsel</option>
+  <option value="ELECTRONIC">Elektronik</option>
+  <option value="PLASTIC">Plastik</option>
+  <option value="GLASS">Cam</option>
+  <option value="PAPER">Kağıt</option>
+  <option value="GENERAL">Genel</option>
+</select>
+</div>
+<div class="mb-3">
+<label class="form-label" for="addressLine">Adres (bina / daire)</label>
+<input type="text" id="addressLine" name="addressLine" class="form-control" maxlength="300" required
+  placeholder="Örn. KYK Blok 3, Daire 12" value="" />
+</div>
+<div class="row g-2 mb-3">
+<div class="col-6">
+<label class="form-label" for="city">İl</label>
+<input type="text" id="city" name="city" class="form-control" maxlength="100"
+  value="<%= user.city || '' %>" />
+</div>
+<div class="col-6">
+<label class="form-label" for="district">İlçe / mahalle</label>
+<input type="text" id="district" name="district" class="form-control" maxlength="100"
+  value="<%= user.district || '' %>" />
+</div>
+</div>
+<div class="mb-3">
+<label class="form-label" for="note">Not (isteğe bağlı)</label>
+<textarea id="note" name="note" class="form-control" rows="2" maxlength="500"></textarea>
+</div>
+<p class="text-secondary small mb-3" id="waste-coords-display">Konum: haritadan seçin</p>
+<button type="submit" class="btn btn-primary w-100" id="waste-submit-btn">Talep oluştur</button>
+</form>
+<div id="waste-request-alert" class="alert mt-3 d-none" role="alert"></div>
+</div>
+</div>
+<div class="card border-0 shadow-sm mt-4">
+<div class="card-header bg-transparent border-0">
+<h2 class="fs-6 fw-semibold mb-0">Taleplerim</h2>
+</div>
+<div class="card-body pt-0">
+<ul id="waste-request-list" class="list-unstyled mb-0 small"></ul>
+<p id="waste-request-empty" class="text-secondary small mb-0">Henüz talep yok.</p>
+</div>
+</div>
+</div>
+</div>
+
+<style>
+  .waste-request-map {
+    height: 380px;
+    border-radius: 0.5rem;
+    z-index: 0;
+  }
+</style>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="/assets/js/map/userWasteRequestMap.js"></script>
+
+<%- include('../../layout/footer') %>

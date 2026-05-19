@@ -922,7 +922,7 @@ Kategori bazında toplanan atık hacmini (litre) döner.
 
 **Hesaplama (v1):** Her `CollectionLog` için `collectedLiters = actualFullness × Bin.capacityVolume`; kategori `Bin.wasteCategory` üzerinden toplanır. Kayıt yoksa tüm kategoriler `0 L`.
 
-**İleride:** `WasteRequest` (`status = COLLECTED`, `weight` dolu) aynı servise eklenecek.
+**İleride:** `WasteRequest` (`status = COLLECTED`, `weight` dolu) geri dönüşüm istatistiklerine eklenecek.
 
 ---
 
@@ -930,11 +930,25 @@ Kategori bazında toplanan atık hacmini (litre) döner.
 
 Base path: `/api/waste-requests`
 
-Konum `assertPointInCampus` ile doğrulanır (kampüs parsellerinden biri içinde olmalı).
+Konum `assertPointInCampus` ile doğrulanır (kampüs parsellerinden biri içinde olmalı). Talepler yalnızca `employeeType = WASTE_COLLECTOR` çalışanların `GET /api/employee/route-plan` rotasına eklenir (`routeKind: waste_requests`).
+
+**Web:** USER → `/user/waste-request` · ADMIN/BOSS → `/admin/waste-requests`
+
+#### Adres metni ve konum (geocoding yok)
+
+| Alan | Amaç |
+|------|------|
+| `addressLine`, `city`, `district` | **Yalnızca metin** — rota listesinde, admin panelinde ve çalışana gösterim için saklanır. Sunucu bu alanlardan koordinat **üretmez**. |
+| `latitude`, `longitude` | **Gerçek konum** — rota planlama, `parcelKey` eşlemesi ve kampüs kontrolü bunlara dayanır. **Zorunludur.** |
+
+- **Geocoding yok:** Adres yazmak tek başına yeterli değildir; Nominatim / Google Geocoding vb. entegre edilmemiştir.
+- **Web istemcisi:** `/user/waste-request` sayfasında kullanıcı haritaya tıklar veya pini sürükler; form gönderilirken seçilen `latitude` / `longitude` API’ye gider.
+- **Mobil / harici istemci:** Talep oluştururken mutlaka kampüs içi bir `lat`/`lng` gönderilmelidir (harita pini veya cihaz GPS + kampüs doğrulaması).
+- **İleride (opsiyonel):** Adres → koordinat servisi eklenebilir; o zaman bile `assertPointInCampus` ile pinin kampüs parseli içinde olduğu doğrulanmalıdır.
 
 #### `POST /api/waste-requests`
 
-USER rolü atık toplama talebi oluşturur.
+USER rolü evden atık toplama talebi oluşturur.
 
 | | |
 |---|---|
@@ -945,8 +959,11 @@ USER rolü atık toplama talebi oluşturur.
 | Alan | Zorunlu |
 |------|---------|
 | `wasteType` | Evet — `WasteCategory` enum |
-| `latitude` | Evet |
+| `latitude` | Evet — harita pini (kampüs içi) |
 | `longitude` | Evet |
+| `addressLine` | Evet (3–300 karakter) |
+| `city` | Hayır (boşsa kullanıcı profili) |
+| `district` | Hayır (boşsa kullanıcı profili) |
 | `note` | Hayır (max 500 karakter) |
 
 **Örnek istek:**
@@ -956,6 +973,9 @@ USER rolü atık toplama talebi oluşturur.
   "wasteType": "ELECTRONIC",
   "latitude": 38.458,
   "longitude": 27.227,
+  "addressLine": "KYK Blok 3, Daire 12",
+  "city": "İzmir",
+  "district": "Bornova",
   "note": "Eski laptop"
 }
 ```
@@ -1013,9 +1033,24 @@ Tüm talepleri listeler (kullanıcı bilgisi ile).
 
 | | |
 |---|---|
-| **Yetki** | Giriş + rol `ADMIN` |
+| **Yetki** | Giriş + rol `ADMIN` veya `BOSS` |
 
 **Başarı `200`:** Dizi; her öğede `user: { id, name, email, phoneNumber }`
+
+---
+
+#### `POST /api/waste-requests/:id/collect`
+
+Çalışan veya yönetici talebi toplandı olarak işaretler.
+
+| | |
+|---|---|
+| **Yetki** | `EMPLOYEE` (`WASTE_COLLECTOR`), `ADMIN`, `BOSS` |
+| **Body** | `weight` (opsiyonel, kg) |
+
+**Başarı `200`:** `{ "message": "Atık talebi toplandı olarak işaretlendi.", "data": { ... } }`
+
+**Hatalar:** `400` geçersiz durum · `403` yanlış çalışan tipi veya başka çalışana atanmış talep
 
 ---
 
@@ -1025,7 +1060,7 @@ Talep durumunu günceller.
 
 | | |
 |---|---|
-| **Yetki** | Giriş + rol `ADMIN` |
+| **Yetki** | Giriş + rol `ADMIN` veya `BOSS` |
 
 **Body:** En az bir alan
 
@@ -1055,24 +1090,31 @@ Base path: `/api/employee`
 
 #### `GET /api/employee/route-plan`
 
-Çalışanın bölgesindeki kovalar için greedy rota planı üretir.
+Çalışan tipine göre rota üretir:
+
+| `employeeType` | Rota |
+|----------------|------|
+| `TRASH_COLLECTOR` (veya boş) | Bölgedeki dolu kovalar — `routeKind: bins`, `stopType: bin` |
+| `WASTE_COLLECTOR` | Aynı parseldeki `PENDING` / `ON_ROUTE` ev talepleri — `routeKind: waste_requests`, `stopType: waste_request` |
 
 | | |
 |---|---|
 | **Yetki** | Giriş + rol `EMPLOYEE` |
 | **Query** | `startLat`, `startLng` (isteğe bağlı; yoksa `.env` demo koordinatları) |
 
-**Başarı `200` (bölge seçili):**
+**Başarı `200` (çöp kovası rotası):**
 
 ```json
 {
   "needsRegionSelection": false,
+  "routeKind": "bins",
   "regionName": "Ege Üniversitesi Spor ve Giriş Hattı",
   "regionParcelId": "kyk",
   "start": { "lat": 38.458919, "lng": 27.227533 },
   "stops": [
     {
       "order": 1,
+      "stopType": "bin",
       "binId": "bin-uuid",
       "label": "Küçük konteyner",
       "type": "CONTAINER_SMALL",
@@ -1091,12 +1133,15 @@ Base path: `/api/employee`
     "totalDistanceKm": 1.2,
     "avgFullnessPercent": 72,
     "criticalCount": 2,
+    "wasteRequestCount": 0,
     "onRoads": null,
     "estimatedDriveMin": null,
     "routeWarning": null
   }
 }
 ```
+
+**Başarı `200` (ev atık rotası — `WASTE_COLLECTOR`):** `stops[]` öğelerinde `stopType: "waste_request"`, `requestId`, `addressLine`, `wasteType`. Plan üretildiğinde seçilen talepler `ON_ROUTE` ve `assignedEmployeeId` güncellenir.
 
 **Başarı `200` (bölge seçilmemiş):**
 
@@ -1117,7 +1162,9 @@ Base path: `/api/employee`
 }
 ```
 
-**Algoritma:** `skor = 0.7 × doluluk + 0.3 × (1 / (1 + mesafeKm))`; en fazla **20** durak; doluluk eşiği yok.
+**Algoritma (kovalar):** `skor = 0.7 × doluluk + 0.3 × (1 / (1 + mesafeKm))`; en fazla **20** durak.
+
+**Algoritma (ev talepleri):** `skor = 0.75 × (1/(1+mesafeKm)) + 0.25 × min(beklemeSaati/24, 1)`; env: `ROUTE_WASTE_WEIGHT_DISTANCE`, `ROUTE_WASTE_WEIGHT_AGE`, `ROUTE_WASTE_MAX_STOPS`.
 
 ---
 
@@ -1497,7 +1544,7 @@ sequenceDiagram
 - **Sayfa:** `/employee/my-route` — çalışma bölgesi seçilmiş olmalı (`PATCH /api/users/me/work-region` veya `/employee/work-region`).
 - **API:** `GET /api/employee/route-plan`, `GET /api/employee/route-leg`, `GET/PUT /api/employee/route-progress`
 - **Konum:** Web panelde `employeeLocationReporter.js` → Socket `location:update` (kampüs içi)
-- **Navigasyon:** Aktif adım güzergâhı; **Toplandı — sonraki durağa** → `POST /api/bins/:id/collect`
+- **Navigasyon:** Aktif adım güzergâhı; **Toplandı** → kova: `POST /api/bins/:id/collect` · ev talebi: `POST /api/waste-requests/:id/collect`
 - **Demo başlangıç:** `ROUTE_DEMO_START_LAT`, `ROUTE_DEMO_START_LNG`
 - **Seed:** `employee@info.com` → KYK bölgesi; bölgede kova yoksa rota boş görünür
 
@@ -1593,6 +1640,11 @@ Kampüs dışı konum reddedilir → `location:error` event'i:
 - **Çöp kovası oluşturma/güncelleme:** Nokta belirtilen parsel poligonu içinde (`assertPointInParcel`)
 - GeoJSON: `public/data/geojson/kampusParsel.geojson`
 
+### Evden atık talebi — adres ve koordinat
+
+- **Koordinat zorunlu:** `latitude` / `longitude` olmadan talep oluşturulamaz; adres metni koordinata çevrilmez (geocoding yok).
+- **Adres metni:** `addressLine` (+ isteğe bağlı `city`, `district`) yalnızca insan okunur etiket; rota ve toplama bu metne göre hesaplanmaz.
+
 ### Canlı konum takibi
 
 - **Gönderim:** Socket `location:update` veya `POST /api/tracking/location` — yalnızca `EMPLOYEE`
@@ -1616,4 +1668,4 @@ npx prisma db seed
 npm test
 ```
 
-Kapsam: `binFullness.test.js`, `binFullnessBroadcast.test.js`, `campusParcels.test.js`, `employeeLocationService.test.js`, `employeeRegionAlerts.test.js`, `employeeRouteProgressStore.test.js`, `employeeTrackingService.test.js`, `employeeTrackingSocket.test.js`, `locationStore.test.js`, `recyclingStats.test.js`, `roadRouting.test.js`, `routePlanner.test.js`
+Kapsam: `binFullness.test.js`, `binFullnessBroadcast.test.js`, `campusParcels.test.js`, `employeeLocationService.test.js`, `employeeRegionAlerts.test.js`, `employeeRouteProgressStore.test.js`, `employeeTrackingService.test.js`, `employeeTrackingSocket.test.js`, `locationStore.test.js`, `recyclingStats.test.js`, `roadRouting.test.js`, `routePlanner.test.js`, `routePlannerWaste.test.js`, `wasteRequestLabels.test.js`

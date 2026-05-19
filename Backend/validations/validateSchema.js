@@ -118,7 +118,19 @@ const schemas = {
         .required(),
       latitude: joi.number().min(-90).max(90).required(),
       longitude: joi.number().min(-180).max(180).required(),
+      addressLine: joi.string().trim().min(3).max(300).required().messages({
+        'string.empty': 'Adres satırı zorunludur.',
+        'string.min': 'Adres en az 3 karakter olmalıdır.',
+      }),
+      city: joi.string().trim().max(100).allow('', null).optional(),
+      district: joi.string().trim().max(100).allow('', null).optional(),
       note: joi.string().trim().max(500).allow('', null).optional(),
+    })
+    .unknown(false),
+
+  wasteRequestCollect: joi
+    .object({
+      weight: joi.number().min(0).max(10000).allow(null).optional(),
     })
     .unknown(false),
 

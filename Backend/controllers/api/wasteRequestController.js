@@ -1,7 +1,9 @@
 const { PrismaClient } = require('@prisma/client');
-const { assertPointInCampus } = require('../../services/campusParcels');
+const { assertPointInCampus, assertPointInParcel } = require('../../services/campusParcels');
 
 const prisma = new PrismaClient();
+
+const { buildWasteRequestLabel } = require('../../services/wasteRequestLabels');
 
 const createWasteRequest = async (req, res) => {
   try {
@@ -10,11 +12,16 @@ const createWasteRequest = async (req, res) => {
       return res.status(401).json({ message: 'Giriş yapınız.' });
     }
 
-    const { wasteType, latitude, longitude, note } = req.body;
+    const { wasteType, latitude, longitude, addressLine, city, district, note } = req.body;
     const campus = assertPointInCampus(latitude, longitude);
     if (!campus.ok) {
       return res.status(400).json({ message: campus.message });
     }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { city: true, district: true },
+    });
 
     const request = await prisma.wasteRequest.create({
       data: {
@@ -22,6 +29,10 @@ const createWasteRequest = async (req, res) => {
         wasteType,
         latitude,
         longitude,
+        addressLine: addressLine.trim(),
+        city: (city && String(city).trim()) || user?.city || null,
+        district: (district && String(district).trim()) || user?.district || null,
+        parcelKey: campus.parcelKey,
         note: note || null,
         status: 'PENDING',
       },
@@ -96,9 +107,65 @@ const updateWasteRequest = async (req, res) => {
   }
 };
 
+const collectWasteRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const employeeId = req.user?.userId;
+    const role = req.user?.role;
+    const { weight } = req.body || {};
+
+    if (!employeeId) {
+      return res.status(401).json({ message: 'Giriş yapınız.' });
+    }
+
+    const existing = await prisma.wasteRequest.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ message: 'Talep bulunamadı.' });
+    }
+
+    if (!['PENDING', 'ON_ROUTE'].includes(existing.status)) {
+      return res.status(400).json({ message: 'Bu talep toplanamaz.' });
+    }
+
+    if (role === 'EMPLOYEE') {
+      const employee = await prisma.user.findUnique({
+        where: { id: employeeId },
+        select: { employeeType: true },
+      });
+      if (employee?.employeeType !== 'WASTE_COLLECTOR') {
+        return res.status(403).json({ message: 'Bu işlem yalnızca atık toplayıcılar içindir.' });
+      }
+      if (
+        existing.assignedEmployeeId &&
+        existing.assignedEmployeeId !== employeeId
+      ) {
+        return res.status(403).json({ message: 'Bu talep başka bir çalışana atanmış.' });
+      }
+    }
+
+    const updated = await prisma.wasteRequest.update({
+      where: { id },
+      data: {
+        status: 'COLLECTED',
+        assignedEmployeeId: existing.assignedEmployeeId || employeeId,
+        weight: weight != null ? weight : existing.weight,
+      },
+    });
+
+    res.status(200).json({
+      message: 'Atık talebi toplandı olarak işaretlendi.',
+      data: updated,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 module.exports = {
   createWasteRequest,
   getMyWasteRequests,
   getAllWasteRequests,
   updateWasteRequest,
+  collectWasteRequest,
 };

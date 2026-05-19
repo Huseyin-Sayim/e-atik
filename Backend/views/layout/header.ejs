@@ -76,6 +76,21 @@
             <span class="text">Geri dönüşümüm</span>
           </a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/user/waste-request">
+            <span class="nav-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                class="icon icon-tabler icons-tabler-outline icon-tabler-home-2">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                <path d="M5 12l-2 0l9 -9l9 9l-2 0" />
+                <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+                <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+              </svg>
+            </span>
+            <span class="text">Evden atık talebi</span>
+          </a>
+        </li>
         <% } else { %>
         <% if (typeof user !== 'undefined' && user && (user.role === 'ADMIN' || user.role === 'BOSS')) { %>
         <li class="nav-item">
@@ -124,6 +139,21 @@
               </svg>
             </span>
             <span class="text">Çalışan Durumları</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/admin/waste-requests">
+            <span class="nav-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                class="icon icon-tabler icons-tabler-outline icon-tabler-truck-delivery">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                <path d="M7 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+                <path d="M17 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+                <path d="M5 17h-2v-4m-1 -8h11v12m-4 0h6m4 0h2v-6h-8m0 -5h6l3 5" />
+              </svg>
+            </span>
+            <span class="text">Evden atık talepleri</span>
           </a>
         </li>
         <% } %>

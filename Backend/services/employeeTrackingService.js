@@ -1,29 +1,33 @@
 const { PrismaClient } = require('@prisma/client');
 const { getAllEmployeeLocations, getEmployeeLocation } = require('./locationStore');
 const { getEmployeeRouteProgress } = require('./employeeRouteProgressStore');
-const { planEmployeeRoute, planRouteLeg } = require('./routePlanner');
+const { planEmployeeRoute, planRouteLeg, requestMatchesRegionParcel } = require('./routePlanner');
 
 const prisma = new PrismaClient();
 
 function countRemainingByType(stops) {
   let remainingContainers = 0;
   let remainingWastePoints = 0;
+  let remainingWasteRequests = 0;
 
   for (const stop of stops) {
-    if (stop.type === 'CONTAINER_SMALL' || stop.type === 'CONTAINER_LARGE') {
+    if (stop.stopType === 'waste_request') {
+      remainingWasteRequests += 1;
+    } else if (stop.type === 'CONTAINER_SMALL' || stop.type === 'CONTAINER_LARGE') {
       remainingContainers += 1;
     } else if (stop.type === 'WASTE_POINT') {
       remainingWastePoints += 1;
     }
   }
 
-  return { remainingContainers, remainingWastePoints };
+  return { remainingContainers, remainingWastePoints, remainingWasteRequests };
 }
 
 function buildProgressSummary(plan, currentStep) {
   const totalStops = plan.stops?.length || 0;
   const remainingStops = plan.stops?.slice(currentStep) || [];
-  const { remainingContainers, remainingWastePoints } = countRemainingByType(remainingStops);
+  const { remainingContainers, remainingWastePoints, remainingWasteRequests } =
+    countRemainingByType(remainingStops);
 
   return {
     currentStep,
@@ -31,8 +35,24 @@ function buildProgressSummary(plan, currentStep) {
     remainingStops: remainingStops.length,
     remainingContainers,
     remainingWastePoints,
+    remainingWasteRequests,
     noCollectionNeeded: Boolean(plan.summary?.noCollectionNeeded),
   };
+}
+
+async function countPendingWasteRequestsForParcel(regionParcelId) {
+  if (!regionParcelId) return 0;
+  const open = await prisma.wasteRequest.findMany({
+    where: { status: { in: ['PENDING', 'ON_ROUTE'] } },
+    select: {
+      id: true,
+      latitude: true,
+      longitude: true,
+      parcelKey: true,
+      status: true,
+    },
+  });
+  return open.filter((r) => requestMatchesRegionParcel(r, regionParcelId)).length;
 }
 
 function getLegEndpoints(plan, stepIndex) {
@@ -111,8 +131,14 @@ async function listAllEmployeesWithStatus() {
       progress = {
         needsRegionSelection: false,
         regionName: plan.regionName,
+        routeKind: plan.routeKind || null,
         ...buildProgressSummary(plan, currentStep),
       };
+      if (employee.employeeType === 'WASTE_COLLECTOR' && employee.region?.region_id) {
+        progress.pendingWasteRequests = await countPendingWasteRequestsForParcel(
+          employee.region.region_id
+        );
+      }
     }
 
     rows.push({
@@ -179,6 +205,12 @@ async function getEmployeeStatusDetail(userId) {
   const plan = await buildPlanForEmployee(employee.id, location);
   const progress = buildProgressSummary(plan, currentStep);
 
+  if (employee.employeeType === 'WASTE_COLLECTOR' && employee.region?.region_id) {
+    progress.pendingWasteRequests = await countPendingWasteRequestsForParcel(
+      employee.region.region_id
+    );
+  }
+
   let nextLeg = null;
   let currentStop = null;
   const endpoints = getLegEndpoints(plan, currentStep);
@@ -219,6 +251,7 @@ async function getEmployeeStatusDetail(userId) {
     plan: {
       regionName: plan.regionName,
       regionParcelId: plan.regionParcelId,
+      routeKind: plan.routeKind || null,
       start: plan.start,
       stops: plan.stops,
       summary: plan.summary,

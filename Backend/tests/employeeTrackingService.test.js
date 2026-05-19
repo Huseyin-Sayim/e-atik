@@ -32,5 +32,16 @@ describe('employeeTrackingService helpers', () => {
     ]);
     assert.equal(counts.remainingContainers, 1);
     assert.equal(counts.remainingWastePoints, 1);
+    assert.equal(counts.remainingWasteRequests, 0);
+  });
+
+  it('countRemainingByType includes waste_request stops', () => {
+    const counts = countRemainingByType([
+      { stopType: 'waste_request' },
+      { stopType: 'waste_request' },
+      { type: 'CONTAINER_SMALL' },
+    ]);
+    assert.equal(counts.remainingWasteRequests, 2);
+    assert.equal(counts.remainingContainers, 1);
   });
 });

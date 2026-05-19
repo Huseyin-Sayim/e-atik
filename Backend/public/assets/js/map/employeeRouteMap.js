@@ -13,6 +13,16 @@
   let renewalBannerVisible = false;
 
   const PROGRESS_KEY = 'employeeRouteProgress';
+  const WASTE_STOP_COLOR = '#6f42c1';
+
+  function isWasteRoute() {
+    return plan?.routeKind === 'waste_requests';
+  }
+
+  function stopMarkerColor(stop) {
+    if (stop?.stopType === 'waste_request') return WASTE_STOP_COLOR;
+    return fullnessToColor(stop?.fullnessPercent);
+  }
 
   function fullnessToColor(fullnessPercent) {
     const t = Math.max(0, Math.min(100, fullnessPercent ?? 0)) / 100;
@@ -26,7 +36,11 @@
     const opts = options || {};
     const opacity = opts.dimmed ? 0.45 : 1;
     const size = opts.active ? 30 : 26;
-    const bg = opts.completed ? '#6c757d' : fullnessToColor(fullnessPercent);
+    const bg = opts.completed
+      ? '#6c757d'
+      : opts.wasteRequest
+        ? WASTE_STOP_COLOR
+        : fullnessToColor(fullnessPercent);
     const content = opts.completed ? '✓' : String(order);
     const anchor = size / 2;
 
@@ -271,7 +285,15 @@
     );
     set('route-stop-count', String(s.stopCount ?? 0));
     set('route-total-km', (s.totalDistanceKm ?? 0) + ' km (tahmini)');
-    set('route-avg-fullness', (s.avgFullnessPercent ?? 0) + '%');
+    const avgEl = document.getElementById('route-avg-fullness');
+    const avgLabel = document.getElementById('route-avg-label');
+    if (isWasteRoute()) {
+      if (avgEl) avgEl.textContent = String(s.wasteRequestCount ?? s.stopCount ?? 0) + ' talep';
+      if (avgLabel) avgLabel.textContent = 'Ev talebi';
+    } else {
+      if (avgEl) avgEl.textContent = (s.avgFullnessPercent ?? 0) + '%';
+      if (avgLabel) avgLabel.textContent = 'Ort. doluluk';
+    }
 
     const driveWrap = document.getElementById('route-drive-time-wrap');
     if (driveWrap) driveWrap.classList.add('d-none');
@@ -315,16 +337,30 @@
       li.className = 'route-stop-item route-stop-item--' + state;
       li.dataset.stepIndex = String(index);
 
-      const badgeColor =
-        state === 'completed' ? '#6c757d' : fullnessToColor(stop.fullnessPercent);
+      const badgeColor = state === 'completed' ? '#6c757d' : stopMarkerColor(stop);
 
       let actions = '';
       if (state === 'active') {
-        actions =
-          '<button type="button" class="btn btn-success btn-sm mt-2 route-collect-btn" data-bin-id="' +
-          stop.binId +
-          '">Toplandı — sonraki durağa</button>';
+        if (stop.stopType === 'waste_request') {
+          actions =
+            '<button type="button" class="btn btn-success btn-sm mt-2 route-collect-btn" data-request-id="' +
+            stop.requestId +
+            '">Toplandı — sonraki durağa</button>';
+        } else {
+          actions =
+            '<button type="button" class="btn btn-success btn-sm mt-2 route-collect-btn" data-bin-id="' +
+            stop.binId +
+            '">Toplandı — sonraki durağa</button>';
+        }
       }
+
+      const detailLine =
+        stop.stopType === 'waste_request'
+          ? (stop.addressLine || 'Adres yok') +
+            (stop.city || stop.district
+              ? ' · ' + [stop.district, stop.city].filter(Boolean).join(', ')
+              : '')
+          : '%' + stop.fullnessPercent + ' dolu';
 
       li.innerHTML =
         '<div class="route-stop-item__row">' +
@@ -337,9 +373,8 @@
         '<strong>' +
         stop.label +
         '</strong>' +
-        '<span class="text-secondary small d-block">%' +
-        stop.fullnessPercent +
-        ' dolu' +
+        '<span class="text-secondary small d-block">' +
+        detailLine +
         (state !== 'active' ? ' · ' + stop.distanceFromPrevKm + ' km' : '') +
         '</span>' +
         actions +
@@ -390,7 +425,9 @@
         clearMapLayers();
         setBanner(
           '<strong>Bütün rota tamamlandı.</strong> Yeni rota oluşturuldu; sağdaki doluluk oranlarını kontrol ediniz. ' +
-            'Şu an toplama gerektiren kova bulunmuyor.',
+            isWasteRoute()
+              ? 'Şu an toplama gerektiren ev talebi bulunmuyor.'
+              : 'Şu an toplama gerektiren kova bulunmuyor.',
           'success'
         );
         return;
@@ -414,16 +451,27 @@
 
     renewalBannerVisible = false;
 
-    const binId = btn.dataset.binId;
     const stop = plan.stops[currentStep];
-    if (!stop || stop.binId !== binId) return;
+    if (!stop) return;
+
+    const binId = btn.dataset.binId;
+    const requestId = btn.dataset.requestId;
+    if (stop.stopType === 'waste_request') {
+      if (!requestId || stop.requestId !== requestId) return;
+    } else if (!binId || stop.binId !== binId) {
+      return;
+    }
 
     btn.disabled = true;
     const prevText = btn.textContent;
     btn.textContent = 'Kaydediliyor…';
 
     try {
-      const res = await fetch('/api/bins/' + encodeURIComponent(binId) + '/collect', {
+      const url =
+        stop.stopType === 'waste_request'
+          ? '/api/waste-requests/' + encodeURIComponent(requestId) + '/collect'
+          : '/api/bins/' + encodeURIComponent(binId) + '/collect';
+      const res = await fetch(url, {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
@@ -494,7 +542,10 @@
     } else {
       const prevStop = plan.stops[currentStep - 1];
       L.marker([from.lat, from.lng], {
-        icon: orderIcon(prevStop.order, prevStop.fullnessPercent, { completed: true }),
+        icon: orderIcon(prevStop.order, prevStop.fullnessPercent, {
+          completed: true,
+          wasteRequest: prevStop.stopType === 'waste_request',
+        }),
       })
         .bindPopup('<strong>Önceki durak</strong><br>' + from.label)
         .addTo(markersLayer);
@@ -503,16 +554,24 @@
     L.marker([to.lat, to.lng], {
       icon: orderIcon(endpoints.to.stop.order, endpoints.to.stop.fullnessPercent, {
         active: true,
+        wasteRequest: endpoints.to.stop.stopType === 'waste_request',
       }),
     })
       .bindPopup(
-        '<strong>Hedef: ' +
-          endpoints.to.stop.order +
-          '. ' +
-          endpoints.to.stop.label +
-          '</strong><br>%' +
-          endpoints.to.stop.fullnessPercent +
-          ' dolu'
+        endpoints.to.stop.stopType === 'waste_request'
+          ? '<strong>Hedef: ' +
+              endpoints.to.stop.order +
+              '. ' +
+              endpoints.to.stop.label +
+              '</strong><br>' +
+              (endpoints.to.stop.addressLine || '')
+          : '<strong>Hedef: ' +
+              endpoints.to.stop.order +
+              '. ' +
+              endpoints.to.stop.label +
+              '</strong><br>%' +
+              endpoints.to.stop.fullnessPercent +
+              ' dolu'
       )
       .addTo(markersLayer);
   }
@@ -624,7 +683,9 @@
     if (!plan.stops?.length || plan.summary?.noCollectionNeeded) {
       clearMapLayers();
       setBanner(
-        'Bölgede şu an toplama gerektiren kova yok. Doluluk oranları arttıkça yeni rota oluşturulacaktır.',
+        isWasteRoute()
+          ? 'Bölgenizde bekleyen evden atık talebi yok. Yeni talepler oluştukça rotanıza eklenecektir.'
+          : 'Bölgede şu an toplama gerektiren kova yok. Doluluk oranları arttıkça yeni rota oluşturulacaktır.',
         'info'
       );
     } else {

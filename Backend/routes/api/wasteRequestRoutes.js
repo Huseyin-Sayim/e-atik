@@ -8,13 +8,18 @@ const {
   getMyWasteRequests,
   getAllWasteRequests,
   updateWasteRequest,
+  collectWasteRequest,
 } = require('../../controllers/api/wasteRequestController');
 
 const router = express.Router();
 
+const supervisorRoles = [isAuth, hasRole('ADMIN', 'BOSS')];
+const collectorRoles = [isAuth, hasRole('EMPLOYEE', 'ADMIN', 'BOSS')];
+
 router.post('/', isAuth, hasRole('USER'), validate(validateSchema.wasteRequestCreate), createWasteRequest);
 router.get('/mine', isAuth, hasRole('USER'), getMyWasteRequests);
-router.get('/', isAuth, hasRole('ADMIN'), getAllWasteRequests);
-router.patch('/:id', isAuth, hasRole('ADMIN'), validate(validateSchema.wasteRequestUpdate), updateWasteRequest);
+router.get('/', ...supervisorRoles, getAllWasteRequests);
+router.post('/:id/collect', ...collectorRoles, validate(validateSchema.wasteRequestCollect), collectWasteRequest);
+router.patch('/:id', ...supervisorRoles, validate(validateSchema.wasteRequestUpdate), updateWasteRequest);
 
 module.exports = router;

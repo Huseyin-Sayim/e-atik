@@ -95,6 +95,12 @@ router.get('/user/my-recycling', isAuth, loadCurrentUser, requirePageRole('USER'
   });
 });
 
+router.get('/user/waste-request', isAuth, loadCurrentUser, requirePageRole('USER'), (req, res) => {
+  res.render('pages/user/wasteRequest', {
+    user: res.locals.user,
+  });
+});
+
 // REGİON
 
 router.get('/region/create', isAuth, loadCurrentUser, binManagerRoles, (req, res) => {
@@ -113,6 +119,12 @@ const supervisorRoles = requirePageRole('ADMIN', 'BOSS');
 
 router.get('/admin/employee-status', isAuth, loadCurrentUser, supervisorRoles, (req, res) => {
   res.render('pages/admin/employeeStatus', {
+    user: res.locals.user,
+  });
+});
+
+router.get('/admin/waste-requests', isAuth, loadCurrentUser, supervisorRoles, (req, res) => {
+  res.render('pages/admin/wasteRequests', {
     user: res.locals.user,
   });
 });
