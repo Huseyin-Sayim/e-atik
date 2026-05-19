@@ -18,6 +18,7 @@ import { MapView, Marker, PROVIDER_DEFAULT, Geojson } from '../../components/Map
 import * as Location from 'expo-location';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import DatabaseService from '../../database/DatabaseService';
+import { useRouter } from 'expo-router';
 
 // GeoJSON verisini import ediyoruz
 import campusParcels from '../../assets/kampusParsel.json';
@@ -67,6 +68,14 @@ interface TrashBin {
   fillPercentage: number;
   lastUpdated: string;
   type: 'plastik' | 'kagit' | 'cam' | 'genel';
+  capacity?: number;
+  countdown?: number;
+  isRequest?: boolean;
+  dbId?: string;
+  note?: string;
+  userFullName?: string;
+  wasteType?: string;
+  status?: string;
 }
 
 function getFillLevel(percentage: number): FillLevel {
@@ -82,51 +91,31 @@ function getPinColor(percentage: number): string {
   return '#e74c3c';
 }
 
-// Özel Slider Bileşeni
-const CustomPercentageSlider = ({ value, onChange }: { value: number, onChange: (val: number) => void }) => {
-  const [sliderWidth, setSliderWidth] = useState(0);
 
-  const handleTouch = (event: any) => {
-    const x = event.nativeEvent.locationX;
-    let newValue = Math.round((x / sliderWidth) * 100);
-    newValue = Math.max(0, Math.min(100, newValue));
-    onChange(newValue);
-  };
-
-  return (
-    <View style={styles.sliderContainer}>
-      <View
-        style={styles.sliderTrack}
-        onLayout={(e) => setSliderWidth(e.nativeEvent.layout.width)}
-        onStartShouldSetResponder={() => true}
-        onResponderGrant={handleTouch}
-        onResponderMove={handleTouch}
-      >
-        <View style={[styles.sliderFill, { width: `${value}%` }]} />
-        <View style={[styles.sliderHandle, { left: `${value}%` }]} />
-      </View>
-      <Text style={styles.sliderValueText}>%{value}</Text>
-    </View>
-  );
-};
 
 export default function KurumsalMapScreen() {
   const mapRef = useRef<MapView>(null);
   const cardAnim = useRef(new Animated.Value(0)).current;
   const currentRegionRef = useRef<{ latitude: number, longitude: number }>(CAMPUS_CENTER);
   const leafletMapRef = useRef<any>(null); // Gerçek Leaflet map instance'ı (web only)
+  const router = useRouter();
 
   const [bins, setBins] = useState<TrashBin[]>([]);
-  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>({ latitude: 38.4595, longitude: 27.2287 });
   const [selectedBin, setSelectedBin] = useState<TrashBin | null>(null);
   const [filterLevel, setFilterLevel] = useState<FillLevel | 'all'>('all');
   const [loading, setLoading] = useState(true);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isListModalVisible, setIsListModalVisible] = useState(false);
+  const [isRequestListModalVisible, setIsRequestListModalVisible] = useState(false);
   const [editBin, setEditBin] = useState<Partial<TrashBin> | null>(null);
   const [pickingMode, setPickingMode] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [coordsDisplay, setCoordsDisplay] = useState({ lat: 0, lng: 0 });
+  const [routeCoordinates, setRouteCoordinates] = useState<any[]>([]);
+  const [isInspectMode, setIsInspectMode] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
+  const [currentTheme, setCurrentTheme] = useState('light');
 
   useEffect(() => {
     const initApp = async () => {
@@ -135,19 +124,271 @@ export default function KurumsalMapScreen() {
     };
 
     initApp();
+
+    const unsubscribeBins = DatabaseService.subscribeToBins(() => {
+      loadBins();
+    });
+
+    const unsubTheme = DatabaseService.subscribeToTheme((theme) => {
+      setCurrentTheme(theme);
+    });
+
+    // WebSocket Bağlantısı (Canlı Harita Güncellemeleri İçin)
+    const wsUrl = DatabaseService.getWsUrl();
+    const ws = new WebSocket(wsUrl);
+    ws.onopen = () => console.log('✅ WebSocket Bağlantısı Kuruldu (Canlı Harita)');
+    ws.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        if (payload.type === 'wasteRequestCreated' || payload.type === 'wasteRequestStatusChanged') {
+          console.log('🔄 Yeni evsel atık harita bildirimi algılandı, veriler yenileniyor...');
+          loadBins();
+        }
+      } catch (err) {
+        // Yoksay
+      }
+    };
+    ws.onerror = (e) => console.warn('WebSocket Hatası (Canlı Harita):', e);
+    wsRef.current = ws;
+
+    return () => {
+      unsubscribeBins();
+      unsubTheme();
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+    };
+  }, []);
+
+  // ==========================================
+  // CANLI SİMÜLASYON YARDIMCI METODLARI
+  // ==========================================
+  const formatCountdown = (seconds: number | undefined) => {
+    const total = seconds !== undefined ? seconds : 90;
+    if (total <= 0) return '00:00';
+    const mins = Math.floor(total / 60);
+    const secs = total % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  const formatTotalTimeRemaining = (bin: TrashBin) => {
+    if (bin.fillPercentage >= 100) return 'Tamamen Dolu';
+    
+    const stepsRemaining = 100 - bin.fillPercentage - 1;
+    const secondsPerStep = bin.capacity === 50 ? 90 : 180;
+    const currentStepSeconds = bin.countdown !== undefined ? bin.countdown : secondsPerStep;
+    
+    const totalSeconds = (stepsRemaining * secondsPerStep) + currentStepSeconds;
+    
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}sa ${minutes}dk ${seconds}sn`;
+    }
+    return `${minutes}dk ${seconds}sn`;
+  };
+
+  const getBinCapacityLabel = (bin: TrashBin) => {
+    const cap = bin.capacity || 100;
+    const sizeStr = cap === 50 ? 'Küçük Boy' : 'Büyük Boy';
+    let typeStr = 'Genel Atık';
+    if (bin.type === 'plastik') typeStr = 'Plastik';
+    if (bin.type === 'kagit') typeStr = 'Kağıt';
+    if (bin.type === 'cam') typeStr = 'Cam';
+    return `${sizeStr} ${typeStr} Kutusu (${cap}L)`;
+  };
+
+  const handleEmptyBin = async (binId: string) => {
+    try {
+      // 1. Yerel state'i güncelle (Sıfırla ve sayacı hacmine göre yenile)
+      setBins(prevBins => prevBins.map(bin => {
+        if (bin.id === binId) {
+          const resetCountdown = bin.capacity === 50 ? 90 : 180;
+          const updated = { ...bin, fillPercentage: 0, countdown: resetCountdown };
+          setSelectedBin(updated);
+          return updated;
+        }
+        return bin;
+      }));
+
+      // 2. Database update (arkada sessizce eşitle)
+      const targetBin = bins.find(b => b.id === binId);
+      if (targetBin) {
+        const payload = {
+          name: targetBin.name,
+          latitude: targetBin.latitude,
+          longitude: targetBin.longitude,
+          predictedFullness: 0,
+          wasteCategory: targetBin.type === 'plastik' ? 'PLASTIC' : targetBin.type === 'cam' ? 'GLASS' : targetBin.type === 'kagit' ? 'PAPER' : 'GENERAL'
+        };
+        await DatabaseService.updateBinItem(binId, payload);
+      }
+
+      // 3. 28px kavisli başarı uyarısı
+      Alert.alert(
+        'İşlem Başarılı',
+        'Akıllı atık kutusu başarıyla boşaltıldı! Canlı dolum simülasyonu sıfırdan yeniden başladı.',
+        [{ text: 'Harika', style: 'default' }]
+      );
+    } catch (err) {
+      console.error('Boşaltma hatası:', err);
+      Alert.alert('Hata', 'Kutu boşaltılırken veri tabanında bir sorun oluştu.');
+    }
+  };
+
+  // ==========================================
+  // CANLI GERİ SAYIM VE DOLUM SİMÜLASYONU
+  // ==========================================
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setBins(prevBins => {
+        if (prevBins.length === 0) return prevBins;
+        
+        let updatedSelectedBin: TrashBin | null = null;
+        
+        const nextBins = prevBins.map(bin => {
+          if (bin.fillPercentage >= 100) {
+            const updatedBin = { ...bin, countdown: 0 };
+            if (selectedBin && selectedBin.id === bin.id) {
+              updatedSelectedBin = updatedBin;
+            }
+            return updatedBin;
+          }
+
+          const nextCountdown = (bin.countdown !== undefined ? bin.countdown : (bin.capacity === 50 ? 90 : 180)) - 1;
+          
+          if (nextCountdown <= 0) {
+            const nextFill = Math.min(100, bin.fillPercentage + 1);
+            const resetCountdown = bin.capacity === 50 ? 90 : 180;
+            const updatedBin = {
+              ...bin,
+              fillPercentage: nextFill,
+              countdown: nextFill >= 100 ? 0 : resetCountdown
+            };
+            if (selectedBin && selectedBin.id === bin.id) {
+              updatedSelectedBin = updatedBin;
+            }
+            return updatedBin;
+          } else {
+            const updatedBin = { ...bin, countdown: nextCountdown };
+            if (selectedBin && selectedBin.id === bin.id) {
+              updatedSelectedBin = updatedBin;
+            }
+            return updatedBin;
+          }
+        });
+
+        // Sync selected bin live so card updates instantly!
+        if (updatedSelectedBin) {
+          setSelectedBin(updatedSelectedBin);
+        } else if (selectedBin) {
+          const matching = nextBins.find(b => b.id === selectedBin.id);
+          if (matching) setSelectedBin(matching);
+        }
+
+        return nextBins;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [selectedBin]);
+
+  // ==========================================
+  // WEBSOCKET VE CANLI KONUM TAKİBİ
+  // ==========================================
+  useEffect(() => {
+    // Backend portu 2001, WebSocket server aynı portta çalışıyor.
+    const wsUrl = DatabaseService.getWsUrl();
+    const ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      console.log('✅ WebSocket Bağlantısı Kuruldu (Mobil İstemci)');
+    };
+
+    ws.onmessage = (e) => {
+      try {
+        const payload = JSON.parse(e.data);
+        // İstersek diğer personellerin konumlarını da burada işleyebiliriz.
+        // Şimdilik sadece kendi konumumuzu yayınlıyoruz.
+      } catch (err) { }
+    };
+
+    ws.onerror = (e) => {
+      console.warn('WebSocket Hatası:', e);
+    };
+
+    wsRef.current = ws;
+
+    return () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+    };
   }, []);
 
   const setupLocation = async () => {
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const initial = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-        setUserLocation({ latitude: initial.coords.latitude, longitude: initial.coords.longitude });
-      }
+      // Ege Üniversitesi Metro İstasyonu Konumu (Sabit)
+      const staticLoc = { latitude: 38.4595, longitude: 27.2287 };
+      setUserLocation(staticLoc);
+      
+      // Canlı konum yayını (Statik noktadan)
+      const sendUpdate = () => {
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({
+            type: 'locationUpdate',
+            staffId: 'kurumsal_personel_1',
+            latitude: staticLoc.latitude,
+            longitude: staticLoc.longitude
+          }));
+        }
+      };
+      
+      sendUpdate();
+      // Harita ekranındayken de her 4 saniyede bir gönder
+      setInterval(sendUpdate, 4000);
     } catch (e) {
-      console.warn('Konum alınamadı');
+      console.warn('Konum sabitleme hatası');
     }
   };
+
+  const fetchRoute = async (destinationBin: TrashBin | null) => {
+    if (!userLocation || !destinationBin) {
+      setRouteCoordinates([]);
+      return;
+    }
+    try {
+      // OSRM Public API (Yaya Rotası)
+      const url = `https://router.project-osrm.org/route/v1/foot/${userLocation.longitude},${userLocation.latitude};${destinationBin.longitude},${destinationBin.latitude}?overview=full&geometries=geojson`;
+      const response = await fetch(url);
+      const json = await response.json();
+      
+      if (json.routes && json.routes.length > 0) {
+        // GeoJSON koordinatları [lng, lat] formatındadır, MapView için {latitude, longitude} objesine çeviriyoruz
+        const coords = json.routes[0].geometry.coordinates.map((c: any[]) => ({
+          latitude: c[1],
+          longitude: c[0]
+        }));
+        setRouteCoordinates(coords);
+      } else {
+        // Rota bulunamazsa (veya offline) düz çizgi çek (Fallback)
+        setRouteCoordinates([userLocation, { latitude: destinationBin.latitude, longitude: destinationBin.longitude }]);
+      }
+    } catch (e) {
+      console.warn("OSRM Route Error:", e);
+      setRouteCoordinates([userLocation, { latitude: destinationBin.latitude, longitude: destinationBin.longitude }]);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedBin) {
+      fetchRoute(selectedBin);
+    } else {
+      setRouteCoordinates([]);
+    }
+  }, [selectedBin]);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -159,21 +400,60 @@ export default function KurumsalMapScreen() {
       setLoading(true);
       let fetchedBins = await DatabaseService.getBins();
 
-      console.log('--- MEVCUT KUTULARIN DÖKÜMÜ ---');
-      console.table(fetchedBins.map(b => ({ isim: b.name, enlem: b.latitude, boylam: b.longitude })));
-      console.log('✅ Toplam', fetchedBins.length, 'Atık Kutusu yüklendi.');
+      // Evsel atık bildirimlerini de çekelim
+      let fetchedRequests: any[] = [];
+      try {
+        fetchedRequests = await DatabaseService.getWasteRequests();
+      } catch (reqErr) {
+        console.warn('Harita: Evsel atıklar çekilirken hata oluştu:', reqErr);
+      }
 
-      const mappedBins = fetchedBins.map(b => ({
-        id: b.id.toString(),
-        name: b.name || 'İsimsiz Kutu',
-        latitude: parseFloat(b.latitude),
-        longitude: parseFloat(b.longitude),
-        fillPercentage: b.predictedFullness || 0,
-        type: b.wasteCategory === 'PLASTIC' ? 'plastik' : b.wasteCategory === 'GLASS' ? 'cam' : b.wasteCategory === 'PAPER' ? 'kagit' : 'genel',
-        lastUpdated: 'Şimdi' // Şimdilik basit tutuldu
-      }));
+      const mappedBins = fetchedBins.map(b => {
+        const type = b.wasteCategory === 'PLASTIC' ? 'plastik' : b.wasteCategory === 'GLASS' ? 'cam' : b.wasteCategory === 'PAPER' ? 'kagit' : 'genel';
+        const capacity = b.capacityVolume || 100;
+        const defaultCountdown = capacity === 50 ? 90 : 180;
+        return {
+          id: b.id.toString(),
+          name: b.name || 'İsimsiz Kutu',
+          latitude: parseFloat(b.latitude),
+          longitude: parseFloat(b.longitude),
+          fillPercentage: b.predictedFullness || 0,
+          type,
+          capacity,
+          countdown: defaultCountdown,
+          lastUpdated: 'Şimdi'
+        };
+      });
 
-      setBins(mappedBins);
+      const activeRequests = fetchedRequests.filter(
+        (req: any) => req.status === 'PENDING' || req.status === 'ON_ROUTE'
+      );
+      const mappedRequests = activeRequests.map((req: any) => {
+        let catName = 'Evsel Atık';
+        if (req.wasteType === 'DOMESTIC') catName = 'Organik Atık';
+        else if (req.wasteType === 'ELECTRONIC') catName = 'Elektronik Atık';
+        else if (req.wasteType === 'PLASTIC') catName = 'Ambalaj Atığı';
+
+        return {
+          id: 'req_' + req.id,
+          dbId: req.id,
+          name: `${catName} (${req.user ? req.user.name : 'Vatandaş'})`,
+          latitude: parseFloat(req.latitude),
+          longitude: parseFloat(req.longitude),
+          fillPercentage: 100, // En yüksek öncelik
+          type: 'genel',
+          capacity: 100,
+          countdown: 0,
+          lastUpdated: 'Şimdi',
+          isRequest: true,
+          note: req.note,
+          userFullName: req.user ? `${req.user.name} ${req.user.surname || ''}` : 'Kullanıcı',
+          wasteType: req.wasteType,
+          status: req.status
+        };
+      });
+
+      setBins([...mappedRequests, ...mappedBins]);
     } catch (e) {
       console.error('❌ Yükleme hatası:', e);
     } finally {
@@ -210,7 +490,8 @@ export default function KurumsalMapScreen() {
         latitude: lat,
         longitude: lng,
         predictedFullness: editBin.fillPercentage || 0,
-        wasteCategory: editBin.type === 'plastik' ? 'PLASTIC' : editBin.type === 'cam' ? 'GLASS' : editBin.type === 'kagit' ? 'PAPER' : 'GENERAL'
+        wasteCategory: editBin.type === 'plastik' ? 'PLASTIC' : editBin.type === 'cam' ? 'GLASS' : editBin.type === 'kagit' ? 'PAPER' : 'GENERAL',
+        capacityVolume: editBin.capacity || 100
       };
 
       if (editBin.id) {
@@ -283,11 +564,16 @@ export default function KurumsalMapScreen() {
 
   useEffect(() => {
     if (selectedBin) {
-      Animated.spring(cardAnim, { toValue: 1, useNativeDriver: true, tension: 80, friction: 8 }).start();
+      if (!isInspectMode) {
+        Animated.spring(cardAnim, { toValue: 1, useNativeDriver: true, tension: 80, friction: 8 }).start();
+      } else {
+        Animated.timing(cardAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start();
+      }
     } else {
+      setIsInspectMode(false);
       Animated.timing(cardAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start();
     }
-  }, [selectedBin]);
+  }, [selectedBin, isInspectMode]);
 
   const goToMyLocation = useCallback(async () => {
     if (userLocation) {
@@ -310,6 +596,8 @@ export default function KurumsalMapScreen() {
   }, [bins]);
 
   const filteredBins = bins.filter((bin) => filterLevel === 'all' || getFillLevel(bin.fillPercentage) === filterLevel);
+  const regularBins = filteredBins.filter(b => !b.isRequest);
+  const requestBins = filteredBins.filter(b => b.isRequest);
 
   if (loading) {
     return <View style={styles.loader}><ActivityIndicator size="large" color="#2e7d32" /></View>;
@@ -332,24 +620,61 @@ export default function KurumsalMapScreen() {
         campusParcels={campusParcels}
         bins={filteredBins}
         onMarkerPress={setSelectedBin}
+        staffLocation={userLocation}
+        routeCoordinates={routeCoordinates}
+        routeColor={selectedBin?.isRequest ? 'blue' : 'red'}
       />
 
-      <View style={styles.headerBar}>
+      {/* Rotayı İncele Modu Floating Butonu */}
+      {selectedBin && isInspectMode && (
+        <Animated.View style={{
+          position: 'absolute', bottom: 30, right: 20, zIndex: 100,
+          opacity: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+          transform: [{ scale: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.5] }) }]
+        }}>
+          <TouchableOpacity
+            style={[
+              styles.floatingInspectBtn, 
+              { position: 'relative', bottom: 0, right: 0, backgroundColor: selectedBin.isRequest ? '#2563eb' : getPinColor(selectedBin.fillPercentage) }
+            ]}
+            onPress={() => setIsInspectMode(false)}
+          >
+            <Ionicons name={selectedBin.isRequest ? "home-outline" : "trash-outline"} size={26} color="#fff" />
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+      <View style={[styles.headerBar, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderColor: '#334155' }]}>
         <View style={styles.headerContent}>
-          <View>
-            <Text style={styles.headerTitle}>🗺️ Kampüs Haritası</Text>
-            <Text style={styles.headerSubtitle}>{filteredBins.length} Aktif Kutu</Text>
+          <View style={{ flexShrink: 1, marginRight: 6 }}>
+            <Text style={[styles.headerTitle, currentTheme === 'dark' && { color: '#fff' }]}>🗺️ Kampüs Haritası</Text>
+            <Text style={[styles.headerSubtitle, currentTheme === 'dark' && { color: '#94a3b8' }]}>{regularBins.length} Kutu • {requestBins.length} Talep</Text>
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity
-              style={styles.binCountBadge}
+              style={[styles.manageBtn, { backgroundColor: '#8b5cf6', marginRight: 2, paddingHorizontal: 10, justifyContent: 'center' }]}
+              onPress={() => router.push('/kurumsal/region-select')}
+            >
+              <Ionicons name="map" size={20} color="#fff" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.binCountBadge, currentTheme === 'dark' && { backgroundColor: '#334155', borderColor: '#475569' }]}
               onPress={() => setIsListModalVisible(true)}
             >
-              <Text style={styles.binCountText}>{filteredBins.length}</Text>
-              <Text style={styles.binCountLabel}>Kutu</Text>
+              <Text style={[styles.binCountText, currentTheme === 'dark' && { color: '#fff' }]}>{regularBins.length}</Text>
+              <Text style={[styles.binCountLabel, currentTheme === 'dark' && { color: '#94a3b8' }]}>Kutu</Text>
             </TouchableOpacity>
+
             <TouchableOpacity
-              style={[styles.manageBtn, pickingMode && { backgroundColor: '#e74c3c' }]}
+              style={[styles.binCountBadge, { backgroundColor: '#eff6ff', borderColor: '#bfdbfe' }, currentTheme === 'dark' && { backgroundColor: '#1e3a8a', borderColor: '#1e40af' }]}
+              onPress={() => setIsRequestListModalVisible(true)}
+            >
+              <Text style={[styles.binCountText, { color: '#2563eb' }, currentTheme === 'dark' && { color: '#60a5fa' }]}>{requestBins.length}</Text>
+              <Text style={[styles.binCountLabel, { color: '#2563eb' }, currentTheme === 'dark' && { color: '#94a3b8' }]}>Talep</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.manageBtn, pickingMode && { backgroundColor: '#e74c3c' }, { paddingHorizontal: 10, justifyContent: 'center' }]}
               onPress={() => {
                 if (Platform.OS === 'web') {
                   const leafletMap = leafletMapRef.current;
@@ -370,8 +695,7 @@ export default function KurumsalMapScreen() {
                 }
               }}
             >
-              <Ionicons name="add-circle" size={22} color="#fff" />
-              <Text style={styles.manageBtnText}>{pickingMode ? '📍 Haritaya Tıkla' : 'Atık Kutusu Ekle'}</Text>
+              <Ionicons name={pickingMode ? "pin" : "add-circle"} size={22} color="#fff" />
             </TouchableOpacity>
           </View>
         </View>
@@ -379,8 +703,8 @@ export default function KurumsalMapScreen() {
 
       <View style={styles.filterRow}>
         {(['all', 'low', 'medium', 'high'] as const).map((level) => (
-          <TouchableOpacity key={level} style={[styles.filterBtn, filterLevel === level && styles.filterBtnActive]} onPress={() => setFilterLevel(level)}>
-            <Text style={[styles.filterBtnText, filterLevel === level && styles.filterBtnTextActive]}>
+          <TouchableOpacity key={level} style={[styles.filterBtn, filterLevel === level && styles.filterBtnActive, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderColor: '#334155' }, filterLevel === level && currentTheme === 'dark' && { backgroundColor: '#334155', borderColor: '#475569' }]} onPress={() => setFilterLevel(level)}>
+            <Text style={[styles.filterBtnText, filterLevel === level && styles.filterBtnTextActive, currentTheme === 'dark' && { color: '#94a3b8' }, filterLevel === level && currentTheme === 'dark' && { color: '#fff' }]}>
               {level === 'all' ? 'Tümü' : level === 'low' ? '🟢 Boş' : level === 'medium' ? '🟡 Orta' : '🔴 Dolu'}
             </Text>
           </TouchableOpacity>
@@ -388,21 +712,16 @@ export default function KurumsalMapScreen() {
       </View>
 
       <View style={styles.actionButtons}>
-        <TouchableOpacity style={styles.actionBtn} onPress={goToFullestBin}>
+        <TouchableOpacity style={[styles.actionBtn, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderColor: '#334155' }]} onPress={goToFullestBin}>
           <MaterialCommunityIcons name="alert-rhombus" size={28} color="#e74c3c" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} onPress={goToMyLocation}>
-          <Ionicons name="locate" size={22} color="#2e7d32" />
+        <TouchableOpacity style={[styles.actionBtn, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderColor: '#334155' }]} onPress={goToMyLocation}>
+          <Ionicons name="locate" size={22} color={currentTheme === 'dark' ? '#34d399' : '#2e7d32'} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} onPress={goToCampus}>
-          <Ionicons name="map-outline" size={22} color="#2e7d32" />
+        <TouchableOpacity style={[styles.actionBtn, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderColor: '#334155' }]} onPress={goToCampus}>
+          <Ionicons name="map-outline" size={22} color={currentTheme === 'dark' ? '#34d399' : '#2e7d32'} />
         </TouchableOpacity>
       </View>
-
-
-
-
-
 
       {toastMsg && (
         <View style={styles.toast}>
@@ -411,48 +730,170 @@ export default function KurumsalMapScreen() {
       )}
 
       {selectedBin && (
-        <Animated.View style={[styles.detailCard, { transform: [{ translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [200, 0] }) }] }]}>
+        <Animated.View style={[styles.detailCard, currentTheme === 'dark' && { backgroundColor: '#1e293b' }, { 
+          opacity: cardAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0.8, 1] }),
+          transform: [
+            { translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [500, 0] }) },
+            { scale: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [0.1, 1] }) },
+            { translateX: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [150, 0] }) }
+          ] 
+        }]}>
           <View style={styles.cardHeader}>
             <View style={{ flex: 1, marginRight: 32 }}>
-              <Text style={styles.cardName}>{selectedBin.name}</Text>
-              <Text style={styles.cardUpdate}>{selectedBin.lastUpdated} güncellendi</Text>
+              <Text style={[styles.cardName, currentTheme === 'dark' && { color: '#fff' }]}>{selectedBin.name}</Text>
+              <Text style={[styles.cardUpdate, currentTheme === 'dark' && { color: '#94a3b8' }]}>
+                {selectedBin.isRequest 
+                  ? `Bildiren Vatandaş: ${selectedBin.userFullName}` 
+                  : getBinCapacityLabel(selectedBin)}
+              </Text>
             </View>
             <TouchableOpacity 
               style={{ position: 'absolute', right: 0, top: 0, padding: 4 }} 
               onPress={() => setSelectedBin(null)}
             >
-              <Ionicons name="close-circle" size={26} color="#ccc" />
+              <Ionicons name="close-circle" size={26} color={currentTheme === 'dark' ? '#64748b' : '#ccc'} />
             </TouchableOpacity>
           </View>
           <View style={styles.cardBody}>
-            <View style={styles.coordDisplayRow}>
-              <View style={styles.coordItem}>
-                <Text style={styles.coordLabel}>ENLEM:</Text>
-                <Text style={styles.coordValue}>{selectedBin.latitude.toFixed(6)}</Text>
+            {selectedBin.isRequest ? (
+              // Evsel Atık Talebi Kart İçeriği
+              <View style={{ marginBottom: 10 }}>
+                <View style={styles.infoSectionMap}>
+                  <Text style={[styles.infoSectionTitleMap, currentTheme === 'dark' && { color: '#64748b' }]}>AÇIK ADRES / NOT</Text>
+                  <Text style={[styles.infoSectionValueMap, currentTheme === 'dark' && { color: '#f8fafc' }]}>{selectedBin.note || 'Belirtilmedi'}</Text>
+                </View>
+
+                <View style={styles.infoSectionMap}>
+                  <Text style={[styles.infoSectionTitleMap, currentTheme === 'dark' && { color: '#64748b' }]}>DURUM</Text>
+                  <View style={[
+                    styles.statusBadgeMap, 
+                    { backgroundColor: selectedBin.status === 'ON_ROUTE' ? '#fffbeb' : '#f0fdf4' },
+                    currentTheme === 'dark' && { backgroundColor: selectedBin.status === 'ON_ROUTE' ? '#451a03' : '#064e3b' }
+                  ]}>
+                    <Text style={[
+                      styles.statusBadgeTextMap, 
+                      { color: selectedBin.status === 'ON_ROUTE' ? '#d97706' : '#16a34a' },
+                      currentTheme === 'dark' && { color: selectedBin.status === 'ON_ROUTE' ? '#fcd34d' : '#86efac' }
+                    ]}>
+                      {selectedBin.status === 'ON_ROUTE' ? 'Yolda (Ekipler Yönlendirildi)' : 'Beklemede'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.modalActionsMap}>
+                  {selectedBin.status !== 'ON_ROUTE' && (
+                    <TouchableOpacity 
+                      style={styles.routeBtnMap}
+                      onPress={async () => {
+                        try {
+                          if (selectedBin.dbId) {
+                            await DatabaseService.updateWasteRequestStatus(selectedBin.dbId, 'ON_ROUTE');
+                            await loadBins();
+                            // Haritadaki konumu güncelle ve seçili olanı yenile
+                            setSelectedBin(prev => prev ? { ...prev, status: 'ON_ROUTE' } : null);
+                            Alert.alert('Rota Çizildi', 'Talep konumuna yaya rotası belirlendi. Haritayı inceleyebilirsiniz.');
+                          }
+                        } catch (err: any) {
+                          Alert.alert('Hata', err.message || 'Durum güncellenirken hata oluştu.');
+                        }
+                      }}
+                    >
+                      <Ionicons name="navigate" size={16} color="#fff" style={{ marginRight: 6 }} />
+                      <Text style={styles.btnTextMap}>Yol Tarifi Al (Rota Çiz)</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {selectedBin.status === 'ON_ROUTE' && (
+                    <TouchableOpacity
+                      style={[styles.cardInspectBtn, { backgroundColor: '#2563eb', flex: 1, height: '100%', borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}
+                      onPress={() => setIsInspectMode(true)}
+                    >
+                      <Ionicons name="map-outline" size={16} color="#fff" style={{ marginRight: 6 }} />
+                      <Text style={styles.cardInspectBtnText}>Rotayı İncele</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <TouchableOpacity 
+                    style={styles.collectBtnMap}
+                    onPress={async () => {
+                      try {
+                        if (selectedBin.dbId) {
+                          await DatabaseService.updateWasteRequestStatus(selectedBin.dbId, 'COLLECTED');
+                          setSelectedBin(null);
+                          await loadBins();
+                          Alert.alert('Tebrikler!', 'Evsel atık başarıyla toplandı. Haritadan ve listeden kaldırıldı.');
+                        }
+                      } catch (err: any) {
+                        Alert.alert('Hata', err.message || 'Toplama işlemi tamamlanırken hata oluştu.');
+                      }
+                    }}
+                  >
+                    <Ionicons name="checkmark-circle" size={16} color="#fff" style={{ marginRight: 6 }} />
+                    <Text style={styles.btnTextMap}>Atığı Topladım (Tamamla)</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-              <View style={styles.coordItem}>
-                <Text style={styles.coordLabel}>BOYLAM:</Text>
-                <Text style={styles.coordValue}>{selectedBin.longitude.toFixed(6)}</Text>
-              </View>
-            </View>
-            <View style={styles.cardActions}>
-              <TouchableOpacity
-                style={styles.cardEditBtn}
-                onPress={() => {
-                  setEditBin(selectedBin);
-                  setIsModalVisible(true);
-                }}
-              >
-                <Ionicons name="create-outline" size={20} color="#2e7d32" />
-                <Text style={styles.cardEditBtnText}>Düzenle</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.cardDeleteBtn}
-                onPress={() => handleDeleteBin(selectedBin.id)}
-              >
-                <Ionicons name="trash-outline" size={20} color="#e74c3c" />
-              </TouchableOpacity>
-            </View>
+            ) : (
+              // Normal Akıllı Kutu İçeriği
+              <>
+                <View style={[styles.countdownBox, currentTheme === 'dark' && { backgroundColor: '#334155', borderColor: '#475569' }]}>
+                  {selectedBin.fillPercentage < 100 ? (
+                    <View style={styles.countdownRow}>
+                      <Ionicons name="time-outline" size={18} color="#2e7d32" style={{ marginRight: 6 }} />
+                      <Text style={[styles.countdownText, currentTheme === 'dark' && { color: '#94a3b8' }]}>
+                        %100 Doluluğa Kalan Süre: <Text style={[styles.countdownValue, currentTheme === 'dark' && { color: '#fff' }]}>{formatTotalTimeRemaining(selectedBin)}</Text>
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={styles.countdownRow}>
+                      <Ionicons name="alert-circle" size={18} color="#e74c3c" style={{ marginRight: 6 }} />
+                      <Text style={[styles.countdownText, { color: '#e74c3c', fontWeight: 'bold' }, currentTheme === 'dark' && { color: '#f87171' }]}>
+                        Kutu tamamen dolmuştur! Lütfen boşaltınız.
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                <View style={[styles.coordDisplayRow, currentTheme === 'dark' && { backgroundColor: '#334155' }]}>
+                  <View style={styles.coordItem}>
+                    <Text style={[styles.coordLabel, currentTheme === 'dark' && { color: '#64748b' }]}>ENLEM:</Text>
+                    <Text style={[styles.coordValue, currentTheme === 'dark' && { color: '#fff' }]}>{selectedBin.latitude.toFixed(6)}</Text>
+                  </View>
+                  <View style={styles.coordItem}>
+                    <Text style={[styles.coordLabel, currentTheme === 'dark' && { color: '#64748b' }]}>BOYLAM:</Text>
+                    <Text style={[styles.coordValue, currentTheme === 'dark' && { color: '#fff' }]}>{selectedBin.longitude.toFixed(6)}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.cardActions}>
+                  <TouchableOpacity
+                    style={[styles.cardEditBtn, currentTheme === 'dark' && { backgroundColor: '#334155', borderColor: '#475569' }]}
+                    onPress={() => {
+                      setEditBin(selectedBin);
+                      setIsModalVisible(true);
+                    }}
+                  >
+                    <Ionicons name="create-outline" size={20} color={currentTheme === 'dark' ? '#34d399' : '#2e7d32'} />
+                    <Text style={[styles.cardEditBtnText, currentTheme === 'dark' && { color: '#fff' }]}>Düzenle</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.cardInspectBtn, { backgroundColor: getPinColor(selectedBin.fillPercentage), flex: 1.5, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }]}
+                    onPress={() => setIsInspectMode(true)}
+                  >
+                    <Ionicons name="map-outline" size={20} color="#fff" />
+                    <Text style={styles.cardInspectBtnText}>Rotayı İncele</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.cardDeleteBtn, currentTheme === 'dark' && { backgroundColor: '#451a03', borderColor: '#7f1d1d' }]}
+                    onPress={() => handleDeleteBin(selectedBin.id)}
+                  >
+                    <Ionicons name="trash-outline" size={20} color={currentTheme === 'dark' ? '#f87171' : '#e74c3c'} />
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         </Animated.View>
       )}
@@ -460,22 +901,22 @@ export default function KurumsalMapScreen() {
       {/* LİSTE MODALI (Üst Üste Binen Kutular İçin) */}
       <Modal visible={isListModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxHeight: '70%' }]}>
-            <View style={styles.modalHeader}>
+          <View style={[styles.modalContent, { maxHeight: '70%' }, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
+            <View style={[styles.modalHeader, currentTheme === 'dark' && { borderBottomColor: '#334155' }]}>
               <View>
-                <Text style={styles.modalTitle}>Tüm Atık Kutuları</Text>
-                <Text style={styles.headerSubtitle}>{filteredBins.length} kayıt bulundu</Text>
+                <Text style={[styles.modalTitle, currentTheme === 'dark' && { color: '#fff' }]}>Tüm Atık Kutuları</Text>
+                <Text style={[styles.headerSubtitle, currentTheme === 'dark' && { color: '#94a3b8' }]}>{regularBins.length} kayıt bulundu</Text>
               </View>
               <TouchableOpacity onPress={() => setIsListModalVisible(false)}>
-                <Ionicons name="close" size={28} color="#333" />
+                <Ionicons name="close" size={28} color={currentTheme === 'dark' ? '#64748b' : '#333'} />
               </TouchableOpacity>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              {filteredBins.map((bin) => (
+              {regularBins.map((bin) => (
                 <TouchableOpacity
                   key={`list-bin-${bin.id}`}
-                  style={styles.listItem}
+                  style={[styles.listItem, currentTheme === 'dark' && { backgroundColor: '#334155', borderColor: '#475569' }]}
                   onPress={() => {
                     setIsListModalVisible(false);
                     setSelectedBin(bin);
@@ -490,15 +931,76 @@ export default function KurumsalMapScreen() {
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                     <View style={[styles.listColorDot, { backgroundColor: getPinColor(bin.fillPercentage) }]} />
                     <View>
-                      <Text style={styles.listItemName}>{bin.name}</Text>
-                      <Text style={styles.listItemCoords}>{bin.latitude.toFixed(6)}, {bin.longitude.toFixed(6)}</Text>
+                      <Text style={[styles.listItemName, currentTheme === 'dark' && { color: '#fff' }]}>{bin.name}</Text>
+                      <Text style={[styles.listItemCoords, currentTheme === 'dark' && { color: '#94a3b8' }]}>{bin.latitude.toFixed(6)}, {bin.longitude.toFixed(6)}</Text>
                     </View>
                   </View>
                   <Text style={[styles.listFillText, { color: getPinColor(bin.fillPercentage) }]}>%{bin.fillPercentage}</Text>
                 </TouchableOpacity>
               ))}
-              {filteredBins.length === 0 && (
+              {regularBins.length === 0 && (
                 <Text style={{ textAlign: 'center', color: '#94a3b8', marginTop: 20 }}>Listelenecek kutu yok.</Text>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* EVSEL ATIK TALEPLERİ LİSTE MODALI */}
+      <Modal visible={isRequestListModalVisible} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '70%' }, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
+            <View style={[styles.modalHeader, currentTheme === 'dark' && { borderBottomColor: '#334155' }]}>
+              <View>
+                <Text style={[styles.modalTitle, currentTheme === 'dark' && { color: '#fff' }]}>Evsel Atık Talepleri</Text>
+                <Text style={[styles.headerSubtitle, currentTheme === 'dark' && { color: '#94a3b8' }]}>{requestBins.length} aktif talep bulundu</Text>
+              </View>
+              <TouchableOpacity onPress={() => setIsRequestListModalVisible(false)}>
+                <Ionicons name="close" size={28} color={currentTheme === 'dark' ? '#64748b' : '#333'} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {requestBins.map((bin) => (
+                <TouchableOpacity
+                  key={`list-req-${bin.id}`}
+                  style={[styles.listItem, currentTheme === 'dark' && { backgroundColor: '#334155', borderColor: '#475569' }]}
+                  onPress={() => {
+                    setIsRequestListModalVisible(false);
+                    setSelectedBin(bin);
+                    mapRef.current?.animateToRegion({
+                      latitude: bin.latitude,
+                      longitude: bin.longitude,
+                      latitudeDelta: 0.002,
+                      longitudeDelta: 0.002
+                    }, 800);
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                    <Ionicons name="location" size={20} color="#2563eb" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.listItemName, currentTheme === 'dark' && { color: '#fff' }]} numberOfLines={1}>{bin.name}</Text>
+                      <Text style={[styles.listItemCoords, { fontSize: 12, color: '#64748b' }]} numberOfLines={1}>{bin.note || 'Açıklama yok'}</Text>
+                    </View>
+                  </View>
+                  <View style={[
+                    styles.statusBadgeMap,
+                    { backgroundColor: bin.status === 'ON_ROUTE' ? '#fffbeb' : '#f0fdf4', paddingHorizontal: 6, paddingVertical: 3 },
+                    currentTheme === 'dark' && { backgroundColor: bin.status === 'ON_ROUTE' ? '#451a03' : '#064e3b' }
+                  ]}>
+                    <Text style={{
+                      fontSize: 10,
+                      fontWeight: '700',
+                      color: bin.status === 'ON_ROUTE' ? '#d97706' : '#16a34a',
+                      color: bin.status === 'ON_ROUTE' ? (currentTheme === 'dark' ? '#fcd34d' : '#d97706') : (currentTheme === 'dark' ? '#86efac' : '#16a34a')
+                    }}>
+                      {bin.status === 'ON_ROUTE' ? 'Yolda' : 'Bekliyor'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+              {requestBins.length === 0 && (
+                <Text style={{ textAlign: 'center', color: '#94a3b8', marginTop: 20 }}>Listelenecek aktif talep yok.</Text>
               )}
             </ScrollView>
           </View>
@@ -508,19 +1010,19 @@ export default function KurumsalMapScreen() {
       {/* YÖNETİM MODALI */}
       <Modal visible={isModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{editBin?.id ? 'Noktayı Düzenle' : 'Yeni Atık Kutusu Ekle'}</Text>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.modalContent, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
+            <View style={[styles.modalHeader, currentTheme === 'dark' && { borderBottomColor: '#334155' }]}>
+              <Text style={[styles.modalTitle, currentTheme === 'dark' && { color: '#fff' }]}>{editBin?.id ? 'Noktayı Düzenle' : 'Yeni Atık Kutusu Ekle'}</Text>
               <TouchableOpacity onPress={() => setIsModalVisible(false)}>
-                <Ionicons name="close" size={28} color="#333" />
+                <Ionicons name="close" size={28} color={currentTheme === 'dark' ? '#64748b' : '#333'} />
               </TouchableOpacity>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Atık Kutu İsmi</Text>
+                <Text style={[styles.label, currentTheme === 'dark' && { color: '#94a3b8' }]}>Atık Kutu İsmi</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, currentTheme === 'dark' && { backgroundColor: '#334155', borderColor: '#475569', color: '#fff' }]}
                   placeholder="Örn: Mühendislik Binası Önü"
                   placeholderTextColor="#94a3b8"
                   value={editBin?.name}
@@ -530,9 +1032,9 @@ export default function KurumsalMapScreen() {
 
               <View style={styles.row}>
                 <View style={[styles.inputGroup, { flex: 1 }]}>
-                  <Text style={styles.label}>Enlem (Lat)</Text>
+                  <Text style={[styles.label, currentTheme === 'dark' && { color: '#94a3b8' }]}>Enlem (Lat)</Text>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, currentTheme === 'dark' && { backgroundColor: '#334155', borderColor: '#475569', color: '#fff' }]}
                     placeholder={editBin?.id ? "" : currentRegionRef.current.latitude.toFixed(6)}
                     placeholderTextColor="#94a3b8"
                     keyboardType="numeric"
@@ -541,9 +1043,9 @@ export default function KurumsalMapScreen() {
                   />
                 </View>
                 <View style={[styles.inputGroup, { flex: 1, marginLeft: 10 }]}>
-                  <Text style={styles.label}>Boylam (Lng)</Text>
+                  <Text style={[styles.label, currentTheme === 'dark' && { color: '#94a3b8' }]}>Boylam (Lng)</Text>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, currentTheme === 'dark' && { backgroundColor: '#334155', borderColor: '#475569', color: '#fff' }]}
                     placeholder={editBin?.id ? "" : currentRegionRef.current.longitude.toFixed(6)}
                     placeholderTextColor="#94a3b8"
                     keyboardType="numeric"
@@ -554,25 +1056,51 @@ export default function KurumsalMapScreen() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Doluluk Oranı: <Text style={{ fontWeight: '900', color: '#2e7d32' }}>%{editBin?.fillPercentage ?? 0}</Text></Text>
-                {Platform.OS === 'web' ? (
-                  <TextInput
-                    style={[styles.input, { textAlign: 'center', fontSize: 18, fontWeight: 'bold' }]}
-                    placeholder="0-100 arası bir sayı girin"
-                    placeholderTextColor="#94a3b8"
-                    keyboardType="numeric"
-                    value={editBin?.fillPercentage?.toString() ?? '0'}
-                    onChangeText={(val) => {
-                      const num = Math.max(0, Math.min(100, parseInt(val) || 0));
-                      setEditBin({ ...editBin, fillPercentage: num });
-                    }}
-                  />
-                ) : (
-                  <CustomPercentageSlider
-                    value={editBin?.fillPercentage || 0}
-                    onChange={(val) => setEditBin({ ...editBin, fillPercentage: val })}
-                  />
-                )}
+                <Text style={[styles.label, currentTheme === 'dark' && { color: '#94a3b8' }]}>Kapasite (Litre)</Text>
+                <View style={{ flexDirection: 'row', gap: 15, marginTop: 5 }}>
+                  <TouchableOpacity 
+                    style={[styles.capacityRadioBtn, editBin?.capacity === 50 && styles.capacityRadioBtnActive, currentTheme === 'dark' && { backgroundColor: '#334155', borderColor: '#475569' }]}
+                    activeOpacity={0.8}
+                    onPress={() => setEditBin({ ...editBin, capacity: 50 })}
+                  >
+                    <View style={[styles.radioCheckbox, editBin?.capacity === 50 && styles.radioCheckboxActive]}>
+                      {editBin?.capacity === 50 && <Ionicons name="checkmark" size={16} color="#fff" />}
+                    </View>
+                    <Text style={[styles.capacityRadioText, editBin?.capacity === 50 && styles.capacityRadioTextActive, currentTheme === 'dark' && { color: '#fff' }]}>Küçük (50L)</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={[styles.capacityRadioBtn, (editBin?.capacity === 100 || !editBin?.capacity) && styles.capacityRadioBtnActive, currentTheme === 'dark' && { backgroundColor: '#334155', borderColor: '#475569' }]}
+                    activeOpacity={0.8}
+                    onPress={() => setEditBin({ ...editBin, capacity: 100 })}
+                  >
+                    <View style={[styles.radioCheckbox, (editBin?.capacity === 100 || !editBin?.capacity) && styles.radioCheckboxActive]}>
+                      {(editBin?.capacity === 100 || !editBin?.capacity) && <Ionicons name="checkmark" size={16} color="#fff" />}
+                    </View>
+                    <Text style={[styles.capacityRadioText, (editBin?.capacity === 100 || !editBin?.capacity) && styles.capacityRadioTextActive, currentTheme === 'dark' && { color: '#fff' }]}>Büyük (100L)</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, currentTheme === 'dark' && { color: '#94a3b8' }]}>Doluluk Oranı (%)</Text>
+                <TextInput
+                  style={[styles.input, { fontWeight: '700', fontSize: 16 }, currentTheme === 'dark' && { backgroundColor: '#334155', borderColor: '#475569', color: '#fff' }]}
+                  placeholder="Örn: 45"
+                  placeholderTextColor="#94a3b8"
+                  keyboardType="number-pad"
+                  maxLength={3}
+                  value={editBin?.fillPercentage !== undefined ? editBin.fillPercentage.toString() : ''}
+                  onChangeText={(val) => {
+                    const cleanVal = val.replace(/[^0-9]/g, '');
+                    if (cleanVal === '') {
+                      setEditBin({ ...editBin, fillPercentage: 0 });
+                      return;
+                    }
+                    const num = Math.max(0, Math.min(100, parseInt(cleanVal, 10)));
+                    setEditBin({ ...editBin, fillPercentage: num });
+                  }}
+                />
               </View>
 
               <TouchableOpacity style={styles.saveBtn} onPress={handleAddOrUpdateBin}>
@@ -610,9 +1138,9 @@ const styles = StyleSheet.create({
   coordsText: { color: '#fff', fontSize: 11, fontWeight: '600', fontFamily: 'monospace' },
   headerBar: { position: 'absolute', top: 50, left: 16, right: 16, backgroundColor: '#fff', borderRadius: 16, padding: 12, elevation: 8 },
   headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1e293b' },
-  headerSubtitle: { fontSize: 12, color: '#64748b' },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerTitle: { fontSize: 14, fontWeight: '700', color: '#1e293b' },
+  headerSubtitle: { fontSize: 11, color: '#64748b' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   resetBtn: { padding: 4 },
   binCountBadge: { backgroundColor: '#e8f5e9', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4, alignItems: 'center', minWidth: 40 },
   binCountText: { fontSize: 14, fontWeight: '800', color: '#2e7d32' },
@@ -645,7 +1173,19 @@ const styles = StyleSheet.create({
   cardActions: { flexDirection: 'row', gap: 10 },
   cardEditBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#e8f5e9', paddingVertical: 10, borderRadius: 12, gap: 6 },
   cardEditBtnText: { color: '#2e7d32', fontWeight: '700' },
+  cardEmptyBtn: { width: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: '#e8f5e9', borderRadius: 12 },
   cardDeleteBtn: { width: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff1f2', borderRadius: 12 },
+  cardInspectBtn: { backgroundColor: '#2e7d32', elevation: 2 },
+  cardInspectBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 13 },
+  floatingInspectBtn: { position: 'absolute', bottom: 30, right: 20, width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5 },
+  fillBarContainer: { marginVertical: 4 },
+  fillBarHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  fillBarLabel: { fontSize: 13, fontWeight: 'bold', color: '#64748b' },
+  fillBarValue: { fontSize: 14, fontWeight: 'bold' },
+  countdownBox: { backgroundColor: '#f8fafc', borderRadius: 12, padding: 10, borderWidth: 1, borderColor: '#e2e8f0', marginVertical: 4 },
+  countdownRow: { flexDirection: 'row', alignItems: 'center' },
+  countdownText: { fontSize: 13, color: '#475569', fontWeight: '600' },
+  countdownValue: { fontWeight: '800', color: '#2e7d32', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
 
   // MODAL STYLES
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
@@ -659,12 +1199,7 @@ const styles = StyleSheet.create({
   saveBtn: { backgroundColor: '#2e7d32', paddingVertical: 16, borderRadius: 16, alignItems: 'center', marginTop: 10 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
 
-  // SLIDER STYLES
-  sliderContainer: { flexDirection: 'row', alignItems: 'center', gap: 15, marginTop: 5 },
-  sliderTrack: { flex: 1, height: 12, backgroundColor: '#f1f5f9', borderRadius: 6, position: 'relative' },
-  sliderFill: { height: '100%', backgroundColor: '#2e7d32', borderRadius: 6 },
-  sliderHandle: { position: 'absolute', top: -6, width: 24, height: 24, borderRadius: 12, backgroundColor: '#fff', borderWidth: 3, borderColor: '#2e7d32', marginLeft: -12, elevation: 4 },
-  sliderValueText: { fontSize: 16, fontWeight: '800', color: '#2e7d32', minWidth: 45 },
+
   toast: {
     position: 'absolute',
     bottom: 50,
@@ -687,10 +1222,102 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   pasteText: { fontSize: 10, fontWeight: '700', color: '#2e7d32' },
+  
   // LİSTE STYLES
   listItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   listColorDot: { width: 12, height: 12, borderRadius: 6 },
   listItemName: { fontSize: 15, fontWeight: '700', color: '#1e293b' },
   listItemCoords: { fontSize: 11, color: '#94a3b8', fontFamily: 'monospace', marginTop: 2 },
   listFillText: { fontSize: 14, fontWeight: 'bold' },
+
+  // Evsel Atık Talebi Harita Kartı Stilleri
+  infoSectionMap: {
+    marginBottom: 10,
+  },
+  infoSectionTitleMap: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#94a3b8',
+    marginBottom: 4,
+  },
+  infoSectionValueMap: {
+    fontSize: 14,
+    color: '#1e293b',
+    lineHeight: 20,
+  },
+  statusBadgeMap: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 15,
+  },
+  statusBadgeTextMap: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  modalActionsMap: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+  },
+  routeBtnMap: {
+    flex: 1,
+    backgroundColor: '#2563eb',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  collectBtnMap: {
+    flex: 1,
+    backgroundColor: '#16a34a',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  btnTextMap: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  capacityRadioBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    backgroundColor: '#fff',
+  },
+  capacityRadioBtnActive: {
+    borderColor: '#16a34a',
+    backgroundColor: '#f0fdf4',
+  },
+  radioCheckbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#cbd5e1',
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioCheckboxActive: {
+    borderColor: '#16a34a',
+    backgroundColor: '#16a34a',
+  },
+  capacityRadioText: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  capacityRadioTextActive: {
+    color: '#16a34a',
+    fontWeight: 'bold',
+  }
 });

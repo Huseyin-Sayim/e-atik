@@ -9,7 +9,8 @@ import {
   StatusBar, 
   TouchableOpacity,
   ActivityIndicator,
-  Alert
+  Alert,
+  Modal
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -129,6 +130,23 @@ export default function KurumsalTransactionsScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [currentTheme, setCurrentTheme] = useState('light');
+  const [customAlertVisible, setCustomAlertVisible] = useState(false);
+  const [customAlertTitle, setCustomAlertTitle] = useState('');
+  const [customAlertMessage, setCustomAlertMessage] = useState('');
+
+  const showCustomAlert = (title: string, message: string) => {
+    setCustomAlertTitle(title);
+    setCustomAlertMessage(message);
+    setCustomAlertVisible(true);
+  };
+
+  React.useEffect(() => {
+    const unsubscribe = DatabaseService.subscribeToTheme((theme) => {
+      setCurrentTheme(theme);
+    });
+    return unsubscribe;
+  }, []);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -141,10 +159,14 @@ export default function KurumsalTransactionsScreen() {
       setLoading(true);
       const fetchedTransactions = await DatabaseService.getTransactions();
       // Tarihe göre en yeniden en eskiye sıralayalım (kronolojik)
-      const sorted = fetchedTransactions.sort((a: any, b: any) => {
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
-      setTransactions(sorted);
+      if (Array.isArray(fetchedTransactions)) {
+        const sorted = fetchedTransactions.sort((a: any, b: any) => {
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+        setTransactions(sorted);
+      } else {
+        setTransactions([]);
+      }
     } catch (error) {
       console.error('Kurumsal işlem geçmişi yükleme hatası:', error);
     } finally {
@@ -153,15 +175,15 @@ export default function KurumsalTransactionsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView style={[styles.safeArea, currentTheme === 'dark' && { backgroundColor: '#0f172a' }]}>
+      <StatusBar barStyle={currentTheme === 'dark' ? "light-content" : "dark-content"} />
       
       {/* Şık Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#1e293b" />
+      <View style={[styles.header, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderBottomColor: '#334155' }]}>
+        <TouchableOpacity style={[styles.backButton, currentTheme === 'dark' && { backgroundColor: '#334155' }]} onPress={() => router.replace('/kurumsal/kurumsal-index')}>
+          <Ionicons name="arrow-back" size={24} color={currentTheme === 'dark' ? '#fff' : '#1e293b'} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Yapılan Son İşlemler</Text>
+        <Text style={[styles.headerTitle, currentTheme === 'dark' && { color: '#fff' }]}>Yapılan Son İşlemler</Text>
         <View style={{ width: 40 }} /> {/* Hizalama için boşluk */}
       </View>
 
@@ -169,17 +191,23 @@ export default function KurumsalTransactionsScreen() {
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#2e7d32" />
-            <Text style={styles.loadingText}>İşlem geçmişi yükleniyor...</Text>
+            <Text style={[styles.loadingText, currentTheme === 'dark' && { color: '#94a3b8' }]}>İşlem geçmişi yükleniyor...</Text>
           </View>
         ) : transactions.length > 0 ? (
-          <View style={styles.transactionsList}>
+          <View style={[styles.transactionsList, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderColor: '#334155' }]}>
             {transactions.map((item, index) => {
               const isMarket = item.description && item.description.includes('Market');
               const isSpent = item.type === 'SPENT';
               const pointsPrefix = isSpent ? '-' : '+';
               const pointsColor = isSpent ? '#ef4444' : '#2e7d32';
-              const iconBgColor = isMarket ? '#e3f2fd' : '#e8f5e9';
-              const iconColor = isMarket ? '#1565c0' : '#2e7d32';
+              
+              const iconBgColor = currentTheme === 'dark' 
+                ? (isMarket ? '#1e3a8a' : '#065f46') 
+                : (isMarket ? '#e3f2fd' : '#e8f5e9');
+              const iconColor = currentTheme === 'dark'
+                ? (isMarket ? '#60a5fa' : '#34d399') 
+                : (isMarket ? '#1565c0' : '#2e7d32');
+                
               const isBarcode = item.description && item.description.includes('barkod');
               const iconName = isMarket 
                 ? 'cart-outline' 
@@ -190,7 +218,8 @@ export default function KurumsalTransactionsScreen() {
                   key={item.id} 
                   style={[
                     styles.transactionItem, 
-                    index === transactions.length - 1 && { borderBottomWidth: 0 }
+                    index === transactions.length - 1 && { borderBottomWidth: 0 },
+                    currentTheme === 'dark' && { borderBottomColor: '#334155' }
                   ]}
                   activeOpacity={0.7}
                   onPress={() => {
@@ -200,10 +229,9 @@ export default function KurumsalTransactionsScreen() {
                       ? `⚙️ İşlem Türü: ${parsed.option}` 
                       : `⚙️ Dönüştürme Seçeneği: ${parsed.option}`;
 
-                    Alert.alert(
+                    showCustomAlert(
                       'İşlem Detayları',
-                      `📝 Açıklama: ${cleanDesc}\n\n${conversionLine}\n\n🪙 Puan Değişimi: ${pointsPrefix}${item.amount} Puan\n\n📅 İşlem Tarihi: ${formatTransactionDate(item.createdAt)}\n\n🆔 İşlem Numarası: ${item.id}`,
-                      [{ text: 'Tamam', style: 'default' }]
+                      `📝 Açıklama: ${cleanDesc}\n\n${conversionLine}\n\n🪙 Puan Değişimi: ${pointsPrefix}${item.amount} Puan\n\n📅 İşlem Tarihi: ${formatTransactionDate(item.createdAt)}\n\n🆔 İşlem Numarası: ${item.id}`
                     );
                   }}
                 >
@@ -215,10 +243,10 @@ export default function KurumsalTransactionsScreen() {
                     />
                   </View>
                   <View style={styles.transactionDetails}>
-                    <Text style={styles.transactionName}>
+                    <Text style={[styles.transactionName, currentTheme === 'dark' && { color: '#fff' }]}>
                       {formatTransactionDescription(item.description, item.amount)}
                     </Text>
-                    <Text style={styles.transactionDate}>
+                    <Text style={[styles.transactionDate, currentTheme === 'dark' && { color: '#94a3b8' }]}>
                       {formatTransactionDate(item.createdAt)}
                     </Text>
                   </View>
@@ -236,6 +264,58 @@ export default function KurumsalTransactionsScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* ÖZEL ALERT MODALI */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={customAlertVisible}
+        onRequestClose={() => setCustomAlertVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <View style={{ 
+            backgroundColor: currentTheme === 'dark' ? '#1e293b' : '#fff', 
+            borderRadius: 16, 
+            padding: 24, 
+            width: '90%', 
+            maxWidth: 400,
+            borderWidth: currentTheme === 'dark' ? 1 : 0,
+            borderColor: '#334155',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.25,
+            shadowRadius: 4,
+            elevation: 5
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <Ionicons name="information-circle" size={24} color={currentTheme === 'dark' ? '#34d399' : '#2e7d32'} />
+              <Text style={{ 
+                fontSize: 20, 
+                fontWeight: 'bold', 
+                color: currentTheme === 'dark' ? '#fff' : '#1e293b',
+              }}>{customAlertTitle}</Text>
+            </View>
+            <Text style={{ 
+              fontSize: 15, 
+              color: currentTheme === 'dark' ? '#94a3b8' : '#475569',
+              lineHeight: 22,
+              marginBottom: 24 
+            }}>{customAlertMessage}</Text>
+            <TouchableOpacity 
+              style={{ 
+                backgroundColor: '#2e7d32', 
+                paddingVertical: 14, 
+                borderRadius: 10, 
+                alignItems: 'center' 
+              }}
+              onPress={() => setCustomAlertVisible(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>Tamam</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

@@ -47,6 +47,12 @@ export default function LoginScreen() {
           }
           // --------------------------------------------
 
+          // Kullanıcıya özgü temayı yükle
+          const savedTheme = await AsyncStorage.getItem(`theme_${parsedSession.id}`);
+          if (savedTheme === 'dark' || savedTheme === 'light') {
+            DatabaseService.notifyThemeChanged(savedTheme);
+          }
+
           setLoading(true);
           setSuccessMessage('Oturumunuz açılıyor...');
           if (profileType) {
@@ -132,6 +138,14 @@ export default function LoginScreen() {
 
       await AsyncStorage.setItem('currentUserId', userId);
       await AsyncStorage.setItem('currentUserEmail', lowerEmail);
+      
+      // Kullanıcıya özgü temayı yükle
+      const savedTheme = await AsyncStorage.getItem(`theme_${userId}`);
+      if (savedTheme === 'dark' || savedTheme === 'light') {
+        DatabaseService.notifyThemeChanged(savedTheme);
+      } else {
+        DatabaseService.notifyThemeChanged('light');
+      }
       
       if (isValidUser.name) await AsyncStorage.setItem(`userName_${userId}`, isValidUser.name);
       if (isValidUser.surname) await AsyncStorage.setItem(`userSurname_${userId}`, isValidUser.surname);

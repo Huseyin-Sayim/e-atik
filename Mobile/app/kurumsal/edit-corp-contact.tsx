@@ -22,9 +22,14 @@ export default function EditCorpContactScreen() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const [initialData, setInitialData] = useState({ phoneNumber: '' });
+  const [currentTheme, setCurrentTheme] = useState('light');
 
   useEffect(() => {
     loadCurrentInfo();
+    const unsubscribe = DatabaseService.subscribeToTheme((theme) => {
+      setCurrentTheme(theme);
+    });
+    return unsubscribe;
   }, []);
 
   const loadCurrentInfo = async () => {
@@ -86,17 +91,17 @@ export default function EditCorpContactScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView style={[styles.safeArea, currentTheme === 'dark' && { backgroundColor: '#0f172a' }]}>
+      <StatusBar barStyle={currentTheme === 'dark' ? "light-content" : "dark-content"} />
       
-      <View style={styles.header}>
+      <View style={[styles.header, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderBottomColor: '#334155' }]}>
         <TouchableOpacity 
-          style={styles.backButton} 
+          style={[styles.backButton, currentTheme === 'dark' && { backgroundColor: '#334155' }]} 
           onPress={() => router.replace('/kurumsal/kurumsal-settings')}
         >
-          <Ionicons name="arrow-back" size={24} color="#1e293b" />
+          <Ionicons name="arrow-back" size={24} color={currentTheme === 'dark' ? '#fff' : '#1e293b'} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Kurumsal İletişim Bilgileri</Text>
+        <Text style={[styles.headerTitle, currentTheme === 'dark' && { color: '#fff' }]}>Kurumsal İletişim Bilgileri</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -105,26 +110,26 @@ export default function EditCorpContactScreen() {
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.container}>
-          <View style={styles.formCard}>
+          <View style={[styles.formCard, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Kurumsal Telefon</Text>
+              <Text style={[styles.label, currentTheme === 'dark' && { color: '#94a3b8' }]}>Kurumsal Telefon</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, currentTheme === 'dark' && { backgroundColor: '#0f172a', borderColor: '#334155', color: '#fff' }]}
                 value={phoneNumber}
                 onChangeText={setPhoneNumber}
                 placeholder={initialData.phoneNumber || "05XX XXX XX XX"}
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={currentTheme === 'dark' ? "#64748b" : "#94a3b8"}
                 keyboardType="phone-pad"
               />
             </View>
           </View>
 
-          <Text style={styles.infoText}>
+          <Text style={[styles.infoText, currentTheme === 'dark' && { color: '#64748b' }]}>
             * Bu numara, kurumsal atık toplama süreçlerinde iletişim sağlamak ve hesap güvenliğiniz için kullanılacaktır.
           </Text>
         </ScrollView>
 
-        <View style={styles.footer}>
+        <View style={[styles.footer, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderTopColor: '#334155' }]}>
           <TouchableOpacity 
             style={[styles.saveButton, loading && styles.disabledButton]} 
             onPress={handleSave}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -22,6 +22,14 @@ export default function ChangeCorpPasswordScreen() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [currentTheme, setCurrentTheme] = useState('light');
+
+  useEffect(() => {
+    const unsubscribe = DatabaseService.subscribeToTheme((theme) => {
+      setCurrentTheme(theme);
+    });
+    return unsubscribe;
+  }, []);
 
   const handleSave = async () => {
     if (!oldPassword || !newPassword || !confirmPassword) {
@@ -58,17 +66,17 @@ export default function ChangeCorpPasswordScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView style={[styles.safeArea, currentTheme === 'dark' && { backgroundColor: '#0f172a' }]}>
+      <StatusBar barStyle={currentTheme === 'dark' ? "light-content" : "dark-content"} />
       
-      <View style={styles.header}>
+      <View style={[styles.header, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderBottomColor: '#334155' }]}>
         <TouchableOpacity 
-          style={styles.backButton} 
+          style={[styles.backButton, currentTheme === 'dark' && { backgroundColor: '#334155' }]} 
           onPress={() => router.replace('/kurumsal/kurumsal-settings')}
         >
-          <Ionicons name="arrow-back" size={24} color="#1e293b" />
+          <Ionicons name="arrow-back" size={24} color={currentTheme === 'dark' ? '#fff' : '#1e293b'} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Şifre İşlemleri</Text>
+        <Text style={[styles.headerTitle, currentTheme === 'dark' && { color: '#fff' }]}>Şifre İşlemleri</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -77,50 +85,50 @@ export default function ChangeCorpPasswordScreen() {
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.container}>
-          <View style={styles.formCard}>
+          <View style={[styles.formCard, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Mevcut Şifre</Text>
+              <Text style={[styles.label, currentTheme === 'dark' && { color: '#94a3b8' }]}>Mevcut Şifre</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, currentTheme === 'dark' && { backgroundColor: '#0f172a', borderColor: '#334155', color: '#fff' }]}
                 value={oldPassword}
                 onChangeText={setOldPassword}
                 placeholder="********"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={currentTheme === 'dark' ? "#64748b" : "#94a3b8"}
                 secureTextEntry
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Yeni Şifre</Text>
+              <Text style={[styles.label, currentTheme === 'dark' && { color: '#94a3b8' }]}>Yeni Şifre</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, currentTheme === 'dark' && { backgroundColor: '#0f172a', borderColor: '#334155', color: '#fff' }]}
                 value={newPassword}
                 onChangeText={setNewPassword}
                 placeholder="********"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={currentTheme === 'dark' ? "#64748b" : "#94a3b8"}
                 secureTextEntry
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Yeni Şifre (Tekrar)</Text>
+              <Text style={[styles.label, currentTheme === 'dark' && { color: '#94a3b8' }]}>Yeni Şifre (Tekrar)</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, currentTheme === 'dark' && { backgroundColor: '#0f172a', borderColor: '#334155', color: '#fff' }]}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 placeholder="********"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={currentTheme === 'dark' ? "#64748b" : "#94a3b8"}
                 secureTextEntry
               />
             </View>
           </View>
 
-          <Text style={styles.infoText}>
+          <Text style={[styles.infoText, currentTheme === 'dark' && { color: '#64748b' }]}>
             * Şifrenizin güvenliği için düzenli aralıklarla değiştirmenizi öneririz.
           </Text>
         </ScrollView>
 
-        <View style={styles.footer}>
+        <View style={[styles.footer, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderTopColor: '#334155' }]}>
           <TouchableOpacity 
             style={[styles.saveButton, loading && styles.disabledButton]} 
             onPress={handleSave}

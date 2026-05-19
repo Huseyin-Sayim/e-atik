@@ -33,18 +33,39 @@ const deleteUser = async (req, res) => {
     return res.status(500).json({message: 'Bir hata oluştu'})
   }
 }
+
 const updateProfile = async (req, res) => {
   try {
-    const { email, profileImage, profileType, name, surname, city, district } = req.body;
+    const { email, profileImage, profileType, name, surname, city, district, regionId } = req.body;
+    
+    // Prepare update data
+    const updateData = {
+      ...(profileImage !== undefined && { profileImage }),
+      ...(profileType && { profileType }),
+      ...(name && { name }),
+      ...(surname && { surname }),
+      ...(city && { city }),
+      ...(district && { district }),
+    };
+
+    if (regionId !== undefined) {
+      if (regionId === null || regionId === '') {
+        updateData.region = { disconnect: true };
+      } else {
+        updateData.region = {
+          connectOrCreate: {
+            where: { name: regionId },
+            create: { name: regionId, region_id: regionId }
+          }
+        };
+      }
+    }
+
     const updatedUser = await prisma.user.update({
       where: { email: email.toLowerCase() },
-      data: {
-        ...(profileImage !== undefined && { profileImage }),
-        ...(profileType && { profileType }),
-        ...(name && { name }),
-        ...(surname && { surname }),
-        ...(city && { city }),
-        ...(district && { district })
+      data: updateData,
+      include: {
+        region: true
       }
     });
     res.status(200).json({
@@ -52,7 +73,8 @@ const updateProfile = async (req, res) => {
       data: updatedUser
     });
   } catch (err) {
-    res.status(500).json({ message: "Profil güncellenirken bir hata oluştu." });
+    console.error("Profile update error:", err);
+    res.status(500).json({ message: "Profil güncellenirken bir hata oluştu.", error: err.message });
   }
 }
 
@@ -62,7 +84,8 @@ const getUserProfile = async (req, res) => {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
-        wallet: true
+        wallet: true,
+        region: true
       }
     });
     

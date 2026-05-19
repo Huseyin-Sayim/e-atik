@@ -235,8 +235,16 @@ export default function KurumsalSettingsScreen() {
     type: 'success'
   });
 
+  const [currentTheme, setCurrentTheme] = useState('light');
+
   useEffect(() => {
     loadUserData();
+    
+    const unsubscribe = DatabaseService.subscribeToTheme((theme) => {
+      setCurrentTheme(theme);
+    });
+    
+    return () => unsubscribe();
   }, []);
 
   const loadUserData = async () => {
@@ -445,12 +453,12 @@ export default function KurumsalSettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView style={[styles.safeArea, currentTheme === 'dark' && { backgroundColor: '#0f172a' }]}>
+      <StatusBar barStyle={currentTheme === 'dark' ? "light-content" : "dark-content"} />
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         
         {/* PROFIL KARTI (PREMIUM) */}
-        <View style={styles.profileCard}>
+        <View style={[styles.profileCard, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
           <View style={styles.profileHeader}>
             <View style={styles.imageWrapper}>
               <Image 
@@ -459,10 +467,10 @@ export default function KurumsalSettingsScreen() {
               />
             </View>
             <View style={styles.profileInfo}>
-              <Text style={styles.userNameText}>
+              <Text style={[styles.userNameText, currentTheme === 'dark' && { color: '#fff' }]}>
                 {userName ? `${userName} ${userSurname}` : 'Kurumsal Kullanıcı'}
               </Text>
-              <Text style={styles.userEmailText}>{userEmail}</Text>
+              <Text style={[styles.userEmailText, currentTheme === 'dark' && { color: '#94a3b8' }]}>{userEmail}</Text>
             </View>
           </View>
 
@@ -483,82 +491,97 @@ export default function KurumsalSettingsScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity 
-              style={[styles.deleteActionBtn, (!profileImage || uploading) && styles.disabledBtn]} 
+              style={[styles.deleteActionBtn, (!profileImage || uploading) && styles.disabledBtn, currentTheme === 'dark' && { backgroundColor: '#0f172a', borderColor: '#334155' }]} 
               onPress={deleteImage}
               disabled={!profileImage || uploading}
             >
-              <Ionicons name="trash-outline" size={18} color={profileImage && !uploading ? "#ef4444" : "#cbd5e1"} />
-              <Text style={[styles.deleteActionBtnText, (!profileImage || uploading) && { color: '#cbd5e1' }]}>Sil</Text>
+              <Ionicons name="trash-outline" size={18} color={profileImage && !uploading ? "#ef4444" : (currentTheme === 'dark' ? '#334155' : "#cbd5e1")} />
+              <Text style={[styles.deleteActionBtnText, (!profileImage || uploading) && { color: currentTheme === 'dark' ? '#334155' : '#cbd5e1' }]}>Sil</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* AYARLAR MENÜSÜ */}
-        <View style={styles.menuSection}>
-          <Text style={styles.sectionTitle}>Hesap Ayarları</Text>
+        <View style={[styles.menuSection, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
+          <Text style={[styles.sectionTitle, currentTheme === 'dark' && { color: '#64748b' }]}>Hesap Ayarları</Text>
 
           <TouchableOpacity 
-            style={styles.menuItem} 
+            style={[styles.menuItem, currentTheme === 'dark' && { backgroundColor: 'transparent' }]} 
             activeOpacity={0.7}
             onPress={() => router.push('/kurumsal/edit-corp-info')}
           >
             <View style={[styles.iconBox, { backgroundColor: '#eff6ff' }]}>
               <Ionicons name="business" size={20} color="#3b82f6" />
             </View>
-            <Text style={styles.menuItemText}>Kurumsal Bilgiler</Text>
-            <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+            <Text style={[styles.menuItemText, currentTheme === 'dark' && { color: '#fff' }]}>Kurumsal Bilgiler</Text>
+            <Ionicons name="chevron-forward" size={18} color={currentTheme === 'dark' ? '#64748b' : '#cbd5e1'} />
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={styles.menuItem} 
+            style={[styles.menuItem, currentTheme === 'dark' && { backgroundColor: 'transparent' }]} 
             activeOpacity={0.7}
             onPress={() => router.push('/kurumsal/edit-corp-address')}
           >
             <View style={[styles.iconBox, { backgroundColor: '#f0fdf4' }]}>
               <Ionicons name="location" size={20} color="#16a34a" />
             </View>
-            <Text style={styles.menuItemText}>Adres Bilgileri</Text>
-            <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+            <Text style={[styles.menuItemText, currentTheme === 'dark' && { color: '#fff' }]}>Adres Bilgileri</Text>
+            <Ionicons name="chevron-forward" size={18} color={currentTheme === 'dark' ? '#64748b' : '#cbd5e1'} />
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={styles.menuItem} 
+            style={[styles.menuItem, currentTheme === 'dark' && { backgroundColor: 'transparent' }]} 
             activeOpacity={0.7}
             onPress={() => router.push('/kurumsal/edit-corp-contact')}
           >
             <View style={[styles.iconBox, { backgroundColor: '#fff7ed' }]}>
               <Ionicons name="call" size={20} color="#ea580c" />
             </View>
-            <Text style={styles.menuItemText}>İletişim Bilgileri</Text>
-            <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+            <Text style={[styles.menuItemText, currentTheme === 'dark' && { color: '#fff' }]}>İletişim Bilgileri</Text>
+            <Ionicons name="chevron-forward" size={18} color={currentTheme === 'dark' ? '#64748b' : '#cbd5e1'} />
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={styles.menuItem} 
+            style={[styles.menuItem, currentTheme === 'dark' && { backgroundColor: 'transparent' }]} 
             activeOpacity={0.7}
             onPress={() => router.push('/kurumsal/edit-corp-email')}
           >
             <View style={[styles.iconBox, { backgroundColor: '#f5f3ff' }]}>
               <Ionicons name="mail" size={20} color="#8b5cf6" />
             </View>
-            <Text style={styles.menuItemText}>E-posta İşlemleri</Text>
-            <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+            <Text style={[styles.menuItemText, currentTheme === 'dark' && { color: '#fff' }]}>E-posta İşlemleri</Text>
+            <Ionicons name="chevron-forward" size={18} color={currentTheme === 'dark' ? '#64748b' : '#cbd5e1'} />
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={styles.menuItem} 
+            style={[styles.menuItem, currentTheme === 'dark' && { backgroundColor: 'transparent' }]} 
             activeOpacity={0.7}
             onPress={() => router.push('/kurumsal/change-corp-password')}
           >
             <View style={[styles.iconBox, { backgroundColor: '#fef2f2' }]}>
               <Ionicons name="lock-closed" size={20} color="#ef4444" />
             </View>
-            <Text style={styles.menuItemText}>Şifre İşlemleri</Text>
-            <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+            <Text style={[styles.menuItemText, currentTheme === 'dark' && { color: '#fff' }]}>Şifre İşlemleri</Text>
+            <Ionicons name="chevron-forward" size={18} color={currentTheme === 'dark' ? '#64748b' : '#cbd5e1'} />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.menuItem, currentTheme === 'dark' && { backgroundColor: 'transparent' }]} 
+            activeOpacity={0.7}
+            onPress={() => router.push('/kurumsal/theme-settings')}
+          >
+            <View style={[styles.iconBox, { backgroundColor: '#e2e8f0' }]}>
+              <Ionicons name="color-palette" size={20} color="#475569" />
+            </View>
+            <Text style={[styles.menuItemText, currentTheme === 'dark' && { color: '#fff' }]}>Tema Ayarları</Text>
+            <Ionicons name="chevron-forward" size={18} color={currentTheme === 'dark' ? '#64748b' : '#cbd5e1'} />
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+        <TouchableOpacity 
+          style={[styles.logoutBtn, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderColor: '#334155' }]} 
+          onPress={handleLogout}
+        >
           <Ionicons name="log-out-outline" size={22} color="#ef4444" />
           <Text style={styles.logoutBtnText}>Güvenli Çıkış Yap</Text>
         </TouchableOpacity>
@@ -574,12 +597,12 @@ export default function KurumsalSettingsScreen() {
         onRequestClose={() => setCustomAlert({ ...customAlert, visible: false })}
       >
         <View style={styles.alertOverlay}>
-          <View style={styles.alertContent}>
+          <View style={[styles.alertContent, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
             <View style={[
               styles.alertIconContainer,
-              customAlert.type === 'success' && { backgroundColor: '#f0fdf4' },
-              customAlert.type === 'error' && { backgroundColor: '#fef2f2' },
-              customAlert.type === 'warning' && { backgroundColor: '#fff7ed' },
+              customAlert.type === 'success' && { backgroundColor: currentTheme === 'dark' ? '#0f172a' : '#f0fdf4' },
+              customAlert.type === 'error' && { backgroundColor: currentTheme === 'dark' ? '#0f172a' : '#fef2f2' },
+              customAlert.type === 'warning' && { backgroundColor: currentTheme === 'dark' ? '#0f172a' : '#fff7ed' },
             ]}>
               <Ionicons 
                 name={
@@ -593,8 +616,8 @@ export default function KurumsalSettingsScreen() {
                 } 
               />
             </View>
-            <Text style={styles.alertTitle}>{customAlert.title}</Text>
-            <Text style={styles.alertMessage}>{customAlert.message}</Text>
+            <Text style={[styles.alertTitle, currentTheme === 'dark' && { color: '#fff' }]}>{customAlert.title}</Text>
+            <Text style={[styles.alertMessage, currentTheme === 'dark' && { color: '#94a3b8' }]}>{customAlert.message}</Text>
             <TouchableOpacity 
               style={[
                 styles.alertBtn,

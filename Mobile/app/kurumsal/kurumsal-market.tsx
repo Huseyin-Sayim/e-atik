@@ -25,7 +25,7 @@ import {
   SimpleLineIcons
 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import DatabaseService from '../../database/DatabaseService';
 
@@ -58,6 +58,15 @@ export default function KurumsalMarketScreen() {
   const [scanned, setScanned] = useState(false);
   const [scanMode, setScanMode] = useState<'qr' | 'barcode' | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
+  const [currentTheme, setCurrentTheme] = useState('light');
+  const router = useRouter();
+
+  useEffect(() => {
+    const unsubscribe = DatabaseService.subscribeToTheme((t) => {
+      setCurrentTheme(t);
+    });
+    return () => unsubscribe();
+  }, []);
   const processingRef = React.useRef(false);
 
   const laserAnim = useRef(new Animated.Value(0)).current;
@@ -185,15 +194,25 @@ export default function KurumsalMarketScreen() {
 
     if (item.image) {
       return (
-        <Image 
-          source={item.image} 
-          style={{ 
-            width: size, 
-            height: size, 
-            borderRadius: shouldHaveRadius ? 20 : 0 
-          }} 
-          resizeMode="contain" 
-        />
+        <View style={{
+          width: size,
+          height: size,
+          borderRadius: 20,
+          backgroundColor: currentTheme === 'dark' ? '#334155' : '#f1f5f9',
+          justifyContent: 'center',
+          alignItems: 'center',
+          overflow: 'hidden'
+        }}>
+          <Image 
+            source={item.image} 
+            style={{ 
+              width: size * 0.8, 
+              height: size * 0.8,
+              borderRadius: 10,
+            }} 
+            resizeMode="contain" 
+          />
+        </View>
       );
     }
 
@@ -218,13 +237,13 @@ export default function KurumsalMarketScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView style={[styles.safeArea, currentTheme === 'dark' && { backgroundColor: '#0f172a' }]}>
+      <StatusBar barStyle={currentTheme === 'dark' ? "light-content" : "dark-content"} />
       
-      <View style={styles.topBar}>
-        <Text style={styles.headerTitle}>Kurumsal Atık Marketi</Text>
-        <View style={styles.coinBadge}>
-          <Text style={styles.coinText}>{points}</Text>
+      <View style={[styles.topBar, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderBottomColor: '#334155' }]}>
+        <Text style={[styles.headerTitle, currentTheme === 'dark' && { color: '#fff' }]}>Atık Marketi</Text>
+        <View style={[styles.coinBadge, currentTheme === 'dark' && { backgroundColor: '#334155' }]}>
+          <Text style={[styles.coinText, currentTheme === 'dark' && { color: '#fff' }]}>{points}</Text>
           <FontAwesome5 name="coins" size={22} color="#facc15" />
         </View>
       </View>
@@ -233,24 +252,37 @@ export default function KurumsalMarketScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.infoBox}>
-          <Text style={styles.infoTitle}>Geri Dönüştür, Kazan!</Text>
-          <Text style={styles.infoSubtitle}>Gelecek nesillere temiz bir dünya bırakın! Atıkları güce ve kazanca dönüştürün, sürdürülebilir bir lider olun!</Text>
+        <TouchableOpacity
+          style={[{
+            flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 16, borderRadius: 20,
+            marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1,
+            shadowRadius: 10, elevation: 5, justifyContent: 'center', gap: 10
+          }, currentTheme === 'dark' && { backgroundColor: '#1e293b', shadowOpacity: 0.3 }]}
+          onPress={() => router.push('/market-map?type=kurumsal')}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="map-outline" size={24} color="#10b981" />
+          <Text style={[{ fontSize: 16, fontWeight: 'bold', color: '#1e293b' }, currentTheme === 'dark' && { color: '#fff' }]}>Anlaşmalı Mağazalar Haritası</Text>
+        </TouchableOpacity>
+
+        <View style={[styles.infoBox, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
+          <Text style={[styles.infoTitle, currentTheme === 'dark' && { color: '#fff' }]}>Geri Dönüştür, Kazan!</Text>
+          <Text style={[styles.infoSubtitle, currentTheme === 'dark' && { color: '#94a3b8' }]}>Gelecek nesillere temiz bir dünya bırakın! Atıklarınızı geri dönüştürün, çevreye katkı sağlarken ödüller kazanın!</Text>
         </View>
 
         <View style={styles.gridContainer}>
           {WASTE_ITEMS.map((item) => (
             <TouchableOpacity 
               key={item.id} 
-              style={styles.card}
+              style={[styles.card, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}
               onPress={() => handleItemPress(item)}
               activeOpacity={0.7}
             >
-              <View style={styles.iconContainer}>
+              <View style={[styles.iconContainer, currentTheme === 'dark' && { backgroundColor: '#0f172a' }]}>
                 {renderIcon(item, item.name === 'Naylon Poşet' ? 84 : 56)}
               </View>
-              <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
-              <View style={styles.itemCoinContainer}>
+              <Text style={[styles.itemName, currentTheme === 'dark' && { color: '#fff' }]} numberOfLines={1}>{item.name}</Text>
+              <View style={[styles.itemCoinContainer, currentTheme === 'dark' && { backgroundColor: '#334155' }]}>
                 <Text style={[styles.itemCoinText, { color: '#facc15' }]}>{item.coins}</Text>
                 <FontAwesome5 name="coins" size={10} color="#facc15" />
               </View>
@@ -269,26 +301,26 @@ export default function KurumsalMarketScreen() {
         }}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalHeaderTitle}>
+          <View style={[styles.modalContent, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
+            <View style={[styles.modalHeader, currentTheme === 'dark' && { borderBottomColor: '#334155' }]}>
+              <Text style={[styles.modalHeaderTitle, currentTheme === 'dark' && { color: '#fff' }]}>
                 {selectedItem ? selectedItem.name : 'Geri Dönüşüm Detayı'}
               </Text>
               <TouchableOpacity 
-                style={styles.closeButton}
+                style={[styles.closeButton, currentTheme === 'dark' && { backgroundColor: '#334155' }]}
                 onPress={() => {
                   setModalVisible(false);
                   setIsScanning(false);
                 }}
               >
-                <Ionicons name="close" size={24} color="#64748b" />
+                <Ionicons name="close" size={24} color={currentTheme === 'dark' ? '#fff' : '#64748b'} />
               </TouchableOpacity>
             </View>
 
             {selectedItem && (
               <View style={styles.modalBody}>
                 {/* Atık Üst Bilgileri */}
-                <View style={styles.itemInfoRowCompact}>
+                <View style={[styles.itemInfoRowCompact, currentTheme === 'dark' && { backgroundColor: '#0f172a', borderColor: '#334155' }]}>
                   <View style={[styles.largeIconContainerCompact, { backgroundColor: selectedItem.color + '15' }]}>
                     {renderIcon(selectedItem, 36)}
                   </View>
@@ -298,14 +330,14 @@ export default function KurumsalMarketScreen() {
                         {selectedItem.coins}
                       </Text>
                       <FontAwesome5 name="coins" size={13} color="#eab308" />
-                      <Text style={styles.pointsSuffixText}>Puan Kazandırır</Text>
+                      <Text style={[styles.pointsSuffixText, currentTheme === 'dark' && { color: '#64748b' }]}>Puan Kazandırır</Text>
                     </View>
-                    <Text style={styles.modalDescriptionCompact}>{selectedItem.description}</Text>
+                    <Text style={[styles.modalDescriptionCompact, currentTheme === 'dark' && { color: '#94a3b8' }]}>{selectedItem.description}</Text>
                   </View>
                 </View>
 
                 {/* Ortabölme: Sabit Çerçeveli Tarayıcı Penceresi */}
-                <View style={[styles.scannerFrame, !isScanning && styles.placeholderFrame]}>
+                <View style={[styles.scannerFrame, !isScanning && styles.placeholderFrame, currentTheme === 'dark' && !isScanning && { backgroundColor: '#0f172a', borderColor: '#334155' }]}>
                   {isScanning ? (
                     <>
                       <CameraView
@@ -346,8 +378,8 @@ export default function KurumsalMarketScreen() {
                       <View style={[styles.cameraIconBg, { backgroundColor: selectedItem.color + '10' }]}>
                         <Ionicons name="camera" size={28} color={selectedItem.color} />
                       </View>
-                      <Text style={styles.placeholderTextCompact}>Tarayıcı Hazır</Text>
-                      <Text style={styles.placeholderSubtextCompact}>Lütfen taratmak için aşağıdaki butonlardan birini seçin.</Text>
+                      <Text style={[styles.placeholderTextCompact, currentTheme === 'dark' && { color: '#fff' }]}>Tarayıcı Hazır</Text>
+                      <Text style={[styles.placeholderSubtextCompact, currentTheme === 'dark' && { color: '#64748b' }]}>Lütfen taratmak için aşağıdaki butonlardan birini seçin.</Text>
                     </View>
                   )}
                 </View>
@@ -374,7 +406,7 @@ export default function KurumsalMarketScreen() {
                     </TouchableOpacity>
 
                     <TouchableOpacity 
-                      style={[styles.compactActionButton, { backgroundColor: '#1e293b' }]}
+                      style={[styles.compactActionButton, { backgroundColor: currentTheme === 'dark' ? '#334155' : '#1e293b' }]}
                       onPress={() => openScanner('barcode')}
                     >
                       <Ionicons name="barcode-outline" size={16} color="#fff" />

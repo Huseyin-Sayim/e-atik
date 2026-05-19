@@ -1,5 +1,25 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const fs = require('fs');
+const path = require('path');
+
+// Tüm aktif kutuları yerel diskte bins-backup.json dosyasına yedekleme fonksiyonu
+const backupBins = async () => {
+  try {
+    const bins = await prisma.bin.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+    const backupDir = path.join(__dirname, '../../data-backups');
+    if (!fs.existsSync(backupDir)) {
+      fs.mkdirSync(backupDir, { recursive: true });
+    }
+    const backupPath = path.join(backupDir, 'bins-backup.json');
+    fs.writeFileSync(backupPath, JSON.stringify(bins, null, 2), 'utf-8');
+    console.log('✅ [YEDEKLEME] Çöp kutuları başarıyla yerel diske yedeklendi:', backupPath);
+  } catch (err) {
+    console.error('❌ [YEDEKLEME] Çöp kutuları yedeklenirken hata oluştu:', err);
+  }
+};
 
 // Varsayılan Kampüs Noktaları (Ege Üniversitesi)
 const DEFAULT_BINS = [
@@ -29,9 +49,26 @@ const DEFAULT_BINS = [
 // Tüm kutuları getir
 const getBins = async (req, res) => {
   try {
+    const backupPath = path.join(__dirname, '../../data-backups/bins-backup.json');
+    if (fs.existsSync(backupPath)) {
+      const raw = fs.readFileSync(backupPath, 'utf-8');
+      const bins = JSON.parse(raw);
+      console.log('📖 [OKUMA] Çöp kutuları doğrudan bins-backup.json dosyasından okundu.');
+      return res.status(200).json(bins);
+    }
+
+    // Eğer yedek dosyası yoksa veritabanından çek ve yedek dosyasını sıfırdan oluştur
+    console.log('⚠️ [OKUMA] bins-backup.json bulunamadı. Veritabanından okunuyor...');
     const bins = await prisma.bin.findMany({
       orderBy: { createdAt: 'desc' }
     });
+
+    const backupDir = path.dirname(backupPath);
+    if (!fs.existsSync(backupDir)) {
+      fs.mkdirSync(backupDir, { recursive: true });
+    }
+    fs.writeFileSync(backupPath, JSON.stringify(bins, null, 2), 'utf-8');
+
     res.status(200).json(bins);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -61,6 +98,8 @@ const createBin = async (req, res) => {
       data: dataPayload
     });
 
+    await backupBins();
+
     res.status(201).json({ message: 'Çöp Kutusu başarıyla oluşturuldu.', bin: newBin });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -84,6 +123,8 @@ const updateBin = async (req, res) => {
       }
     });
 
+    await backupBins();
+
     res.status(200).json({ message: 'Kutu başarıyla güncellendi.', bin: updatedBin });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -97,6 +138,9 @@ const deleteBin = async (req, res) => {
     await prisma.bin.delete({
       where: { id }
     });
+
+    await backupBins();
+
     res.status(200).json({ message: 'Kutu başarıyla silindi.' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -106,33 +150,67 @@ const deleteBin = async (req, res) => {
 // ZORLA 21 NOKTAYI DB'YE EKLEME FONKSİYONU
 const seedDefaultBins = async (req, res) => {
   try {
-    // Önceki deneme/hatalı kutuları temizle
+    // Önceki kutuları temizle
     await prisma.bin.deleteMany({});
-    
-    // Tüm 21 noktayı tek bir sorguda (createMany) ekle ki motor tıkanmasın
-    const dataToInsert = DEFAULT_BINS.map(bin => {
-      let wasteCat = 'GENERAL';
-      if (bin.type === 'plastik') wasteCat = 'PLASTIC';
-      if (bin.type === 'cam') wasteCat = 'GLASS';
-      if (bin.type === 'kagit') wasteCat = 'PAPER';
 
-      return {
-        name: bin.name,
-        latitude: bin.latitude,
-        longitude: bin.longitude,
-        wasteCategory: wasteCat,
-        type: 'WASTE_POINT',
-        capacityVolume: 100,
-        predictedFullness: bin.fillPercentage || 0,
-      };
-    });
+    const backupPath = path.join(__dirname, '../../data-backups/bins-backup.json');
+    let dataToInsert = null;
+    let sourceMessage = 'varsayılan Ege Üniversitesi kampüs listesi';
+
+    // Eğer yerel diskte bir yedekleme varsa, oradan yükle!
+    if (fs.existsSync(backupPath)) {
+      try {
+        const raw = fs.readFileSync(backupPath, 'utf-8');
+        const backedUpBins = JSON.parse(raw);
+        if (backedUpBins && backedUpBins.length > 0) {
+          dataToInsert = backedUpBins.map(bin => ({
+            name: bin.name || 'Adsız Kutu',
+            latitude: parseFloat(bin.latitude),
+            longitude: parseFloat(bin.longitude),
+            wasteCategory: bin.wasteCategory || 'GENERAL',
+            type: bin.type || 'WASTE_POINT',
+            capacityVolume: parseFloat(bin.capacityVolume || 100),
+            predictedFullness: parseFloat(bin.predictedFullness || 0)
+          }));
+          sourceMessage = 'yerel JSON yedek dosyası (bins-backup.json)';
+        }
+      } catch (backupErr) {
+        console.error('Yedek dosyası okunurken hata oluştu, varsayılanlara dönülüyor:', backupErr);
+      }
+    }
+
+    // Yedek yoksa varsayılan listeyi kullan
+    if (!dataToInsert) {
+      dataToInsert = DEFAULT_BINS.map(bin => {
+        let wasteCat = 'GENERAL';
+        if (bin.type === 'plastik') wasteCat = 'PLASTIC';
+        if (bin.type === 'cam') wasteCat = 'GLASS';
+        if (bin.type === 'kagit') wasteCat = 'PAPER';
+
+        return {
+          name: bin.name,
+          latitude: bin.latitude,
+          longitude: bin.longitude,
+          wasteCategory: wasteCat,
+          type: 'WASTE_POINT',
+          capacityVolume: 100,
+          predictedFullness: bin.fillPercentage || 0,
+        };
+      });
+    }
 
     await prisma.bin.createMany({
       data: dataToInsert
     });
-    
+
+    // Seedleme sonrası güncel durumu diskteki yedeğe yaz/eşitle
+    await backupBins();
+
     const count = await prisma.bin.count();
-    res.status(200).json({ success: true, message: `Harika! Veritabanına başarıyla ${count} kutu enjekte edildi.` });
+    res.status(200).json({ 
+      success: true, 
+      message: `Harika! Veritabanına ${sourceMessage} üzerinden başarıyla ${count} kutu enjekte edildi.` 
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message, stack: err.stack });
   }

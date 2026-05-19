@@ -234,8 +234,16 @@ export default function KisiselSettingsScreen() {
     type: 'success'
   });
 
+  const [currentTheme, setCurrentTheme] = useState('light');
+
   useEffect(() => {
     loadUserData();
+    
+    const unsubscribe = DatabaseService.subscribeToTheme((theme) => {
+      setCurrentTheme(theme);
+    });
+    
+    return () => unsubscribe();
   }, []);
 
   const loadUserData = async () => {
@@ -441,12 +449,12 @@ export default function KisiselSettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView style={[styles.safeArea, currentTheme === 'dark' && { backgroundColor: '#0f172a' }]}>
+      <StatusBar barStyle={currentTheme === 'dark' ? "light-content" : "dark-content"} />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
         {/* PROFIL KARTI */}
-        <View style={styles.card}>
+        <View style={[styles.card, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
           <View style={styles.photoContainer}>
             <View style={styles.imageWrapper}>
               <Image 
@@ -458,8 +466,8 @@ export default function KisiselSettingsScreen() {
             </View>
 
             <View style={styles.buttonWrapper}>
-              <Text style={styles.userNameText}>{userName || 'Kullanıcı'}</Text>
-              <Text style={styles.userEmailText}>{userEmail}</Text>
+              <Text style={[styles.userNameText, currentTheme === 'dark' && { color: '#fff' }]}>{userName || 'Kullanıcı'}</Text>
+              <Text style={[styles.userEmailText, currentTheme === 'dark' && { color: '#94a3b8' }]}>{userEmail}</Text>
               
               <View style={styles.actionButtons}>
                 <TouchableOpacity 
@@ -492,70 +500,85 @@ export default function KisiselSettingsScreen() {
 
         {/* AYAR SEKMELERI */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Hesap Ayarları</Text>
+          <Text style={[styles.sectionTitle, currentTheme === 'dark' && { color: '#64748b' }]}>Hesap Ayarları</Text>
           
           <TouchableOpacity 
-            style={styles.menuItem} 
+            style={[styles.menuItem, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]} 
             activeOpacity={0.7}
             onPress={() => router.push('/kisisel/edit-personal-info')}
           >
             <View style={[styles.iconBox, { backgroundColor: '#e0f2fe' }]}>
               <Ionicons name="person" size={20} color="#0284c7" />
             </View>
-            <Text style={styles.menuItemText}>Kişisel Bilgiler</Text>
-            <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+            <Text style={[styles.menuItemText, currentTheme === 'dark' && { color: '#fff' }]}>Kişisel Bilgiler</Text>
+            <Ionicons name="chevron-forward" size={18} color={currentTheme === 'dark' ? '#64748b' : '#cbd5e1'} />
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={styles.menuItem} 
+            style={[styles.menuItem, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]} 
             activeOpacity={0.7}
             onPress={() => router.push('/kisisel/edit-address')}
           >
             <View style={[styles.iconBox, { backgroundColor: '#f0fdf4' }]}>
               <Ionicons name="location" size={20} color="#16a34a" />
             </View>
-            <Text style={styles.menuItemText}>Adres Bilgileri</Text>
-            <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+            <Text style={[styles.menuItemText, currentTheme === 'dark' && { color: '#fff' }]}>Adres Bilgileri</Text>
+            <Ionicons name="chevron-forward" size={18} color={currentTheme === 'dark' ? '#64748b' : '#cbd5e1'} />
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={styles.menuItem} 
+            style={[styles.menuItem, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]} 
             activeOpacity={0.7}
             onPress={() => router.push('/kisisel/edit-contact')}
           >
             <View style={[styles.iconBox, { backgroundColor: '#fef2f2' }]}>
               <Ionicons name="call" size={20} color="#dc2626" />
             </View>
-            <Text style={styles.menuItemText}>İletişim Bilgileri</Text>
-            <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+            <Text style={[styles.menuItemText, currentTheme === 'dark' && { color: '#fff' }]}>İletişim Bilgileri</Text>
+            <Ionicons name="chevron-forward" size={18} color={currentTheme === 'dark' ? '#64748b' : '#cbd5e1'} />
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={styles.menuItem} 
+            style={[styles.menuItem, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]} 
             activeOpacity={0.7}
             onPress={() => router.push('/kisisel/edit-email')}
           >
             <View style={[styles.iconBox, { backgroundColor: '#faf5ff' }]}>
               <Ionicons name="mail" size={20} color="#9333ea" />
             </View>
-            <Text style={styles.menuItemText}>E-posta İşlemleri</Text>
-            <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+            <Text style={[styles.menuItemText, currentTheme === 'dark' && { color: '#fff' }]}>E-posta İşlemleri</Text>
+            <Ionicons name="chevron-forward" size={18} color={currentTheme === 'dark' ? '#64748b' : '#cbd5e1'} />
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={styles.menuItem} 
+            style={[styles.menuItem, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]} 
             activeOpacity={0.7}
             onPress={() => router.push('/kisisel/change-password')}
           >
             <View style={[styles.iconBox, { backgroundColor: '#fff7ed' }]}>
               <Ionicons name="lock-closed" size={20} color="#ea580c" />
             </View>
-            <Text style={styles.menuItemText}>Şifre Değiştir</Text>
-            <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+            <Text style={[styles.menuItemText, currentTheme === 'dark' && { color: '#fff' }]}>Şifre Değiştir</Text>
+            <Ionicons name="chevron-forward" size={18} color={currentTheme === 'dark' ? '#64748b' : '#cbd5e1'} />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.menuItem, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]} 
+            activeOpacity={0.7}
+            onPress={() => router.push('/kisisel/theme-settings')}
+          >
+            <View style={[styles.iconBox, { backgroundColor: '#e2e8f0' }]}>
+              <Ionicons name="color-palette" size={20} color="#475569" />
+            </View>
+            <Text style={[styles.menuItemText, currentTheme === 'dark' && { color: '#fff' }]}>Tema Ayarları</Text>
+            <Ionicons name="chevron-forward" size={18} color={currentTheme === 'dark' ? '#64748b' : '#cbd5e1'} />
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+        <TouchableOpacity 
+          style={[styles.logoutBtn, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderColor: '#334155' }]} 
+          onPress={handleLogout}
+        >
           <Ionicons name="log-out-outline" size={20} color="#ef4444" />
           <Text style={styles.logoutBtnText}>Oturumu Kapat</Text>
         </TouchableOpacity>

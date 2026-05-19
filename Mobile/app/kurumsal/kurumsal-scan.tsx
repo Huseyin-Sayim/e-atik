@@ -9,13 +9,31 @@ import {
   ScrollView,
   TouchableOpacity,
   Animated,
-  Modal
+  Modal,
+  FlatList,
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import DatabaseService from '../../database/DatabaseService';
 
+interface TrashBin {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  fillPercentage: number;
+  type: 'plastik' | 'kagit' | 'cam' | 'genel';
+  capacity: number;
+}
+
 export default function KurumsalScanScreen() {
+  const [bins, setBins] = useState<TrashBin[]>([]);
+  const [loadingBins, setLoadingBins] = useState(false);
+  const [selectedBin, setSelectedBin] = useState<TrashBin | null>(null);
+  const [isDropdownVisible, setIsDropdownVisible] = useState(false);
+
+  // Scanner state
   const [isScanning, setIsScanning] = useState(false);
   const [scanned, setScanned] = useState(false);
   const [scanMode, setScanMode] = useState<'qr' | 'barcode' | null>(null);
@@ -31,6 +49,49 @@ export default function KurumsalScanScreen() {
     title: '',
     message: ''
   });
+
+  const [currentTheme, setCurrentTheme] = useState('light');
+
+  useEffect(() => {
+    loadBins();
+    const unsubscribeBins = DatabaseService.subscribeToBins(() => {
+      loadBins();
+    });
+    const unsubTheme = DatabaseService.subscribeToTheme((theme) => {
+      setCurrentTheme(theme);
+    });
+    return () => {
+      unsubscribeBins();
+      unsubTheme();
+    };
+  }, []);
+
+  const loadBins = async () => {
+    try {
+      setLoadingBins(true);
+      const fetched = await DatabaseService.getBins();
+      const mappedBins: TrashBin[] = fetched.map(b => ({
+        id: b.id.toString(),
+        name: b.name || 'İsimsiz Kutu',
+        latitude: parseFloat(b.latitude),
+        longitude: parseFloat(b.longitude),
+        fillPercentage: b.predictedFullness || 0,
+        type: b.wasteCategory === 'PLASTIC' ? 'plastik' : b.wasteCategory === 'GLASS' ? 'cam' : b.wasteCategory === 'PAPER' ? 'kagit' : 'genel',
+        capacity: (b.wasteCategory === 'PLASTIC' || b.wasteCategory === 'PAPER') ? 50 : 100
+      }));
+      setBins(mappedBins);
+
+      // Selected bin güncel durumunu koru
+      if (selectedBin) {
+        const updated = mappedBins.find(b => b.id === selectedBin.id);
+        if (updated) setSelectedBin(updated);
+      }
+    } catch (e) {
+      console.log('Kutular yüklenemedi:', e);
+    } finally {
+      setLoadingBins(false);
+    }
+  };
 
   useEffect(() => {
     if (isScanning) {
@@ -72,6 +133,17 @@ export default function KurumsalScanScreen() {
     setIsScanning(true);
   };
 
+  // Taranan kodla eşleşen kutuyu bulan yardımcı metod
+  const matchScannedBin = (data: string) => {
+    // 1. Önce doğrudan ID eşleşmesi ara
+    let found = bins.find(b => b.id.toString() === data.trim());
+    if (!found) {
+      // 2. Kutu adında taranan kodun geçip geçmediğine bak (harf duyarsız)
+      found = bins.find(b => b.name.toLowerCase().includes(data.trim().toLowerCase()));
+    }
+    return found;
+  };
+
   const handleBarCodeScanned = async ({ type, data }: { type: string, data: string }) => {
     if (scanned || processingRef.current) return;
     setScanned(true);
@@ -79,31 +151,82 @@ export default function KurumsalScanScreen() {
     setIsScanning(false);
 
     try {
-      await DatabaseService.scanQrCode(
-        data,
-        10, // Genel kurumsal dönüşüm ödülü 10 Puan
-        "Kurumsal Geri Dönüştürme Ödülü",
-        scanMode || 'qr'
-      );
-
-      // Başarılı Özel Popup
-      setAlertInfo({
-        visible: true,
-        type: 'success',
-        title: 'Başarılı!',
-        message: `Geri dönüşüm başarıyla tamamlandı!\n\nHesabınıza 10 Puan eklendi.\n\nKod: ${data.substring(0, 20)}${data.length > 20 ? '...' : ''}`
-      });
+      // Doğrudan Kutu Boşaltma İçin Tarama & Eşleştirme yapılıyor
+      const matched = matchScannedBin(data);
+      if (matched) {
+        setSelectedBin(matched);
+        await handleEmptyBin(matched.id);
+      } else {
+        setAlertInfo({
+          visible: true,
+          type: 'error',
+          title: 'Kutu Bulunamadı',
+          message: `Taranan kod ile eşleşen bir atık kutusu bulunamadı.\n\nKod: ${data}`
+        });
+      }
     } catch (error: any) {
-      // Hata Özel Popup
       setAlertInfo({
         visible: true,
         type: 'error',
         title: 'Başarısız',
-        message: error.message || 'Geri dönüştürme işlemi sırasında bir hata oluştu.'
+        message: error.message || 'Kutu okuma işlemi sırasında bir hata oluştu.'
       });
     } finally {
       processingRef.current = false;
     }
+  };
+
+  const handleEmptyBin = async (binId: string) => {
+    try {
+      const targetBin = bins.find(b => b.id === binId);
+      if (!targetBin) return;
+
+      const payload = {
+        name: targetBin.name,
+        latitude: targetBin.latitude,
+        longitude: targetBin.longitude,
+        predictedFullness: 0,
+        wasteCategory: targetBin.type === 'plastik' ? 'PLASTIC' : targetBin.type === 'cam' ? 'GLASS' : targetBin.type === 'kagit' ? 'PAPER' : 'GENERAL'
+      };
+
+      await DatabaseService.updateBinItem(binId, payload);
+      
+      // Local state güncelle
+      setBins(prev => prev.map(b => b.id === binId ? { ...b, fillPercentage: 0 } : b));
+      if (selectedBin?.id === binId) {
+        setSelectedBin(prev => prev ? { ...prev, fillPercentage: 0 } : null);
+      }
+
+      // TÜM EKRANLARA CANLI SENKRONİZASYON YAYINI YAP!
+      DatabaseService.notifyBinsChanged();
+
+      setAlertInfo({
+        visible: true,
+        type: 'success',
+        title: 'Kutu Boşaltıldı!',
+        message: `"${targetBin.name}" kutusu başarıyla tamamen boşaltıldı ve doluluk oranı %0'a sıfırlandı.`
+      });
+    } catch (error: any) {
+      setAlertInfo({
+        visible: true,
+        type: 'error',
+        title: 'Hata',
+        message: error.message || 'Kutu boşaltılırken bir hata oluştu.'
+      });
+    }
+  };
+
+  const getPinColor = (percentage: number): string => {
+    if (percentage < 40) return '#27ae60';
+    if (percentage < 75) return '#f39c12';
+    return '#e74c3c';
+  };
+
+  const getBinTypeName = (type: string) => {
+    if (type === 'plastik') return 'Plastik';
+    if (type === 'kagit') return 'Kağıt';
+    if (type === 'cam') return 'Cam';
+    return 'Genel Atık';
   };
 
   const translateY = laserAnim.interpolate({
@@ -112,20 +235,38 @@ export default function KurumsalScanScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView style={[styles.container, currentTheme === 'dark' && { backgroundColor: '#0f172a' }]}>
+      <StatusBar barStyle={currentTheme === 'dark' ? "light-content" : "dark-content"} />
+      
       <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>QR | Barkod</Text>
-          <Text style={styles.headerSubtitle}>
-            QR kodunuzu veya barkodunuzu çerçeve içine gelecek şekilde taratarak geri dönüştürme işlemini hemen başlatın.
+        <View style={[styles.header, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderColor: '#334155' }]}>
+          <Text style={[styles.headerTitle, currentTheme === 'dark' && { color: '#fff' }]}>Akıllı Kova Yönetimi</Text>
+          <Text style={[styles.headerSubtitle, currentTheme === 'dark' && { color: '#94a3b8' }]}>
+            Akıllı atık kutularını üzerindeki QR/Barkod ile taratarak ya da listeden seçerek doluluk oranlarını %0'a eşitleyin.
           </Text>
         </View>
 
+        {/* Atık Kutusu Seçim Dropdown */}
+        <View style={styles.selectorSection}>
+          <Text style={[styles.sectionLabel, currentTheme === 'dark' && { color: '#94a3b8' }]}>Atık Kutusu Seçin</Text>
+          <TouchableOpacity 
+            style={[styles.dropdownTrigger, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderColor: '#334155' }]}
+            onPress={() => setIsDropdownVisible(true)}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+              <Ionicons name="location-outline" size={20} color="#2e7d32" />
+              <Text style={[styles.dropdownTriggerText, currentTheme === 'dark' && { color: '#fff' }, !selectedBin && { color: '#94a3b8' }]} numberOfLines={1}>
+                {selectedBin ? `${selectedBin.name} (%${selectedBin.fillPercentage})` : 'Listeden bir atık kutusu seçin'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-down" size={18} color="#64748b" />
+          </TouchableOpacity>
+        </View>
+
         {/* Viewfinder Frame */}
-        <View style={[styles.scannerFrame, !isScanning && styles.placeholderFrame]}>
+        <View style={[styles.scannerFrame, !isScanning && styles.placeholderFrame, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderColor: '#334155' }]}>
           {isScanning ? (
             <CameraView
               style={StyleSheet.absoluteFillObject}
@@ -160,12 +301,12 @@ export default function KurumsalScanScreen() {
             </CameraView>
           ) : (
             <View style={styles.placeholderContainerCompact}>
-              <View style={styles.cameraIconBg}>
-                <Ionicons name="camera" size={32} color="#10b981" />
+              <View style={[styles.cameraIconBg, currentTheme === 'dark' && { backgroundColor: '#334155' }]}>
+                <Ionicons name="qr-code" size={32} color="#2e7d32" />
               </View>
-              <Text style={styles.placeholderTextCompact}>Tarayıcı Hazır</Text>
-              <Text style={styles.placeholderSubtextCompact}>
-                QR veya barkod taramaya başlamak için aşağıdaki butonlardan bir yöntem seçin.
+              <Text style={[styles.placeholderTextCompact, currentTheme === 'dark' && { color: '#fff' }]}>Tarayıcı Hazır</Text>
+              <Text style={[styles.placeholderSubtextCompact, currentTheme === 'dark' && { color: '#94a3b8' }]}>
+                Kutunun üzerindeki etiketi taratarak otomatik seçmek için bir tarama modu başlatın.
               </Text>
             </View>
           )}
@@ -183,11 +324,11 @@ export default function KurumsalScanScreen() {
         ) : (
           <View style={styles.buttonRowCompact}>
             <TouchableOpacity
-              style={[styles.compactActionButton, { backgroundColor: '#10b981' }]}
+              style={[styles.compactActionButton, { backgroundColor: '#2e7d32' }]}
               onPress={() => startScanning('qr')}
             >
               <Ionicons name="qr-code-outline" size={18} color="#fff" />
-              <Text style={styles.compactActionButtonText}>QR ile Tarat</Text>
+              <Text style={styles.compactActionButtonText}>Kutu QR Tara</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -195,14 +336,74 @@ export default function KurumsalScanScreen() {
               onPress={() => startScanning('barcode')}
             >
               <Ionicons name="barcode-outline" size={18} color="#fff" />
-              <Text style={styles.compactActionButtonText}>Barkod ile Tarat</Text>
+              <Text style={styles.compactActionButtonText}>Kutu Barkod Tara</Text>
             </TouchableOpacity>
           </View>
         )}
 
+        {/* Kutu Boşaltma Yönetim Kartı kaldırıldı - artık barkod okutunca otomatik boşaltılıyor */}
+
       </ScrollView>
 
-      {/* Premium Custom Alert Modal (noticeable 28px border-radius) */}
+      {/* DROPDOWN PICKER MODAL (Premium Alt Sheet Tasarımı) */}
+      <Modal
+        visible={isDropdownVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsDropdownVisible(false)}
+      >
+        <View style={styles.dropdownOverlay}>
+          <View style={[styles.dropdownSheet, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
+            <View style={[styles.dropdownHeader, currentTheme === 'dark' && { borderBottomColor: '#334155' }]}>
+              <View>
+                <Text style={[styles.dropdownTitle, currentTheme === 'dark' && { color: '#fff' }]}>Atık Kutusu Seçin</Text>
+                <Text style={[styles.dropdownSubtitle, currentTheme === 'dark' && { color: '#94a3b8' }]}>{bins.length} adet akıllı kutu listeleniyor</Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.dropdownCloseBtn}
+                onPress={() => setIsDropdownVisible(false)}
+              >
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+
+            {loadingBins ? (
+              <ActivityIndicator size="large" color="#2e7d32" style={{ marginVertical: 40 }} />
+            ) : (
+              <FlatList
+                data={bins}
+                keyExtractor={(item) => item.id}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 30 }}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      setSelectedBin(item);
+                      setIsDropdownVisible(false);
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                      <View style={[styles.statusDot, { backgroundColor: getPinColor(item.fillPercentage) }]} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.itemName, currentTheme === 'dark' && { color: '#fff' }]}>{item.name}</Text>
+                        <Text style={[styles.itemMeta, currentTheme === 'dark' && { color: '#94a3b8' }]}>
+                          {getBinTypeName(item.type)} • {item.capacity}L Kapasite
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.itemPercentText, { color: getPinColor(item.fillPercentage) }]}>
+                      %{item.fillPercentage}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Premium Custom Alert Modal (28px border-radius) */}
       <Modal
         visible={alertInfo.visible}
         transparent
@@ -210,25 +411,26 @@ export default function KurumsalScanScreen() {
         onRequestClose={() => setAlertInfo({ ...alertInfo, visible: false })}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.alertBox}>
+          <View style={[styles.alertBox, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
             <View style={[
               styles.alertHeaderBadge,
-              { backgroundColor: alertInfo.type === 'success' ? '#dcfce7' : '#fee2e2' }
+              { backgroundColor: alertInfo.type === 'success' ? '#dcfce7' : '#fee2e2' },
+              currentTheme === 'dark' && { backgroundColor: alertInfo.type === 'success' ? '#064e3b' : '#451a03' }
             ]}>
               <Ionicons
                 name={alertInfo.type === 'success' ? 'checkmark-circle' : 'alert-circle'}
                 size={44}
-                color={alertInfo.type === 'success' ? '#10b981' : '#ef4444'}
+                color={currentTheme === 'dark' ? (alertInfo.type === 'success' ? '#34d399' : '#f87171') : (alertInfo.type === 'success' ? '#2e7d32' : '#ef4444')}
               />
             </View>
 
-            <Text style={styles.alertTitle}>{alertInfo.title}</Text>
-            <Text style={styles.alertMessage}>{alertInfo.message}</Text>
+            <Text style={[styles.alertTitle, currentTheme === 'dark' && { color: '#fff' }]}>{alertInfo.title}</Text>
+            <Text style={[styles.alertMessage, currentTheme === 'dark' && { color: '#94a3b8' }]}>{alertInfo.message}</Text>
 
             <TouchableOpacity
               style={[
                 styles.alertCloseButton,
-                { backgroundColor: alertInfo.type === 'success' ? '#10b981' : '#ef4444' }
+                { backgroundColor: alertInfo.type === 'success' ? '#2e7d32' : '#ef4444' }
               ]}
               onPress={() => setAlertInfo({ ...alertInfo, visible: false })}
             >
@@ -249,7 +451,7 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 25 : 55) : 30,
     paddingBottom: 40,
   },
   header: {
@@ -258,7 +460,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    marginBottom: 25,
+    marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.02,
@@ -276,6 +478,36 @@ const styles = StyleSheet.create({
     color: '#64748b',
     lineHeight: 18,
     marginTop: 6,
+  },
+  selectorSection: {
+    marginBottom: 20,
+  },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#334155',
+    marginBottom: 8,
+    paddingLeft: 4,
+  },
+  dropdownTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  dropdownTriggerText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1e293b',
   },
   scannerFrame: {
     width: '100%',
@@ -309,7 +541,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 18,
-    backgroundColor: '#10b98115',
+    backgroundColor: '#e8f5e9',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
@@ -356,7 +588,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 20,
     height: 20,
-    borderColor: '#10b981',
+    borderColor: '#2e7d32',
     borderWidth: 4,
   },
   topLeftCornerCompact: {
@@ -390,8 +622,8 @@ const styles = StyleSheet.create({
   laserLineCompact: {
     width: '90%',
     height: 3,
-    backgroundColor: '#10b981',
-    shadowColor: '#10b981',
+    backgroundColor: '#2e7d32',
+    shadowColor: '#2e7d32',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 5,
@@ -437,7 +669,148 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  // Modal Styles
+  // Kutu Yönetim Kartı Styles
+  binManageCard: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 20,
+    marginTop: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.02,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  binManageHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  binManageTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  binManageSubtitle: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 3,
+    fontWeight: '600',
+  },
+  typeBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  typeBadgeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  progressContainer: {
+    height: 10,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 5,
+    overflow: 'hidden',
+    marginBottom: 20,
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: 5,
+  },
+  emptyActionBtn: {
+    backgroundColor: '#2e7d32',
+    paddingVertical: 15,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    shadowColor: '#2e7d32',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  disabledEmptyActionBtn: {
+    backgroundColor: '#cbd5e1',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  emptyActionBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  // Dropdown Modal Styles
+  dropdownOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
+    justifyContent: 'flex-end',
+  },
+  dropdownSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    maxHeight: '75%',
+  },
+  dropdownHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  dropdownTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  dropdownSubtitle: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  dropdownCloseBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  statusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  itemName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  itemMeta: {
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  itemPercentText: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  // Alert Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.6)',
@@ -449,7 +822,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 320,
     backgroundColor: '#fff',
-    borderRadius: 28, // Noticeable custom radius
+    borderRadius: 28,
     padding: 24,
     alignItems: 'center',
     shadowColor: '#000',

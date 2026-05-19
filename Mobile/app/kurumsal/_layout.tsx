@@ -1,14 +1,32 @@
+import React, { useState, useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import DatabaseService from '../../database/DatabaseService';
 
 export default function KurumsalLayout() {
+  const [currentTheme, setCurrentTheme] = useState('light');
+
+  useEffect(() => {
+    const unsubscribe = DatabaseService.subscribeToTheme((t) => {
+      setCurrentTheme(t);
+    });
+    return () => unsubscribe();
+  }, []);
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
         tabBarActiveTintColor: '#2e7d32',
-        tabBarStyle: { height: 70, paddingBottom: 10, paddingTop: 10 },
+        tabBarInactiveTintColor: currentTheme === 'dark' ? '#64748b' : '#94a3b8',
+        tabBarStyle: { 
+          height: 70, 
+          paddingBottom: 10, 
+          paddingTop: 10,
+          backgroundColor: currentTheme === 'dark' ? '#1e293b' : '#fff',
+          borderTopColor: currentTheme === 'dark' ? '#334155' : '#f1f5f9',
+        },
       }}
     >
       <Tabs.Screen
@@ -83,6 +101,12 @@ export default function KurumsalLayout() {
         }}
       />
       <Tabs.Screen
+        name="region-select"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="kurumsal-notifications"
         options={{
           href: null,
@@ -90,6 +114,12 @@ export default function KurumsalLayout() {
       />
       <Tabs.Screen
         name="kurumsal-transactions"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="theme-settings"
         options={{
           href: null,
         }}

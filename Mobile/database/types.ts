@@ -7,6 +7,11 @@ export interface User {
   isFirstLogin?: boolean;
   profileType?: 'kisisel' | 'kurumsal';
   createdAt?: number;
+  region?: {
+    id: string;
+    name: string;
+    region_id: string;
+  };
 }
 
 export interface DatabaseState {
