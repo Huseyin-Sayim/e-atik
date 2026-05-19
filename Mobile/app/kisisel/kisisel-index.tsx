@@ -406,8 +406,6 @@ export default function KisiselIndexScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        
-        {/* HIZLI İŞLEMLER BÖLÜMÜ */}
         <View style={styles.quickActionsSection}>
           <Text style={[styles.sectionTitle, currentTheme === 'dark' && { color: '#fff' }]}>Hızlı İşlemler</Text>
           <View style={styles.quickActionsRow}>
@@ -429,7 +427,6 @@ export default function KisiselIndexScreen() {
           </View>
         </View>
 
-        {/* SON İŞLEMLER BÖLÜMÜ (4 İşlem ile Sınırlı) */}
         <View style={[styles.transactionsContainer, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, currentTheme === 'dark' && { color: '#fff' }]}>Son İşlemler</Text>
@@ -505,7 +502,6 @@ export default function KisiselIndexScreen() {
         </View>
       </ScrollView>
 
-      {/* TÜM İŞLEMLER MODALI */}
       <Modal
         animationType="slide"
         transparent={false}
@@ -580,7 +576,6 @@ export default function KisiselIndexScreen() {
         </SafeAreaView>
       </Modal>
 
-      {/* ÖZEL ALERT MODALI */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -633,7 +628,6 @@ export default function KisiselIndexScreen() {
         </View>
       </Modal>
 
-      {/* İŞLEM DETAY MODALI */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -725,7 +719,6 @@ export default function KisiselIndexScreen() {
         </View>
       </Modal>
 
-      {/* EVSEL ATIK BİLDİRİMİ MODALI */}
       <Modal
         animationType="slide"
         transparent={false}
@@ -750,7 +743,6 @@ export default function KisiselIndexScreen() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* İl / İlçe Bilgisi */}
             <Text style={[styles.inputLabel, currentTheme === 'dark' && { color: '#fff' }]}>Bölge Bilgisi (Profilinizden)</Text>
             <View style={[styles.regionInfoBox, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderColor: '#334155' }]}>
               <Ionicons name="location-sharp" size={20} color="#64748b" style={{ marginRight: 8 }} />
@@ -759,7 +751,6 @@ export default function KisiselIndexScreen() {
               </Text>
             </View>
 
-            {/* Atık Türü Seçim Gridi */}
             <Text style={[styles.inputLabel, currentTheme === 'dark' && { color: '#fff' }]}>Evsel Atık Türü Seçin</Text>
             <View style={styles.wasteGrid}>
               {wasteTypes.map((type) => {
@@ -791,7 +782,6 @@ export default function KisiselIndexScreen() {
               })}
             </View>
 
-            {/* Açık Adres */}
             <Text style={[styles.inputLabel, currentTheme === 'dark' && { color: '#fff' }]}>Açık Adresiniz</Text>
             <TextInput
               style={[styles.addressInput, currentTheme === 'dark' && { backgroundColor: '#1e293b', color: '#fff', borderColor: '#334155' }]}
@@ -803,7 +793,6 @@ export default function KisiselIndexScreen() {
               placeholderTextColor="#94a3b8"
             />
 
-            {/* Gönder Butonu */}
             <TouchableOpacity
               style={[styles.submitButton, isSubmitting && { backgroundColor: '#86efac' }]}
               onPress={handleWasteSubmit}

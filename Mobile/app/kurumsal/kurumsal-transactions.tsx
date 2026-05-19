@@ -177,14 +177,12 @@ export default function KurumsalTransactionsScreen() {
   return (
     <SafeAreaView style={[styles.safeArea, currentTheme === 'dark' && { backgroundColor: '#0f172a' }]}>
       <StatusBar barStyle={currentTheme === 'dark' ? "light-content" : "dark-content"} />
-      
-      {/* Şık Header */}
       <View style={[styles.header, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderBottomColor: '#334155' }]}>
         <TouchableOpacity style={[styles.backButton, currentTheme === 'dark' && { backgroundColor: '#334155' }]} onPress={() => router.replace('/kurumsal/kurumsal-index')}>
           <Ionicons name="arrow-back" size={24} color={currentTheme === 'dark' ? '#fff' : '#1e293b'} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, currentTheme === 'dark' && { color: '#fff' }]}>Yapılan Son İşlemler</Text>
-        <View style={{ width: 40 }} /> {/* Hizalama için boşluk */}
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -265,7 +263,6 @@ export default function KurumsalTransactionsScreen() {
         )}
       </ScrollView>
 
-      {/* ÖZEL ALERT MODALI */}
       <Modal
         animationType="fade"
         transparent={true}

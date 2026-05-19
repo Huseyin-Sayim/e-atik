@@ -31,6 +31,7 @@ async function resolveRegionFromParcelKey(parcelKey) {
 }
 
 const getBins = async (req, res) => {
+  try {
     const { regionId } = req.query;
     const backupPath = path.join(__dirname, '../../data-backups/bins-backup.json');
     if (fs.existsSync(backupPath)) {
@@ -289,4 +290,5 @@ module.exports = {
   createBin,
   updateBin,
   deleteBin,
+  seedDefaultBins,
 };
