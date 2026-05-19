@@ -3,9 +3,9 @@ const assert = require('node:assert/strict');
 const {
   setEmployeeLocation,
   getAllEmployeeLocations,
+  markEmployeeOffline,
   removeEmployee,
   resetLocationStoreForTests,
-  THROTTLE_MS,
 } = require('../services/locationStore');
 
 describe('locationStore', () => {
@@ -41,15 +41,32 @@ describe('locationStore', () => {
     assert.equal(second.reason, 'throttled');
   });
 
-  it('removes employee on disconnect', () => {
+  it('marks employee offline on disconnect without removing immediately', () => {
     resetLocationStoreForTests();
     setEmployeeLocation('emp-3', {
       latitude: 38.46,
       longitude: 27.21,
       role: 'EMPLOYEE',
     });
+    markEmployeeOffline('emp-3');
+    const all = getAllEmployeeLocations();
+    assert.equal(all.length, 1);
+    assert.equal(all[0].online, false);
     removeEmployee('emp-3');
     assert.equal(getAllEmployeeLocations().length, 0);
+  });
+
+  it('stores parcelKey on location entry', () => {
+    resetLocationStoreForTests();
+    const result = setEmployeeLocation('emp-5', {
+      latitude: 38.461,
+      longitude: 27.22,
+      role: 'EMPLOYEE',
+      parcelKey: 'akademik',
+      parcelLabel: 'Akademik yerleşke',
+    });
+    assert.equal(result.entry.parcelKey, 'akademik');
+    assert.equal(result.entry.online, true);
   });
 
   it('rejects invalid coordinates', () => {

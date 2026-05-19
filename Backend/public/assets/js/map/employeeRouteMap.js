@@ -66,28 +66,60 @@
     return PROGRESS_KEY + ':' + plan.regionParcelId;
   }
 
-  function loadProgress() {
+  function applyProgressData(data) {
+    if (!data) return;
+    if (typeof data.currentStep === 'number' && data.currentStep >= 0) {
+      currentStep = data.currentStep;
+    }
+    if (typeof data.completedCount === 'number') {
+      completedCount = data.completedCount;
+    }
+  }
+
+  function loadProgressFromSession() {
     try {
       const raw = sessionStorage.getItem(progressStorageKey());
       if (!raw) return;
-      const data = JSON.parse(raw);
-      if (typeof data.currentStep === 'number' && data.currentStep >= 0) {
-        currentStep = data.currentStep;
-      }
-      if (typeof data.completedCount === 'number') {
-        completedCount = data.completedCount;
-      }
+      applyProgressData(JSON.parse(raw));
     } catch (e) {
       /* ignore */
     }
   }
 
-  function saveProgress() {
+  async function loadProgress() {
     try {
-      sessionStorage.setItem(
-        progressStorageKey(),
-        JSON.stringify({ currentStep, completedCount })
-      );
+      const res = await fetch('/api/employee/route-progress', { credentials: 'same-origin' });
+      if (res.ok) {
+        const body = await res.json();
+        if (body.progress) {
+          applyProgressData(body.progress);
+          return;
+        }
+      }
+    } catch (e) {
+      /* ignore */
+    }
+    loadProgressFromSession();
+  }
+
+  async function saveProgress() {
+    const payload = {
+      currentStep,
+      completedCount,
+      regionParcelId: plan?.regionParcelId || null,
+    };
+    try {
+      sessionStorage.setItem(progressStorageKey(), JSON.stringify(payload));
+    } catch (e) {
+      /* ignore */
+    }
+    try {
+      await fetch('/api/employee/route-progress', {
+        method: 'PUT',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
     } catch (e) {
       /* ignore */
     }
@@ -419,7 +451,7 @@
       return;
     }
 
-    saveProgress();
+    await saveProgress();
     await refreshStepView();
   }
 
@@ -575,7 +607,7 @@
 
   async function showPlan(loadedPlan) {
     plan = loadedPlan;
-    loadProgress();
+    await loadProgress();
     if (plan.stops?.length && currentStep >= plan.stops.length) {
       clearProgress();
       currentStep = 0;

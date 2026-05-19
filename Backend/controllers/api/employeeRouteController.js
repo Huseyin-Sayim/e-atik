@@ -1,6 +1,10 @@
 const { PrismaClient } = require('@prisma/client');
 const { planEmployeeRoute, planRouteLeg } = require('../../services/routePlanner');
 const { enrichBinsReadOnly, getRegionFullnessAlerts } = require('../../services/employeeRegionAlerts');
+const {
+  setEmployeeRouteProgress,
+  getEmployeeRouteProgress,
+} = require('../../services/employeeRouteProgressStore');
 
 const prisma = new PrismaClient();
 
@@ -106,9 +110,34 @@ async function getRegionAlerts(req, res) {
   }
 }
 
+async function getRouteProgress(req, res) {
+  try {
+    const progress = getEmployeeRouteProgress(req.user.userId);
+    res.status(200).json({
+      progress: progress || { currentStep: 0, completedCount: 0, regionParcelId: null },
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'İlerleme alınamadı.' });
+  }
+}
+
+async function putRouteProgress(req, res) {
+  try {
+    const result = setEmployeeRouteProgress(req.user.userId, req.body);
+    if (!result.ok) {
+      return res.status(400).json({ message: 'Geçersiz ilerleme verisi.' });
+    }
+    res.status(200).json({ message: 'OK', progress: result.entry });
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'İlerleme kaydedilemedi.' });
+  }
+}
+
 module.exports = {
   getRoutePlan,
   getRouteLeg,
   getRegionBins,
   getRegionAlerts,
+  getRouteProgress,
+  putRouteProgress,
 };

@@ -1,31 +1,18 @@
-const { PrismaClient } = require('@prisma/client');
-const { assertPointInCampus } = require('../../services/campusParcels');
 const {
-  setEmployeeLocation,
+  applyEmployeeLocationUpdate,
+} = require('../../services/employeeLocationService');
+const {
   getAllEmployeeLocations,
-  removeEmployee,
+  markEmployeeOffline,
   startLocationStoreSweep,
 } = require('../../services/locationStore');
 
-const prisma = new PrismaClient();
-
 const ADMIN_ROOM = 'tracking:admin';
-
-function isValidCoordinate(lat, lng) {
-  return (
-    Number.isFinite(lat) &&
-    Number.isFinite(lng) &&
-    lat >= -90 &&
-    lat <= 90 &&
-    lng >= -180 &&
-    lng <= 180
-  );
-}
 
 function registerEmployeeTracking(io, socket) {
   const { userId, role } = socket.user;
 
-  if (role === 'ADMIN') {
+  if (role === 'ADMIN' || role === 'BOSS') {
     socket.join(ADMIN_ROOM);
     socket.emit('location:employees:snapshot', {
       employees: getAllEmployeeLocations(),
@@ -41,45 +28,15 @@ function registerEmployeeTracking(io, socket) {
 
   socket.on('location:update', async (payload, ack) => {
     try {
-      const latitude = Number(payload?.latitude);
-      const longitude = Number(payload?.longitude);
-      const accuracy =
-        payload?.accuracy != null ? Number(payload.accuracy) : null;
+      const result = await applyEmployeeLocationUpdate(userId, payload);
 
-      if (!isValidCoordinate(latitude, longitude)) {
-        socket.emit('location:error', { message: 'Geçersiz koordinat.' });
-        if (typeof ack === 'function') ack({ ok: false });
-        return;
-      }
-
-      const campus = assertPointInCampus(latitude, longitude);
-      if (!campus.ok) {
-        socket.emit('location:error', { message: campus.message });
-        if (typeof ack === 'function') ack({ ok: false });
-        return;
-      }
-
-      const dbUser = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { name: true, role: true },
-      });
-
-      if (!dbUser || dbUser.role !== 'EMPLOYEE') {
-        socket.emit('location:error', { message: 'Yetkisiz.' });
-        if (typeof ack === 'function') ack({ ok: false });
-        return;
-      }
-
-      const result = setEmployeeLocation(userId, {
-        latitude,
-        longitude,
-        accuracy,
-        name: dbUser.name,
-        role: dbUser.role,
-      });
-
-      if (!result.accepted) {
-        if (typeof ack === 'function') ack({ ok: false, reason: result.reason });
+      if (!result.ok) {
+        if (result.message) {
+          socket.emit('location:error', { message: result.message });
+        }
+        if (typeof ack === 'function') {
+          ack({ ok: false, reason: result.reason });
+        }
         return;
       }
 
@@ -93,7 +50,7 @@ function registerEmployeeTracking(io, socket) {
   });
 
   socket.on('disconnect', () => {
-    removeEmployee(userId);
+    markEmployeeOffline(userId);
   });
 }
 

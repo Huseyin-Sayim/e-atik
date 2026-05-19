@@ -612,6 +612,10 @@ Parsel GeoJSON: `public/data/geojson/kampusParsel.geojson`. Her parselin `id` de
 
 Veritabanına yeni bölge ekler.
 
+| | |
+|---|---|
+| **Yetki** | Giriş + rol `ADMIN` veya `BOSS` |
+
 **Body:**
 
 | Alan | Zorunlu |
@@ -1213,32 +1217,35 @@ Base path: `/api/tracking`
 
 #### `GET /api/tracking/employees`
 
-Bellekteki son çalışan konumlarını döner (sunucu restart'ta sıfırlanır).
+Tüm `EMPLOYEE` kullanıcılarını canlı konum, bölge ve rota ilerleme özetiyle döner.
 
 | | |
 |---|---|
-| **Yetki** | Giriş + rol `ADMIN` |
+| **Yetki** | Giriş + rol `ADMIN` veya `BOSS` |
 
-**Başarı `200`:**
+**Başarı `200`:** `data[]` her çalışan için `userId`, `name`, `online`, `latitude`, `longitude`, `regionName`, `needsRegionSelection`, `progress` (kalan durak / konteyner / atık noktası sayıları).
 
-```json
-{
-  "message": "OK",
-  "data": [
-    {
-      "userId": "employee-uuid",
-      "name": "Demo Collector",
-      "role": "EMPLOYEE",
-      "latitude": 38.46,
-      "longitude": 27.22,
-      "accuracy": 10,
-      "updatedAt": "2026-05-18T12:00:00.000Z"
-    }
-  ]
-}
-```
+#### `GET /api/tracking/employees/:userId`
 
-Konumlar **5 dakikadan** eskiyse otomatik temizlenir. Güncelleme throttle: **5 saniye**.
+Seçili çalışanın detayı: rota planı, `currentStop`, `nextLeg` (OSRM polyline), kalan iş özeti.
+
+| | |
+|---|---|
+| **Yetki** | Giriş + rol `ADMIN` veya `BOSS` |
+
+#### `POST /api/tracking/location`
+
+Çalışan konumunu WebSocket alternatifi olarak gönderir (aynı kurallar: kampüs içi, throttle, `EMPLOYEE`).
+
+| | |
+|---|---|
+| **Yetki** | Giriş + rol `EMPLOYEE` |
+
+**Body:** `{ "latitude": number, "longitude": number, "accuracy"?: number }`
+
+**Başarı `200`:** `{ "message": "OK", "data": { ...konum kaydı } }` — admin/BOSS odasına `location:employee:update` yayınlanır.
+
+Konumlar **5 dakikadan** eskiyse otomatik temizlenir. Güncelleme throttle: **5 saniye**. Socket kopunca konum hemen silinmez; `online: false` olur, stale süresi dolunca düşer.
 
 ---
 
@@ -1262,9 +1269,10 @@ HTML sayfaları (JSON API değildir). Yetkisiz erişim `requirePageRole` ile `/d
 |-----|--------|----------|
 | `/dashboard` | Tüm giriş yapmış | Rol bazlı dashboard + harita |
 | `/user/my-recycling` | `USER` | Kişisel geri dönüşüm (taslak) |
-| `/admin/employee-tracking` | `ADMIN` | Canlı çalışan haritası |
+| `/admin/employee-status` | `ADMIN`, `BOSS` | Çalışan Durumları (harita, liste, rota özeti) |
+| `/admin/employee-tracking` | — | `/admin/employee-status` adresine yönlendirir |
 | `/bin/create` | `ADMIN`, `BOSS` | Çöp kovası harita yönetimi |
-| `/region/create` | `ADMIN`, `BOSS`, `EMPLOYEE` | Bölge oluşturma |
+| `/region/create` | `ADMIN`, `BOSS` | Bölge ekleme |
 | `/employee/work-region` | `EMPLOYEE` | Çalışma bölgesi seçimi |
 | `/employee/my-route` | `EMPLOYEE` | Rota önizleme / navigasyon |
 
@@ -1273,14 +1281,15 @@ HTML sayfaları (JSON API değildir). Yetkisiz erişim `requirePageRole` ile `/d
 | Rol | Öne çıkan sayfalar |
 |-----|-------------------|
 | **USER** | Dashboard (harita, geri dönüşüm özeti), `/user/my-recycling` |
-| **ADMIN** | + `/admin/employee-tracking`, tüm atık talepleri API |
-| **BOSS** | Dashboard (tam), `/bin/create`, `/region/create` |
-| **EMPLOYEE** | Dashboard (uyarılar), `/employee/work-region`, `/employee/my-route`, `/region/create` — çöp kovası ekleme ekranı yok |
+| **ADMIN** | + `/admin/employee-status`, tüm atık talepleri API |
+| **BOSS** | Dashboard (tam), `/bin/create`, `/region/create`, `/admin/employee-status` |
+| **EMPLOYEE** | Dashboard (uyarılar), `/employee/work-region`, `/employee/my-route` — çöp kovası ve bölge ekleme ekranı yok |
 
 ### Benim Rotam (önizleme)
 
 - **Sayfa:** `/employee/my-route` — çalışma bölgesi seçilmiş olmalı (`PATCH /api/users/me/work-region` veya `/employee/work-region`).
-- **API:** `GET /api/employee/route-plan`, `GET /api/employee/route-leg`
+- **API:** `GET /api/employee/route-plan`, `GET /api/employee/route-leg`, `GET/PUT /api/employee/route-progress`
+- **Konum:** Web panelde `employeeLocationReporter.js` → Socket `location:update` (kampüs içi)
 - **Navigasyon:** Aktif adım güzergâhı; **Toplandı — sonraki durağa** → `POST /api/bins/:id/collect`
 - **Demo başlangıç:** `ROUTE_DEMO_START_LAT`, `ROUTE_DEMO_START_LNG`
 - **Seed:** `employee@info.com` → KYK bölgesi; bölgede kova yoksa rota boş görünür
@@ -1295,13 +1304,28 @@ HTML sayfaları (JSON API değildir). Yetkisiz erişim `requirePageRole` ile `/d
 
 ## Socket.io
 
-Gerçek zamanlı çalışan konum takibi. Bağlantıda JWT zorunlu:
+Gerçek zamanlı çalışan konum takibi (mobil ve web istemcileri). Bağlantıda JWT zorunlu.
+
+**Socket URL:** `http(s)://<HOST>:<PORT>` — path `/socket.io/` (REST `/api` öneki kullanılmaz).
 
 ```javascript
-const socket = io('http://localhost:2001', {
-  auth: { token: '<accessToken>' }
+import { io } from 'socket.io-client';
+
+const socket = io('http://192.168.1.10:2001', {
+  auth: { token: accessToken }, // login yanıtındaki JWT
+  transports: ['websocket'],
 });
+
+socket.on('connect', () => {
+  socket.emit('location:update', { latitude, longitude, accuracy }, (ack) => {
+    console.log(ack); // { ok: true } veya { ok: false, reason: 'throttled' }
+  });
+});
+
+socket.on('location:error', (err) => console.warn(err.message));
 ```
+
+Ortak mantık: [`services/employeeLocationService.js`](services/employeeLocationService.js). Admin oda: `tracking:admin`.
 
 ### Client → Server
 
@@ -1309,30 +1333,43 @@ const socket = io('http://localhost:2001', {
 |-------|---------|-----|
 | `location:update` | `{ latitude, longitude, accuracy? }` | Yalnızca `EMPLOYEE` |
 
-**Ack callback:** `{ ok: true }` veya `{ ok: false, reason: "throttled" | "invalid_coordinates" }`
+**Ack callback:** `{ ok: true }` veya `{ ok: false, reason: "throttled" \| "invalid_coordinates" \| "outside_campus" \| "unauthorized" }`
 
 Kampüs dışı konum reddedilir → `location:error` event'i:
 
 ```json
-{ "message": "Seçilen konum kampüs sınırları dışında." }
+{ "message": "Konum kampüs sınırları dışında." }
 ```
 
 ### Server → Client
 
 | Event | Payload | Alıcı |
 |-------|---------|-------|
-| `location:employee:update` | `{ userId, name, latitude, longitude, accuracy, updatedAt, role }` | `ADMIN` |
-| `location:employees:snapshot` | `{ employees: [...] }` | `ADMIN` (bağlantıda) |
+| `location:employee:update` | `{ userId, name, latitude, longitude, accuracy, parcelKey, parcelLabel, online, updatedAt, role }` | `ADMIN`, `BOSS` |
+| `location:employees:snapshot` | `{ employees: [...] }` | `ADMIN`, `BOSS` (bağlantıda) |
 | `location:error` | `{ message }` | Gönderen |
+
+### Mobil entegrasyon özeti
+
+1. `POST /api/auth/login` → `accessToken` ve `user.role` (yalnızca `EMPLOYEE` konum gönderir).
+2. `socket.io-client` ile sunucuya bağlan (`auth.token`).
+3. `expo-location` (veya benzeri) ile periyodik `location:update` — nokta kampüs parseli içinde olmalı.
+4. WebSocket zor ise: `POST /api/tracking/location` aynı kurallarla.
+5. Geliştirme: `.env` içinde `SOCKET_CORS_ORIGIN=*` veya Expo dev makine IP’si; port **2001** açık olmalı.
 
 ### REST ile birlikte
 
-`GET /api/tracking/employees` — bellek anlık görüntüsü (ADMIN).
+| Endpoint | Açıklama |
+|----------|----------|
+| `GET /api/tracking/employees` | Tüm çalışanlar + özet (ADMIN, BOSS) |
+| `GET /api/tracking/employees/:userId` | Detay + sonraki rota bacakı |
+| `POST /api/tracking/location` | Konum gönder (EMPLOYEE, Socket alternatifi) |
 
 **Sınırlar:**
 
 - Güncelleme throttle: **5 saniye** / çalışan
 - Konum stale: **5 dakika** sonra listeden düşer
+- Socket disconnect: `online: false`, anında silinmez
 - Sunucu restart: tüm konumlar sıfırlanır
 
 ---

@@ -61,7 +61,6 @@ router.get('/', (req, res) => {
 
 // DASHBOARD
 
-const staffRoles = requirePageRole('ADMIN', 'BOSS', 'EMPLOYEE');
 const binManagerRoles = requirePageRole('ADMIN', 'BOSS');
 
 router.get('/dashboard', isAuth, loadCurrentUser, async (req, res) => {
@@ -98,7 +97,7 @@ router.get('/user/my-recycling', isAuth, loadCurrentUser, requirePageRole('USER'
 
 // REGİON
 
-router.get('/region/create', isAuth, loadCurrentUser, staffRoles, (req, res) => {
+router.get('/region/create', isAuth, loadCurrentUser, binManagerRoles, (req, res) => {
   res.render('pages/region/createRegion');
 });
 
@@ -108,12 +107,18 @@ router.get('/bin/create', isAuth, loadCurrentUser, binManagerRoles, (req, res) =
   res.render('pages/bin/createBin');
 });
 
-// ADMIN — ÇALIŞAN KONUM TAKİBİ
+// ADMIN / BOSS — ÇALIŞAN DURUMLARI
 
-router.get('/admin/employee-tracking', isAuth, loadCurrentUser, requirePageRole('ADMIN'), (req, res) => {
-  res.render('pages/admin/employeeTracking', {
+const supervisorRoles = requirePageRole('ADMIN', 'BOSS');
+
+router.get('/admin/employee-status', isAuth, loadCurrentUser, supervisorRoles, (req, res) => {
+  res.render('pages/admin/employeeStatus', {
     user: res.locals.user,
   });
+});
+
+router.get('/admin/employee-tracking', (req, res) => {
+  res.redirect(301, '/admin/employee-status');
 });
 
 // ÇALIŞAN — BENİM ROTAM (taslak)

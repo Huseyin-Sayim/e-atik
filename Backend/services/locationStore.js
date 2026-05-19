@@ -25,7 +25,7 @@ function setEmployeeLocation(userId, payload) {
     return { accepted: false, reason: 'throttled' };
   }
 
-  const { latitude, longitude, accuracy, name, role } = payload;
+  const { latitude, longitude, accuracy, name, role, parcelKey, parcelLabel } = payload;
   if (!isValidCoordinate(latitude, longitude)) {
     return { accepted: false, reason: 'invalid_coordinates' };
   }
@@ -37,6 +37,9 @@ function setEmployeeLocation(userId, payload) {
     latitude,
     longitude,
     accuracy: accuracy != null ? Number(accuracy) : null,
+    parcelKey: parcelKey || null,
+    parcelLabel: parcelLabel || null,
+    online: true,
     updatedAt: new Date(now).toISOString(),
   };
 
@@ -60,6 +63,13 @@ function getEmployeeLocation(userId) {
 function getAllEmployeeLocations() {
   purgeStale();
   return Array.from(store.values()).filter((e) => e.role === 'EMPLOYEE');
+}
+
+function markEmployeeOffline(userId) {
+  const entry = store.get(userId);
+  if (!entry) return;
+  entry.online = false;
+  store.set(userId, entry);
 }
 
 function removeEmployee(userId) {
@@ -99,9 +109,11 @@ function resetLocationStoreForTests() {
 module.exports = {
   STALE_MS,
   THROTTLE_MS,
+  isValidCoordinate,
   setEmployeeLocation,
   getEmployeeLocation,
   getAllEmployeeLocations,
+  markEmployeeOffline,
   removeEmployee,
   purgeStale,
   startLocationStoreSweep,

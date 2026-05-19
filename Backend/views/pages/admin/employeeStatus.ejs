@@ -1,0 +1,110 @@
+<%- include('../../layout/header') %>
+
+<div class="row mb-3 mt-3">
+  <div class="col-12">
+    <h1 class="fs-3 mb-2">Çalışan Durumları</h1>
+    <p class="text-secondary mb-0">
+      Kampüs parseli içindeki çalışanların canlı konumları, kalan toplama işleri ve bir sonraki rota adımı.
+    </p>
+  </div>
+</div>
+
+<div class="row mb-3 align-items-center">
+  <div class="col-auto">
+    <span id="statusSocketBadge" class="badge bg-secondary">Bağlanıyor...</span>
+  </div>
+  <div class="col-auto">
+    <span id="statusOnlineCount" class="text-secondary small">0 çevrimiçi</span>
+  </div>
+</div>
+
+<div id="status-detail-panel" class="row mb-3 d-none">
+  <div class="col-12">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+          <div>
+            <h2 class="fs-5 mb-1" id="detail-employee-name">—</h2>
+            <p class="text-secondary small mb-0" id="detail-employee-meta">—</p>
+          </div>
+          <div class="d-flex gap-2 flex-wrap">
+            <span id="detail-online-badge" class="badge bg-secondary">—</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="detail-clear-selection">Seçimi kaldır</button>
+          </div>
+        </div>
+        <div id="detail-region-warning" class="alert alert-warning mb-3 d-none">
+          Bu çalışana henüz çalışma bölgesi atanmadı.
+        </div>
+        <div id="detail-stats" class="row g-3">
+          <div class="col-6 col-md-3">
+            <p class="text-secondary small mb-1">İlerleme</p>
+            <p class="fw-semibold mb-0" id="detail-progress">—</p>
+          </div>
+          <div class="col-6 col-md-3">
+            <p class="text-secondary small mb-1">Kalan durak</p>
+            <p class="fw-semibold mb-0" id="detail-remaining-stops">—</p>
+          </div>
+          <div class="col-6 col-md-3">
+            <p class="text-secondary small mb-1">Kalan konteyner</p>
+            <p class="fw-semibold mb-0" id="detail-remaining-containers">—</p>
+          </div>
+          <div class="col-6 col-md-3">
+            <p class="text-secondary small mb-1">Kalan atık noktası</p>
+            <p class="fw-semibold mb-0" id="detail-remaining-waste">—</p>
+          </div>
+          <div class="col-12 col-md-6">
+            <p class="text-secondary small mb-1">Sonraki durak</p>
+            <p class="fw-semibold mb-0" id="detail-next-stop">—</p>
+          </div>
+          <div class="col-12 col-md-6">
+            <p class="text-secondary small mb-1">Son konum</p>
+            <p class="fw-semibold mb-0 small" id="detail-last-location">—</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-2">
+        <div id="status-map" style="height: 560px; width: 100%; border-radius: 12px;"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-transparent border-0 pb-0">
+        <h3 class="fs-6 mb-0">Çalışanlar</h3>
+      </div>
+      <div class="card-body pt-2">
+        <p id="employee-list-loading" class="text-secondary small">Yükleniyor...</p>
+        <ul id="employee-list" class="list-group list-group-flush employee-status-list d-none"></ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .employee-status-list .list-group-item {
+    cursor: pointer;
+    border-left: 3px solid transparent;
+  }
+  .employee-status-list .list-group-item.active {
+    border-left-color: var(--bs-primary);
+    background-color: rgba(var(--bs-primary-rgb), 0.08);
+  }
+  .employee-status-list .list-group-item:hover:not(.active) {
+    background-color: var(--bs-tertiary-bg);
+  }
+</style>
+
+<link rel="stylesheet" href="/assets/css/map-pin-marker.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/assets/js/map/employeeStatusMap.js"></script>
+
+<%- include('../../layout/footer') %>
