@@ -178,9 +178,50 @@ const getCropHtml = (base64Image: string) => {
         container.addEventListener('touchend', () => {
           isDragging = false;
         });
+
+        // Mouse ve Wheel desteği (Web için)
+        container.addEventListener('mousedown', (e) => {
+          isDragging = true;
+          startX = e.clientX - x;
+          startY = e.clientY - y;
+        });
         
+        window.addEventListener('mousemove', (e) => {
+          if (isDragging) {
+            x = e.clientX - startX;
+            y = e.clientY - startY;
+            updateTransform();
+          }
+        });
+        
+        window.addEventListener('mouseup', () => {
+          isDragging = false;
+        });
+
+        container.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          const zoomSpeed = 0.05;
+          const factor = e.deltaY < 0 ? (1 + zoomSpeed) : (1 - zoomSpeed);
+          scale *= factor;
+          
+          const centerX = 140;
+          const centerY = 140;
+          x = centerX - (centerX - x) * factor;
+          y = centerY - (centerY - y) * factor;
+          
+          updateTransform();
+        });
+        
+        function postMsg(data) {
+          if (window.ReactNativeWebView) {
+            window.ReactNativeWebView.postMessage(data);
+          } else if (window.parent) {
+            window.parent.postMessage(data, '*');
+          }
+        }
+
         function cancel() {
-          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'cancel' }));
+          postMsg(JSON.stringify({ type: 'cancel' }));
         }
         
         function crop() {
@@ -202,7 +243,7 @@ const getCropHtml = (base64Image: string) => {
           );
           
           const croppedBase64 = cropCanvas.toDataURL('image/jpeg', 0.85);
-          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'crop', base64: croppedBase64 }));
+          postMsg(JSON.stringify({ type: 'crop', base64: croppedBase64 }));
         }
       </script>
     </body>
@@ -358,15 +399,13 @@ export default function KurumsalSettingsScreen() {
     const email = await AsyncStorage.getItem('currentUserEmail');
     
     if (userId) {
-      if (Platform.OS !== 'web') {
-        try {
-          await AsyncStorage.setItem(`profileImage_${userId}`, croppedBase64);
-          if (email) {
-            await AsyncStorage.setItem(`profileImage_${email.toLowerCase()}`, croppedBase64);
-          }
-        } catch (e) {
-          console.warn('[STORAGE] Profile image cache failed:', e);
+      try {
+        await AsyncStorage.setItem(`profileImage_${userId}`, croppedBase64);
+        if (email) {
+          await AsyncStorage.setItem(`profileImage_${email.toLowerCase()}`, croppedBase64);
         }
+      } catch (e) {
+        console.warn('[STORAGE] Profile image cache failed:', e);
       }
       
       try {
@@ -394,6 +433,28 @@ export default function KurumsalSettingsScreen() {
       setUploading(false);
     }
   };
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const handleWebMessage = (event: MessageEvent) => {
+        try {
+          const res = JSON.parse(event.data);
+          if (res.type === 'cancel') {
+            setShowCropWebView(false);
+            setWebViewImage(null);
+          } else if (res.type === 'crop') {
+            setShowCropWebView(false);
+            setWebViewImage(null);
+            saveProfileImage(res.base64);
+          }
+        } catch (e) {
+          // JSON parse hatasını yutabiliriz
+        }
+      };
+      window.addEventListener('message', handleWebMessage);
+      return () => window.removeEventListener('message', handleWebMessage);
+    }
+  }, [saveProfileImage]);
 
   const deleteImage = async () => {
     if (!profileImage) return;
@@ -644,26 +705,33 @@ export default function KurumsalSettingsScreen() {
         }}
       >
         <SafeAreaView style={{ flex: 1, backgroundColor: '#0f172a' }}>
-          <WebView
-            originWhitelist={['*']}
-            source={{ html: getCropHtml(webViewImage || '') }}
-            onMessage={(event) => {
-              const res = JSON.parse(event.nativeEvent.data);
-              if (res.type === 'cancel') {
-                setShowCropWebView(false);
-                setWebViewImage(null);
-              } else if (res.type === 'crop') {
-                setShowCropWebView(false);
-                setWebViewImage(null);
-                saveProfileImage(res.base64);
-              }
-            }}
-            ref={webViewRef}
-            style={{ flex: 1 }}
-            scrollEnabled={false}
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-          />
+          {Platform.OS === 'web' ? (
+            <iframe
+              srcDoc={getCropHtml(webViewImage || '')}
+              style={{ flex: 1, width: '100%', height: '100%', border: 'none' }}
+            />
+          ) : (
+            <WebView
+              originWhitelist={['*']}
+              source={{ html: getCropHtml(webViewImage || '') }}
+              onMessage={(event) => {
+                const res = JSON.parse(event.nativeEvent.data);
+                if (res.type === 'cancel') {
+                  setShowCropWebView(false);
+                  setWebViewImage(null);
+                } else if (res.type === 'crop') {
+                  setShowCropWebView(false);
+                  setWebViewImage(null);
+                  saveProfileImage(res.base64);
+                }
+              }}
+              ref={webViewRef}
+              style={{ flex: 1 }}
+              scrollEnabled={false}
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
+            />
+          )}
         </SafeAreaView>
       </Modal>
     </SafeAreaView>

@@ -12,7 +12,7 @@ const getPinColor = (fillPercentage: number) => {
   return '#f44336'; // Kırmızı
 };
 
-export const MapView = forwardRef(({ children, initialRegion, style, onRegionChangeComplete, onPress, bins, campusParcels, onMarkerPress, staffLocation, routeCoordinates, routeColor }: any, ref) => {
+export const MapView = forwardRef(({ children, initialRegion, style, onRegionChangeComplete, onPress, bins, campusParcels, onMarkerPress, staffLocation, routeCoordinates, routeColor, onParcelPress, selectedParcelId }: any, ref) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapInstance, setMapInstance] = useState<any>(null);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -137,7 +137,14 @@ export const MapView = forwardRef(({ children, initialRegion, style, onRegionCha
              
              {/* Web GeoJSON Çizimi */}
              {campusParcels && (
-               <Geojson geojson={campusParcels} strokeColor="#ff7800" fillColor="rgba(255, 120, 0, 0.1)" strokeWidth={2} />
+               <Geojson 
+                 geojson={campusParcels} 
+                 strokeColor="#ff7800" 
+                 fillColor="rgba(255, 120, 0, 0.1)" 
+                 strokeWidth={2} 
+                 onParcelPress={onParcelPress}
+                 selectedParcelId={selectedParcelId}
+               />
              )}
 
              {/* Web Rota Polyline */}
@@ -279,21 +286,29 @@ export const Polyline = ({ coordinates, color }: any) => {
   return null;
 };
 
-export const Geojson = ({ geojson, strokeColor, fillColor, strokeWidth }: any) => {
+export const Geojson = ({ geojson, strokeColor, fillColor, strokeWidth, onParcelPress, selectedParcelId }: any) => {
   const map = useContext(MapContext);
   useEffect(() => {
     const L = (window as any).L;
     if (!map || !L || !geojson) return;
     const layer = L.geoJSON(geojson, {
       style: (feature: any) => ({
-        color: feature.properties.stroke || strokeColor || '#ff7800',
-        fillColor: feature.properties.fill || fillColor || '#ff7800',
-        weight: strokeWidth || 2,
-        fillOpacity: 0.1
-      })
+        color: feature.id === selectedParcelId ? '#2563eb' : (feature.properties.stroke || strokeColor || '#ff7800'),
+        fillColor: feature.id === selectedParcelId ? 'rgba(37, 99, 235, 0.3)' : (feature.properties.fill || fillColor || '#ff7800'),
+        weight: feature.id === selectedParcelId ? 4 : (strokeWidth || 2),
+        fillOpacity: feature.id === selectedParcelId ? 0.3 : 0.1
+      }),
+      onEachFeature: (feature: any, layer: any) => {
+        if (onParcelPress) {
+          layer.on('click', (e: any) => {
+            L.DomEvent.stopPropagation(e);
+            onParcelPress(feature.id, feature.properties.name);
+          });
+        }
+      }
     }).addTo(map);
     return () => { layer.remove(); };
-  }, [map, geojson]);
+  }, [map, geojson, selectedParcelId, onParcelPress]);
   return null;
 };
 
