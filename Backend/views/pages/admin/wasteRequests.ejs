@@ -1,0 +1,104 @@
+<%- include('../../layout/header') %>
+
+<div class="row mb-3 mt-3">
+  <div class="col-12">
+    <h1 class="fs-3 mb-2">Evden atık talepleri</h1>
+    <p class="text-secondary mb-0">Bekleyen ve rotadaki taleplerin listesi.</p>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Tarih</th>
+            <th>Kullanıcı</th>
+            <th>Atık</th>
+            <th>Adres</th>
+            <th>Parsel</th>
+            <th>Durum</th>
+          </tr>
+        </thead>
+        <tbody id="admin-waste-requests-body">
+          <tr>
+            <td colspan="6" class="text-secondary text-center py-4">Yükleniyor…</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const STATUS_LABELS = {
+      PENDING: 'Bekliyor',
+      ON_ROUTE: 'Rotada',
+      COLLECTED: 'Toplandı',
+      CANCELLED: 'İptal',
+    };
+
+    function formatDate(iso) {
+      try {
+        return new Date(iso).toLocaleString('tr-TR');
+      } catch {
+        return iso;
+      }
+    }
+
+    async function load() {
+      const tbody = document.getElementById('admin-waste-requests-body');
+      try {
+        const res = await fetch('/api/waste-requests', { credentials: 'same-origin' });
+        if (!res.ok) throw new Error('Liste alınamadı');
+        const items = await res.json();
+        if (!items.length) {
+          tbody.innerHTML =
+            '<tr><td colspan="6" class="text-secondary text-center py-4">Kayıt yok</td></tr>';
+          return;
+        }
+        tbody.innerHTML = items
+          .map(
+            (r) =>
+              '<tr>' +
+              '<td class="small">' +
+              formatDate(r.createdAt) +
+              '</td>' +
+              '<td>' +
+              (r.user?.name || r.user?.email || '—') +
+              '</td>' +
+              '<td>' +
+              r.wasteType +
+              '</td>' +
+              '<td class="small">' +
+              (r.addressLine || '—') +
+              (r.district || r.city
+                ? '<br><span class="text-secondary">' +
+                  [r.district, r.city].filter(Boolean).join(', ') +
+                  '</span>'
+                : '') +
+              '</td>' +
+              '<td class="small">' +
+              (r.parcelKey || '—') +
+              '</td>' +
+              '<td><span class="badge bg-secondary">' +
+              (STATUS_LABELS[r.status] || r.status) +
+              '</span></td>' +
+              '</tr>'
+          )
+          .join('');
+      } catch (err) {
+        tbody.innerHTML =
+          '<tr><td colspan="6" class="text-danger text-center py-4">' +
+          (err.message || 'Hata') +
+          '</td></tr>';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', load);
+  })();
+</script>
+
+<%- include('../../layout/footer') %>

@@ -1,4 +1,4 @@
-require('dotenv').config();
+const http = require('http');
 const express = require("express");
 const userRoutes = require("./routes/api/userRoutes");
 const authRoutes = require("./routes/api/authRoutes");
@@ -12,6 +12,7 @@ const path = require('path');
 
 const app = express();
 const port = process.env.PORT || 2001;
+const server = http.createServer(app);
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));

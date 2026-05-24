@@ -1,0 +1,40 @@
+
+<% if (user && user.role === 'EMPLOYEE' && typeof regionFullnessAlerts !== 'undefined' && regionFullnessAlerts) { %>
+  <% if (regionFullnessAlerts.needsRegionSelection) { %>
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="alert alert-warning d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-3 mb-0" role="alert">
+        <div>
+          <strong>Çalışma bölgenizi seçin</strong>
+          <p class="mb-0 small">Doluluk uyarıları için önce görev bölgenizi tanımlamanız gerekir.</p>
+        </div>
+        <a href="/employee/work-region" class="btn btn-warning btn-sm flex-shrink-0">Bölge seç</a>
+      </div>
+    </div>
+  </div>
+  <% } else if (regionFullnessAlerts.alerts && regionFullnessAlerts.alerts.length > 0) { %>
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="alert alert-danger mb-0" role="alert">
+        <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2 mb-3">
+          <div>
+            <strong>Doluluk uyarısı</strong>
+            <% if (regionFullnessAlerts.regionName) { %>
+            <span class="d-block small">Bölge: <%= regionFullnessAlerts.regionName %></span>
+            <% } %>
+          </div>
+          <a href="#map" class="btn btn-outline-danger btn-sm flex-shrink-0">Haritada gör</a>
+        </div>
+        <ul class="mb-0 ps-3">
+          <% regionFullnessAlerts.alerts.forEach(function(alert) { %>
+          <li class="mb-1">
+            <strong><%= alert.label %></strong>
+            — <span class="text-nowrap">%<%= alert.fullnessPercent %> dolu</span>
+          </li>
+          <% }); %>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <% } %>
+<% } %>

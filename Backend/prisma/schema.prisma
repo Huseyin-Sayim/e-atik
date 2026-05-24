@@ -178,6 +178,8 @@ model CollectionLog {
   employee       User     @relation(fields: [employeeId], references: [id])
   emptiedAt      DateTime @default(now())
   actualFullness Float
+
+  @@index([binId, emptiedAt(sort: Desc)])
 }
 
 model WasteRequest {
@@ -186,6 +188,10 @@ model WasteRequest {
   user               User          @relation(fields: [userId], references: [id])
   wasteType          WasteCategory
   note               String?
+  addressLine        String?
+  city               String?
+  district           String?
+  parcelKey          String?
   latitude           Float
   longitude          Float
   status             RequestStatus @default(PENDING)
@@ -195,6 +201,9 @@ model WasteRequest {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([status, parcelKey])
+  @@index([assignedEmployeeId])
 }
 
 model ScannedQRCode {

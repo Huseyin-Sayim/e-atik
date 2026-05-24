@@ -1,0 +1,141 @@
+<%- include('../../layout/header') %>
+
+<div class="row mb-3 mt-3">
+  <div class="col-12">
+    <h1 class="fs-3 mb-2">Çalışan konum takibi</h1>
+    <p class="text-secondary mb-0">Aktif çalışanların anlık konumları haritada görünür. Veriler bellekte tutulur; sunucu yeniden başlatılınca sıfırlanır.</p>
+  </div>
+</div>
+
+<div class="row mb-3">
+  <div class="col-12">
+    <span id="socketStatus" class="badge bg-secondary">Bağlanıyor...</span>
+    <span id="employeeCount" class="text-secondary small ms-2">0 çalışan</span>
+  </div>
+</div>
+
+<div class="map-container col-12">
+  <div id="map" style="height: 560px; width: 100%; border-radius: 12px;"></div>
+</div>
+
+<link rel="stylesheet" href="/assets/css/map-pin-marker.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+  const markers = new Map();
+
+  function getCookie(name) {
+    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+    return match ? decodeURIComponent(match[2]) : null;
+  }
+
+  function setStatus(text, variant) {
+    const el = document.getElementById('socketStatus');
+    el.textContent = text;
+    el.className = 'badge bg-' + (variant || 'secondary');
+  }
+
+  function updateCount(count) {
+    document.getElementById('employeeCount').textContent = count + ' çalışan';
+  }
+
+  const map = L.map('map').setView([38.459, 27.228], 15);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap'
+  }).addTo(map);
+
+  function upsertEmployeeMarker(emp) {
+    if (!emp || emp.latitude == null || emp.longitude == null) return;
+
+    const label = emp.name || 'Çalışan';
+    if (markers.has(emp.userId)) {
+      markers.get(emp.userId).setLatLng([emp.latitude, emp.longitude]);
+      markers.get(emp.userId).setPopupContent(`<strong>${label}</strong><br><small>Son güncelleme: ${emp.updatedAt || '-'}</small>`);
+    } else {
+      const marker = L.marker([emp.latitude, emp.longitude]).addTo(map);
+      marker.bindPopup(`<strong>${label}</strong><br><small>Son güncelleme: ${emp.updatedAt || '-'}</small>`);
+      markers.set(emp.userId, marker);
+    }
+  }
+
+  function syncMarkers(employees) {
+    const ids = new Set((employees || []).map((e) => e.userId));
+    for (const [id, marker] of markers.entries()) {
+      if (!ids.has(id)) {
+        map.removeLayer(marker);
+        markers.delete(id);
+      }
+    }
+    (employees || []).forEach(upsertEmployeeMarker);
+    updateCount((employees || []).length);
+  }
+
+  async function loadRestSnapshot() {
+    try {
+      const res = await fetch('/api/tracking/employees', { credentials: 'same-origin' });
+      if (!res.ok) return;
+      const body = await res.json();
+      syncMarkers(body.data || []);
+    } catch (err) {
+      console.error('REST snapshot failed', err);
+    }
+  }
+
+  const token = getCookie('accessToken');
+  if (!token) {
+    setStatus('Giriş gerekli', 'danger');
+  } else {
+    const socket = io({ auth: { token } });
+
+    socket.on('connect', () => {
+      setStatus('Canlı bağlantı', 'success');
+      loadRestSnapshot();
+    });
+
+    socket.on('disconnect', () => {
+      setStatus('Bağlantı koptu', 'warning');
+      loadRestSnapshot();
+    });
+
+    socket.on('connect_error', (err) => {
+      setStatus('Bağlantı hatası', 'danger');
+      console.error(err.message);
+      loadRestSnapshot();
+    });
+
+    socket.on('location:employees:snapshot', (payload) => {
+      syncMarkers(payload.employees || []);
+    });
+
+    socket.on('location:employee:update', (emp) => {
+      upsertEmployeeMarker(emp);
+      updateCount(markers.size);
+    });
+
+    socket.on('location:error', (payload) => {
+      console.warn('location:error', payload);
+    });
+  }
+
+  loadRestSnapshot();
+
+  fetch('/api/regions/static')
+    .then((res) => res.json())
+    .then((result) => {
+      const geojsonData = result.features ? result : result.data;
+      if (geojsonData) {
+        const layer = L.geoJSON(geojsonData, {
+          style: { color: '#ff7800', weight: 2, fillOpacity: 0.08 }
+        }).addTo(map);
+        if (layer.getBounds().isValid()) {
+          map.fitBounds(layer.getBounds(), { padding: [30, 30] });
+        }
+      }
+    })
+    .catch((err) => console.error('Kampüs sınırları yüklenemedi', err));
+</script>
+
+<%- include('../../layout/footer') %>
+
+
