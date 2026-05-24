@@ -17,28 +17,18 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DatabaseService from '../../database/DatabaseService';
-import CustomAlert from '../../components/CustomAlert';
-
 export default function EditCorpInfoScreen() {
   const [corpName, setCorpName] = useState('');
   const [loading, setLoading] = useState(false);
   const [initialData, setInitialData] = useState({ name: '' });
-
-  const [customAlert, setCustomAlert] = useState<{
-    visible: boolean;
-    title: string;
-    message: string;
-    type: 'success' | 'error' | 'warning';
-    onClose?: () => void;
-  }>({
-    visible: false,
-    title: '',
-    message: '',
-    type: 'success'
-  });
+  const [currentTheme, setCurrentTheme] = useState('light');
 
   useEffect(() => {
     loadCurrentInfo();
+    const unsubscribe = DatabaseService.subscribeToTheme((theme) => {
+      setCurrentTheme(theme);
+    });
+    return unsubscribe;
   }, []);
 
   const loadCurrentInfo = async () => {
@@ -69,12 +59,7 @@ export default function EditCorpInfoScreen() {
 
   const handleSave = async () => {
     if (!corpName.trim()) {
-      setCustomAlert({
-        visible: true,
-        title: 'Uyarı',
-        message: 'Lütfen firma adını doldurunuz.',
-        type: 'warning'
-      });
+      Alert.alert('Uyarı', 'Lütfen firma adını doldurunuz.');
       return;
     }
 
@@ -119,38 +104,28 @@ export default function EditCorpInfoScreen() {
         setInitialData({ name: fullName });
         setCorpName('');
 
-        setCustomAlert({
-          visible: true,
-          title: 'Başarılı',
-          message: `Kurumsal bilgileriniz (${fullName}) başarıyla güncellendi.`,
-          type: 'success'
-        });
+        Alert.alert('Başarılı', `Kurumsal bilgileriniz (${fullName}) başarıyla güncellendi.`);
       }
     } catch (error) {
       console.error('Güncelleme hatası:', error);
-      setCustomAlert({
-        visible: true,
-        title: 'Hata',
-        message: 'Bilgiler güncellenirken bir sorun oluştu.',
-        type: 'error'
-      });
+      Alert.alert('Hata', 'Bilgiler güncellenirken bir sorun oluştu.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView style={[styles.safeArea, currentTheme === 'dark' && { backgroundColor: '#0f172a' }]}>
+      <StatusBar barStyle={currentTheme === 'dark' ? "light-content" : "dark-content"} />
       
-      <View style={styles.header}>
+      <View style={[styles.header, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderBottomColor: '#334155' }]}>
         <TouchableOpacity 
-          style={styles.backButton} 
+          style={[styles.backButton, currentTheme === 'dark' && { backgroundColor: '#334155' }]} 
           onPress={() => router.replace('/kurumsal/kurumsal-settings')}
         >
-          <Ionicons name="arrow-back" size={24} color="#1e293b" />
+          <Ionicons name="arrow-back" size={24} color={currentTheme === 'dark' ? '#fff' : '#1e293b'} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Kurumsal Bilgileri Düzenle</Text>
+        <Text style={[styles.headerTitle, currentTheme === 'dark' && { color: '#fff' }]}>Kurumsal Bilgileri Düzenle</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -159,25 +134,25 @@ export default function EditCorpInfoScreen() {
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.container}>
-          <View style={styles.formCard}>
+          <View style={[styles.formCard, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Firma Adı</Text>
+              <Text style={[styles.label, currentTheme === 'dark' && { color: '#94a3b8' }]}>Firma Adı</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, currentTheme === 'dark' && { backgroundColor: '#0f172a', borderColor: '#334155', color: '#fff' }]}
                 value={corpName}
                 onChangeText={setCorpName}
                 placeholder={initialData.name || "Firma Adınız"}
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={currentTheme === 'dark' ? "#64748b" : "#94a3b8"}
               />
             </View>
           </View>
 
-          <Text style={styles.infoText}>
+          <Text style={[styles.infoText, currentTheme === 'dark' && { color: '#64748b' }]}>
             * Firma adınız tüm atık toplama ve kampüs işlemlerinde bu şekilde görünecektir.
           </Text>
         </ScrollView>
 
-        <View style={styles.footer}>
+        <View style={[styles.footer, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderTopColor: '#334155' }]}>
           <TouchableOpacity 
             style={[styles.saveButton, loading && styles.disabledButton]} 
             onPress={handleSave}
@@ -192,18 +167,7 @@ export default function EditCorpInfoScreen() {
         </View>
       </KeyboardAvoidingView>
 
-      <CustomAlert
-        visible={customAlert.visible}
-        title={customAlert.title}
-        message={customAlert.message}
-        type={customAlert.type}
-        onClose={() => {
-          setCustomAlert({ ...customAlert, visible: false });
-          if (customAlert.onClose) {
-            customAlert.onClose();
-          }
-        }}
-      />
+
     </SafeAreaView>
   );
 }

@@ -12,7 +12,7 @@ const getPinColor = (fillPercentage: number) => {
   return '#f44336'; // Kırmızı
 };
 
-export const MapView = forwardRef(({ children, initialRegion, style, onRegionChangeComplete, onPress, bins, campusParcels, onMarkerPress }: any, ref) => {
+export const MapView = forwardRef(({ children, initialRegion, style, onRegionChangeComplete, onPress, bins, campusParcels, onMarkerPress, staffLocation, routeCoordinates, routeColor, onParcelPress, selectedParcelId }: any, ref) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapInstance, setMapInstance] = useState<any>(null);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -68,6 +68,11 @@ export const MapView = forwardRef(({ children, initialRegion, style, onRegionCha
           .divider { width: 1px; height: 16px; background-color: rgba(255,255,255,0.4); margin: 0 6px; }
           .tooltip-text { color: #fff; font-size: 13px; font-weight: bold; width: 36px; text-align: center; font-family: sans-serif; }
           .tail-triangle { width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 12px solid; margin-top: -1px; pointer-events: none; }
+          @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+          }
         `;
         document.head.appendChild(style);
       }
@@ -132,38 +137,101 @@ export const MapView = forwardRef(({ children, initialRegion, style, onRegionCha
              
              {/* Web GeoJSON Çizimi */}
              {campusParcels && (
-               <Geojson geojson={campusParcels} strokeColor="#ff7800" fillColor="rgba(255, 120, 0, 0.1)" strokeWidth={2} />
+               <Geojson 
+                 geojson={campusParcels} 
+                 strokeColor="#ff7800" 
+                 fillColor="rgba(255, 120, 0, 0.1)" 
+                 strokeWidth={2} 
+                 onParcelPress={onParcelPress}
+                 selectedParcelId={selectedParcelId}
+               />
+             )}
+
+             {/* Web Rota Polyline */}
+             {routeCoordinates && routeCoordinates.length > 0 && (
+               <Polyline 
+                 coordinates={routeCoordinates} 
+                 color={routeColor === 'red' ? '#ef4444' : routeColor === 'green' ? '#10b981' : '#3b82f6'} 
+               />
+             )}
+
+             {/* Web Personel Konumu (Mavi Pulsing İkon) */}
+             {staffLocation && (
+               <Marker coordinate={staffLocation}>
+                 <div style={{
+                   backgroundColor: '#3b82f6',
+                   width: 18,
+                   height: 18,
+                   borderRadius: 9,
+                   border: '3px solid #fff',
+                   boxShadow: '0 0 10px rgba(59, 130, 246, 0.8)',
+                   animation: 'pulse 1.5s infinite ease-in-out',
+                   cursor: 'pointer'
+                 }} />
+               </Marker>
              )}
 
              {/* Web Pinlerinin Dinamik Çizimi (Mobille %100 Uyumlu) */}
-             {bins && bins.map((bin: any) => {
-               const color = getPinColor(bin.fillPercentage);
-               return (
-                 <Marker
-                   key={`web-bin-${bin.id}`}
-                   coordinate={{ latitude: bin.latitude, longitude: bin.longitude }}
-                   onPress={() => onMarkerPress && onMarkerPress(bin)}
-                 >
-                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', width: 95, height: 60, cursor: 'pointer' }}>
-                     <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: 95, height: 34, borderRadius: 12, backgroundColor: color }}>
-                       <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 2 }}>
-                           <polyline points="3 6 5 6 21 6"></polyline>
-                           <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                           <line x1="10" y1="11" x2="10" y2="17"></line>
-                           <line x1="14" y1="11" x2="14" y2="17"></line>
-                         </svg>
-                         <div style={{ width: 1, height: 16, backgroundColor: 'rgba(255,255,255,0.4)', marginLeft: 6, marginRight: 6 }}></div>
-                         <div style={{ color: '#fff', fontSize: 13, fontWeight: 'bold', width: 36, textAlign: 'center', fontFamily: 'sans-serif' }}>
-                           %{bin.fillPercentage}
+              {bins && bins.map((bin: any) => {
+                 const isReq = bin.isRequest;
+                 const isStore = bin.isStore;
+                 const color = isStore ? '#10b981' : isReq ? '#2563eb' : getPinColor(bin.fillPercentage);
+                 const labelText = isStore ? (bin.name || 'Mağaza') : isReq ? 'Talep' : `%${bin.fillPercentage}`;
+                 return (
+                   <Marker
+                     key={`web-bin-${bin.id}`}
+                     coordinate={{ latitude: bin.latitude, longitude: bin.longitude }}
+                     onPress={() => onMarkerPress && onMarkerPress(bin)}
+                   >
+                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', width: 'max-content', height: 60, cursor: 'pointer' }}>
+                       <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minWidth: 95, padding: '0 10px', height: 34, borderRadius: 12, backgroundColor: color }}>
+                         <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                           {isStore ? (
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 2 }}>
+                                <path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"></path>
+                                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
+                                <path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"></path>
+                                <path d="M2 7h20"></path>
+                                <path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7"></path>
+                              </svg>
+                           ) : isReq ? (
+                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 2 }}>
+                               <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                               <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                             </svg>
+                           ) : (
+                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 2 }}>
+                               <polyline points="3 6 5 6 21 6"></polyline>
+                               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                               <line x1="10" y1="11" x2="10" y2="17"></line>
+                               <line x1="14" y1="11" x2="14" y2="17"></line>
+                             </svg>
+                           )}
+                           <div style={{ width: 1, height: 16, backgroundColor: 'rgba(255,255,255,0.4)', marginLeft: 6, marginRight: 6 }}></div>
+                           <div style={isStore ? {
+                              color: '#fff',
+                              fontSize: 13,
+                              fontWeight: 'bold',
+                              whiteSpace: 'nowrap',
+                              textAlign: 'left',
+                              fontFamily: 'sans-serif'
+                            } : {
+                              color: '#fff',
+                              fontSize: 13,
+                              fontWeight: 'bold',
+                              width: 36,
+                              textAlign: 'center',
+                              fontFamily: 'sans-serif'
+                            }}>
+                             {labelText}
+                           </div>
                          </div>
                        </div>
+                       <div style={{ width: 0, height: 0, borderLeft: '10px solid transparent', borderRight: '10px solid transparent', borderTop: `12px solid ${color}`, marginTop: -1, pointerEvents: 'none' }}></div>
                      </div>
-                     <div style={{ width: 0, height: 0, borderLeft: '10px solid transparent', borderRight: '10px solid transparent', borderTop: `12px solid ${color}`, marginTop: -1, pointerEvents: 'none' }}></div>
-                   </div>
-                 </Marker>
-               );
-             })}
+                   </Marker>
+                 );
+               })}
            </div>
          </MapContext.Provider>
        )}
@@ -200,21 +268,47 @@ export const Marker = ({ coordinate, children, onPress }: any) => {
   return container ? ReactDOM.createPortal(children, container) : null;
 };
 
-export const Geojson = ({ geojson, strokeColor, fillColor, strokeWidth }: any) => {
+export const Polyline = ({ coordinates, color }: any) => {
+  const map = useContext(MapContext);
+  useEffect(() => {
+    const L = (window as any).L;
+    if (!map || !L || !coordinates || coordinates.length === 0) return;
+    const latlngs = coordinates.map((c: any) => [c.latitude, c.longitude]);
+    const polyline = L.polyline(latlngs, {
+      color: color || '#3b82f6',
+      weight: 6,
+      opacity: 0.85,
+      lineCap: 'round',
+      lineJoin: 'round'
+    }).addTo(map);
+    return () => { polyline.remove(); };
+  }, [map, coordinates, color]);
+  return null;
+};
+
+export const Geojson = ({ geojson, strokeColor, fillColor, strokeWidth, onParcelPress, selectedParcelId }: any) => {
   const map = useContext(MapContext);
   useEffect(() => {
     const L = (window as any).L;
     if (!map || !L || !geojson) return;
     const layer = L.geoJSON(geojson, {
       style: (feature: any) => ({
-        color: feature.properties.stroke || strokeColor || '#ff7800',
-        fillColor: feature.properties.fill || fillColor || '#ff7800',
-        weight: strokeWidth || 2,
-        fillOpacity: 0.1
-      })
+        color: feature.id === selectedParcelId ? '#2563eb' : (feature.properties.stroke || strokeColor || '#ff7800'),
+        fillColor: feature.id === selectedParcelId ? 'rgba(37, 99, 235, 0.3)' : (feature.properties.fill || fillColor || '#ff7800'),
+        weight: feature.id === selectedParcelId ? 4 : (strokeWidth || 2),
+        fillOpacity: feature.id === selectedParcelId ? 0.3 : 0.1
+      }),
+      onEachFeature: (feature: any, layer: any) => {
+        if (onParcelPress) {
+          layer.on('click', (e: any) => {
+            L.DomEvent.stopPropagation(e);
+            onParcelPress(feature.id, feature.properties.name);
+          });
+        }
+      }
     }).addTo(map);
     return () => { layer.remove(); };
-  }, [map, geojson]);
+  }, [map, geojson, selectedParcelId, onParcelPress]);
   return null;
 };
 

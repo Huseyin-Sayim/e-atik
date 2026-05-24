@@ -23,6 +23,8 @@ export default function EditCorpAddressScreen() {
   const [district, setDistrict] = useState('');
   const [loading, setLoading] = useState(false);
   const [initialData, setInitialData] = useState({ city: '', district: '' });
+  const [currentTheme, setCurrentTheme] = useState('light');
+
   const [customAlert, setCustomAlert] = useState<{
     visible: boolean;
     title: string;
@@ -37,6 +39,10 @@ export default function EditCorpAddressScreen() {
 
   useEffect(() => {
     loadCurrentInfo();
+    const unsubscribe = DatabaseService.subscribeToTheme((theme) => {
+      setCurrentTheme(theme);
+    });
+    return unsubscribe;
   }, []);
 
   const loadCurrentInfo = async () => {
@@ -123,17 +129,17 @@ export default function EditCorpAddressScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView style={[styles.safeArea, currentTheme === 'dark' && { backgroundColor: '#0f172a' }]}>
+      <StatusBar barStyle={currentTheme === 'dark' ? "light-content" : "dark-content"} />
       
-      <View style={styles.header}>
+      <View style={[styles.header, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderBottomColor: '#334155' }]}>
         <TouchableOpacity 
-          style={styles.backButton} 
+          style={[styles.backButton, currentTheme === 'dark' && { backgroundColor: '#334155' }]} 
           onPress={() => router.replace('/kurumsal/kurumsal-settings')}
         >
-          <Ionicons name="arrow-back" size={24} color="#1e293b" />
+          <Ionicons name="arrow-back" size={24} color={currentTheme === 'dark' ? '#fff' : '#1e293b'} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Kurumsal Adres Güncelle</Text>
+        <Text style={[styles.headerTitle, currentTheme === 'dark' && { color: '#fff' }]}>Kurumsal Adres Güncelle</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -142,36 +148,36 @@ export default function EditCorpAddressScreen() {
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.container}>
-          <View style={styles.formCard}>
+          <View style={[styles.formCard, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Şehir</Text>
+              <Text style={[styles.label, currentTheme === 'dark' && { color: '#94a3b8' }]}>Şehir</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, currentTheme === 'dark' && { backgroundColor: '#0f172a', borderColor: '#334155', color: '#fff' }]}
                 value={city}
                 onChangeText={setCity}
                 placeholder={initialData.city || "Şehir"}
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={currentTheme === 'dark' ? "#64748b" : "#94a3b8"}
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>İlçe</Text>
+              <Text style={[styles.label, currentTheme === 'dark' && { color: '#94a3b8' }]}>İlçe</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, currentTheme === 'dark' && { backgroundColor: '#0f172a', borderColor: '#334155', color: '#fff' }]}
                 value={district}
                 onChangeText={setDistrict}
                 placeholder={initialData.district || "İlçe"}
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={currentTheme === 'dark' ? "#64748b" : "#94a3b8"}
               />
             </View>
           </View>
 
-          <Text style={styles.infoText}>
+          <Text style={[styles.infoText, currentTheme === 'dark' && { color: '#64748b' }]}>
             * Bu bilgiler kurumsal atık toplama süreçlerinde varsayılan olarak kullanılacaktır.
           </Text>
         </ScrollView>
 
-        <View style={styles.footer}>
+        <View style={[styles.footer, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderTopColor: '#334155' }]}>
           <TouchableOpacity 
             style={[styles.saveButton, loading && styles.disabledButton]} 
             onPress={handleSave}
@@ -194,12 +200,12 @@ export default function EditCorpAddressScreen() {
         onRequestClose={() => setCustomAlert({ ...customAlert, visible: false })}
       >
         <View style={styles.alertOverlay}>
-          <View style={styles.alertContent}>
+          <View style={[styles.alertContent, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
             <View style={[
               styles.alertIconContainer,
-              customAlert.type === 'success' && { backgroundColor: '#f0fdf4' },
-              customAlert.type === 'error' && { backgroundColor: '#fef2f2' },
-              customAlert.type === 'warning' && { backgroundColor: '#fff7ed' },
+              customAlert.type === 'success' && { backgroundColor: currentTheme === 'dark' ? '#0f172a' : '#f0fdf4' },
+              customAlert.type === 'error' && { backgroundColor: currentTheme === 'dark' ? '#0f172a' : '#fef2f2' },
+              customAlert.type === 'warning' && { backgroundColor: currentTheme === 'dark' ? '#0f172a' : '#fff7ed' },
             ]}>
               <Ionicons 
                 name={
@@ -213,8 +219,8 @@ export default function EditCorpAddressScreen() {
                 } 
               />
             </View>
-            <Text style={styles.alertTitle}>{customAlert.title}</Text>
-            <Text style={styles.alertMessage}>{customAlert.message}</Text>
+            <Text style={[styles.alertTitle, currentTheme === 'dark' && { color: '#fff' }]}>{customAlert.title}</Text>
+            <Text style={[styles.alertMessage, currentTheme === 'dark' && { color: '#94a3b8' }]}>{customAlert.message}</Text>
             <TouchableOpacity 
               style={[
                 styles.alertBtn,

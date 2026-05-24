@@ -119,6 +119,7 @@
 
   async function loadExistingBins() {
     try {
+      // 3a. Atık Kutularını (Bins) Yükle
       const response = await fetch('/api/bins');
       const bins = await response.json();
       const currentZoom = map.getZoom();
@@ -148,6 +149,60 @@
         `);
         marker.addTo(binLayerGroup);
       });
+
+      // 3b. Evsel Atık Taleplerini (Waste Requests) Yükle
+      try {
+        const reqResponse = await fetch('/api/waste-requests');
+        const reqResult = await reqResponse.json();
+        const requests = reqResult.data || [];
+
+        const activeRequests = requests.filter(r => r.status === 'PENDING' || r.status === 'ON_ROUTE');
+
+        activeRequests.forEach(req => {
+          let catName = 'Evsel Atık';
+          if (req.wasteType === 'DOMESTIC') catName = 'Organik Atık';
+          else if (req.wasteType === 'ELECTRONIC') catName = 'Elektronik Atık';
+          else if (req.wasteType === 'PLASTIC') catName = 'Ambalaj Atığı';
+
+          const requestHtml = `
+            <div class="custom-request-pin" style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 36px; height: 36px; background-color: #2563eb; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 2px 8px rgba(37, 99, 235, 0.5); color: #fff;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: white;">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+              </svg>
+            </div>
+          `;
+          
+          const requestIcon = L.divIcon({
+            className: 'custom-web-request-marker',
+            html: requestHtml,
+            iconSize: [36, 36],
+            iconAnchor: [18, 36],
+            popupAnchor: [0, -36]
+          });
+
+          const marker = L.marker([req.latitude, req.longitude], {
+            icon: requestIcon
+          });
+
+          marker.bindPopup(`
+            <div class="text-center" style="min-width: 180px;">
+              <span class="badge bg-primary mb-2 text-white" style="font-size: 11px; padding: 4px 8px;">EVSEL ATIK TALEBİ</span>
+              <h6 class="mb-1">${catName}</h6>
+              <p class="small mb-1"><b>Talep Eden:</b> ${req.user ? req.user.name + ' ' + (req.user.surname || '') : 'Vatandaş'}</p>
+              <p class="small mb-2"><b>Açıklama:</b> ${req.note || 'Yok'}</p>
+              <div class="d-flex justify-content-between align-items-center mt-2">
+                <span class="badge ${req.status === 'PENDING' ? 'bg-warning text-dark' : 'bg-info text-white'}">${req.status === 'PENDING' ? 'Beklemede' : 'Yolda'}</span>
+                <button class="btn btn-xs btn-success py-1 px-2 text-white" style="font-size: 11px;" onclick="completeRequestFromWeb('${req.id}')">Topla</button>
+              </div>
+            </div>
+          `);
+          marker.addTo(binLayerGroup);
+        });
+      } catch (reqErr) {
+        console.error("Evsel atık talepleri yüklenemedi:", reqErr);
+      }
+
     } catch (err) {
       console.error("Kovalar yüklenemedi:", err);
     }
@@ -235,37 +290,80 @@
     zoomToRegionById(this.value);
   });
 
-  function updateBinMarkerFullness(payload) {
-    if (!payload?.binId) return;
-    let updated = false;
-    binLayerGroup.eachLayer((layer) => {
-      if (!(layer instanceof L.Marker) || layer.binId !== payload.binId) return;
-      updated = true;
-      layer.binRecord.predictedFullness = payload.predictedFullness;
-      const pct = payload.fullnessPercent ?? Math.round(payload.predictedFullness * 100);
-      const barClass = payload.predictedFullness > 0.8 ? 'bg-danger' : 'bg-success';
-      const bin = layer.binRecord;
-      layer.setPopupContent(`
-          <div class="text-center">
-            <h6 class="mb-1">${getBinTypeLabel(bin.type, bin.wasteCategory)}</h6>
-            <p class="small mb-1">${bin.type === 'WASTE_POINT' ? getWasteCategoryLabel(bin.wasteCategory) : bin.wasteCategory}</p>
-            <div class="progress" style="height: 8px;">
-              <div class="progress-bar ${barClass}" style="width: ${pct}%"></div>
-            </div>
-            <small>%${pct} Dolu</small>
-          </div>
-        `);
-    });
-    return updated;
+  // 7. KAYIT FONKSİYONU
+  async function saveBinToServer() {
+    const data = {
+      latitude: parseFloat(document.getElementById('lat-input').value),
+      longitude: parseFloat(document.getElementById('lng-input').value),
+      wasteCategory: document.getElementById('waste-category').value,
+      type: document.getElementById('bin-type').value,
+      capacityVolume: parseFloat(document.getElementById('capacity').value),
+      regionId: detectedRegionId
+    };
+
+    try {
+      const res = await fetch('/api/bins/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (res.ok) {
+        alert("Kova başarıyla eklendi!");
+        location.reload();
+      }
+    } catch (err) {
+      console.error("Kayıt hatası:", err);
+    }
   }
 
-  function initFullnessSocket() {
-    if (!window.EAtikSocket) return;
-    EAtikSocket.onFullnessUpdated(updateBinMarkerFullness);
-    EAtikSocket.onFullnessIncreased(updateBinMarkerFullness);
+  function cancelAdd() {
+    if (tempMarker) map.removeLayer(tempMarker);
+    tempMarker = null;
+    document.getElementById('add-bin-panel').style.display = 'none';
   }
 
-  // 7. BAŞLATICI
+  // 9. WEB ÜZERİNDEN EVSEL ATIK TALEBİNİ TAMAMLAMA (TOPLAMA)
+  async function completeRequestFromWeb(requestId) {
+    if (!confirm("Bu evsel atık talebini toplandı olarak işaretlemek istediğinize emin misiniz?")) return;
+    try {
+      const res = await fetch(`/api/waste-requests/${requestId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'COLLECTED' })
+      });
+      if (res.ok) {
+        alert("Talep başarıyla tamamlandı!");
+        loadExistingBins(); // Haritayı yeniden yükle
+      } else {
+        const json = await res.json();
+        alert("Hata: " + (json.message || "Talep güncellenemedi."));
+      }
+    } catch (err) {
+      console.error("Talep tamamlama hatası:", err);
+      alert("Sunucuya bağlanırken bir hata oluştu.");
+    }
+  }
+
+  // 10. WEBSOCKET GERÇEK ZAMANLI HARİTA GÜNCELLEME
+  const wsUrl = window.location.protocol === 'https:' 
+    ? 'wss://' + window.location.host 
+    : 'ws://' + window.location.host;
+  const ws = new WebSocket(wsUrl);
+  ws.onopen = () => console.log('✅ WebSocket Bağlantısı Kuruldu (Web Dashboard)');
+  ws.onmessage = (event) => {
+    try {
+      const payload = JSON.parse(event.data);
+      if (payload.type === 'wasteRequestCreated' || payload.type === 'wasteRequestStatusChanged') {
+        console.log('🔄 Yeni evsel atık harita bildirimi algılandı, harita güncelleniyor...');
+        loadExistingBins();
+      }
+    } catch (err) {
+      // Yoksay
+    }
+  };
+  ws.onerror = (e) => console.warn('WebSocket Hatası (Web Dashboard):', e);
+
+  // 8. BAŞLATICI
   window.onload = () => {
     renderMapLegend();
     loadCampusAreas();

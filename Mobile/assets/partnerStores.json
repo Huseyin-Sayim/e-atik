@@ -1,0 +1,14 @@
+[
+  {
+    "id": "1",
+    "name": "Ege Kafe",
+    "latitude": 38.4550,
+    "longitude": 27.2295
+  },
+  {
+    "id": "2",
+    "name": "Kırtasiye Kampüs",
+    "latitude": 38.4560,
+    "longitude": 27.2280
+  }
+]

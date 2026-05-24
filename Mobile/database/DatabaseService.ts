@@ -1,11 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from './types';
 import { Platform } from 'react-native';
+import partnerStoresData from '../assets/partnerStores.json';
 
 import Constants from 'expo-constants';
 
 const getBaseApiUrl = () => {
-  if (Platform.OS === 'web') return 'http://localhost:2001/api';
+  if (Platform.OS === 'web') {
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+    return `http://${hostname}:2001/api`;
+  }
 
   const debuggerHost = Constants.expoConfig?.hostUri;
   const localhost = debuggerHost?.split(':').shift();
@@ -25,6 +29,21 @@ const AUTH_API_URL = `${BASE_API_URL}/auth`;
 const USER_API_URL = `${BASE_API_URL}/users`;
 
 class DatabaseService {
+  static getWsUrl(): string {
+    if (Platform.OS === 'web') {
+      const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+      return `ws://${hostname}:2001`;
+    }
+
+    const debuggerHost = Constants.expoConfig?.hostUri;
+    const localhost = debuggerHost?.split(':').shift();
+
+    if (!localhost) {
+      return 'ws://10.0.2.2:2001';
+    }
+    return `ws://${localhost}:2001`;
+  }
+
   private static handleError(error: any): never {
     console.error('[DATABASE_SERVICE_ERROR]:', error);
     if (error.name === 'AbortError' || error.message === 'Aborted') {
@@ -404,6 +423,73 @@ class DatabaseService {
   }
 
   // ==========================================
+  // EVSEL ATIK TALEPLERİ (WASTE REQUESTS) API İŞLEMLERİ
+  // ==========================================
+
+  static async getWasteRequests(): Promise<any[]> {
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      console.log(`🔑 [DATABASE_SERVICE] getWasteRequests tetiklendi. Platform: ${Platform.OS} | Token var mı: ${!!token} | Token ilk 15 hane: ${token ? token.substring(0, 15) + '...' : 'YOK'}`);
+      const response = await fetch(`${BASE_API_URL}/waste-requests?t=${new Date().getTime()}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        }
+      });
+      if (!response.ok) {
+        console.warn(`❌ [DATABASE_SERVICE] getWasteRequests API hatası! Status: ${response.status}`);
+        throw new Error('Evsel atık talepleri getirilemedi.');
+      }
+      const json = await response.json();
+      return json.data || [];
+    } catch (error) {
+      console.error('getWasteRequests hatası:', error);
+      return [];
+    }
+  }
+
+  static async createWasteRequest(requestData: any): Promise<any> {
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      const response = await fetch(`${BASE_API_URL}/waste-requests`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
+        body: JSON.stringify(requestData)
+      });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.message || 'Evsel atık talebi eklenemedi.');
+      return json;
+    } catch (error) {
+      console.error('createWasteRequest hatası:', error);
+      throw error;
+    }
+  }
+
+  static async updateWasteRequestStatus(id: string, status: string): Promise<any> {
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      const response = await fetch(`${BASE_API_URL}/waste-requests/${id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
+        body: JSON.stringify({ status })
+      });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.message || 'Talep durumu güncellenemedi.');
+      return json.data || json;
+    } catch (error) {
+      console.error('updateWasteRequestStatus hatası:', error);
+      throw error;
+    }
+  }
+
+  // ==========================================
   // ATIK KUTULARI (BINS) API İŞLEMLERİ
   // ==========================================
 
@@ -468,6 +554,54 @@ class DatabaseService {
     }
   }
 
+  // ==========================================
+  // ANLAŞMALI MAĞAZALAR (PARTNER STORES)
+  // ==========================================
+  static async getPartnerStores(): Promise<any[]> {
+    try {
+      const response = await fetch(`${BASE_API_URL}/partner-stores?t=${new Date().getTime()}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        cache: 'no-store'
+      });
+      if (!response.ok) throw new Error('Mağazalar getirilemedi.');
+      return await response.json();
+    } catch (error) {
+      console.error('getPartnerStores hatası:', error);
+      return [];
+    }
+  }
+
+  static async addPartnerStore(storeData: any): Promise<any> {
+    try {
+      const response = await fetch(`${BASE_API_URL}/partner-stores/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(storeData)
+      });
+      if (!response.ok) throw new Error('Mağaza eklenemedi.');
+      return await response.json();
+    } catch (error) {
+      console.error('addPartnerStore hatası:', error);
+      throw error;
+    }
+  }
+
+  static async deletePartnerStore(id: string): Promise<void> {
+    try {
+      const response = await fetch(`${BASE_API_URL}/partner-stores/${id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!response.ok) throw new Error('Mağaza silinemedi.');
+    } catch (error) {
+      console.error('deletePartnerStore hatası:', error);
+      throw error;
+    }
+  }
+
   // Profil fotoğrafı değişimlerini tüm ekranlara anlık yansıtmak için Pub-Sub (Yayıncı-Abone) mekanizması
   static currentProfilePhoto: string | null = null;
   private static profileListeners: ((photo: string | null) => void)[] = [];
@@ -490,6 +624,51 @@ class DatabaseService {
         listener(photo);
       } catch (e) {
         console.error('Profil fotoğrafı dinleyicisi tetiklenirken hata:', e);
+      }
+    });
+  }
+
+  // Tema değişimlerini anlık yansıtmak için Pub-Sub mekanizması
+  static currentTheme: string = 'light';
+  private static themeListeners: ((theme: string) => void)[] = [];
+
+  static subscribeToTheme(listener: (theme: string) => void) {
+    this.themeListeners.push(listener);
+    if (this.currentTheme) {
+      listener(this.currentTheme);
+    }
+    return () => {
+      this.themeListeners = this.themeListeners.filter(l => l !== listener);
+    };
+  }
+
+  static notifyThemeChanged(theme: string) {
+    this.currentTheme = theme;
+    this.themeListeners.forEach(listener => {
+      try {
+        listener(theme);
+      } catch (e) {
+        console.error('Tema dinleyicisi tetiklenirken hata:', e);
+      }
+    });
+  }
+
+  // Atık kutularındaki canlı dolum/boşaltım senkronizasyonu için Pub-Sub mekanizması
+  private static binListeners: (() => void)[] = [];
+
+  static subscribeToBins(listener: () => void) {
+    this.binListeners.push(listener);
+    return () => {
+      this.binListeners = this.binListeners.filter(l => l !== listener);
+    };
+  }
+
+  static notifyBinsChanged() {
+    this.binListeners.forEach(listener => {
+      try {
+        listener();
+      } catch (e) {
+        console.error('Atık kutusu dinleyicisi tetiklenirken hata:', e);
       }
     });
   }

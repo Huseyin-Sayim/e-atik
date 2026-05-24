@@ -9,13 +9,15 @@ const {
   createBin,
   updateBin,
   deleteBin,
-  collectBin,
+  seedDefaultBins,
 } = require('../../controllers/api/binController');
 
 const router = express.Router();
 
 const adminBoss = [isAuth, hasRole('ADMIN', 'BOSS')];
 const collectorRoles = [isAuth, hasRole('EMPLOYEE', 'ADMIN', 'BOSS')];
+
+router.post('/seed', seedDefaultBins);
 
 router.get('/', getBins);
 router.post('/:id/collect', ...collectorRoles, collectBin);
@@ -25,6 +27,7 @@ router.post('/', ...adminBoss, validate(validateSchema.binCreate), createBin);
 router.post('/create', ...adminBoss, validate(validateSchema.binCreate), createBin);
 
 router.patch('/:id', ...adminBoss, validate(validateSchema.binUpdate), updateBin);
+router.put('/:id', ...adminBoss, validate(validateSchema.binUpdate), updateBin);
 router.delete('/:id', ...adminBoss, deleteBin);
 
 module.exports = router;

@@ -126,6 +126,7 @@ const login = async (req, res) => {
       accessToken
     })
   } catch (err) {
+    console.error('❌ Login controller error:', err);
     res.status(500).json({
       message: 'Giriş işlemi başarısız oldu.',
       error: err.message

@@ -20,11 +20,17 @@
             <div class="card shadow-sm mb-4">
               <div class="card-body p-6">
                 <form id="registerForm" class="needs-validation mb-6" novalidate>
-                  <div class="mb-3">
-                    <label for="signupFullnameInput" class="form-label">Ad Soyad <span
-                        class="text-danger">*</span></label>
-                    <input name="name" type="text" class="form-control" id="signupFullnameInput" required />
-                    <div class="invalid-feedback">Lütfen adınızı ve soyadınızı giriniz</div>
+                  <div class="row">
+                    <div class="col-md-6 mb-3">
+                      <label for="signupNameInput" class="form-label">Ad <span class="text-danger">*</span></label>
+                      <input name="name" type="text" class="form-control" id="signupNameInput" required />
+                      <div class="invalid-feedback">Lütfen adınızı giriniz.</div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                      <label for="signupSurnameInput" class="form-label">Soyad <span class="text-danger">*</span></label>
+                      <input name="surname" type="text" class="form-control" id="signupSurnameInput" required />
+                      <div class="invalid-feedback">Lütfen soyadınızı giriniz.</div>
+                    </div>
                   </div>
 
                   <div class="mb-3">
@@ -37,16 +43,29 @@
                   </div>
 
                   <div class="mb-3">
-                    <label for="signupEmailInput" class="form-label">
+                    <label for="signupPhoneInput" class="form-label">
                       Telefon Numarası
                       <span class="text-danger">*</span>
                     </label>
-                    <input name="phoneNumber" type="email" class="form-control" id="signupEmailInput" required />
+                    <input name="phoneNumber" type="tel" class="form-control" id="signupPhoneInput" required />
                     <div class="invalid-feedback">Telefon numaranızı giriniz.</div>
                   </div>
 
+                  <div class="row">
+                    <div class="col-md-6 mb-3">
+                      <label for="signupCityInput" class="form-label">Şehir <span class="text-danger">*</span></label>
+                      <input name="city" type="text" class="form-control" id="signupCityInput" required />
+                      <div class="invalid-feedback">Lütfen şehri giriniz.</div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                      <label for="signupDistrictInput" class="form-label">İlçe <span class="text-danger">*</span></label>
+                      <input name="district" type="text" class="form-control" id="signupDistrictInput" required />
+                      <div class="invalid-feedback">Lütfen ilçeyi giriniz.</div>
+                    </div>
+                  </div>
+
                   <div class="mb-3">
-                    <label for="signupEmailInput" class="form-label">
+                    <label for="roleSelect" class="form-label">
                       Rol Belirleme
                       <span class="text-danger">*</span>
                     </label>
@@ -58,10 +77,10 @@
                   </div>
 
                   <div id="employeeType" class="mb-3 d-none">
-                    <label for="signupEmailInput" class="form-label">
+                    <label for="employeeTypeSelect" class="form-label">
                       İş Kategorisi
                     </label>
-                    <select name="employeeType" class="form-select">
+                    <select id="employeeTypeSelect" name="employeeType" class="form-select">
                       <option selected disabled value="">Lütfen Bir Seçim Yapın</option>
                       <option value="WASTE_COLLECTOR">Atık</option>
                       <option value="TRASH_COLLECTOR">Çöp</option>
@@ -124,7 +143,15 @@
 
     document.getElementById("registerForm").addEventListener("submit", async (e) => {
       e.preventDefault();
-      const formData = new FormData(e.target);
+      const form = e.target;
+      if (!form.checkValidity()) {
+        e.stopPropagation();
+        form.classList.add('was-validated');
+        return;
+      }
+      form.classList.add('was-validated');
+
+      const formData = new FormData(form);
       const data = Object.fromEntries(formData.entries());
       try {
         if (data.password !== document.getElementById("formSignUpConfirmPassword").value) {

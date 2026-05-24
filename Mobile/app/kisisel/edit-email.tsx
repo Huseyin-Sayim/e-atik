@@ -27,9 +27,14 @@ export default function EditEmailScreen() {
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [initialData, setInitialData] = useState({ email: '' });
+  const [currentTheme, setCurrentTheme] = useState('light');
 
   useEffect(() => {
     loadCurrentInfo();
+    const unsubscribe = DatabaseService.subscribeToTheme((theme) => {
+      setCurrentTheme(theme);
+    });
+    return unsubscribe;
   }, []);
 
   const loadCurrentInfo = async () => {
@@ -108,17 +113,17 @@ export default function EditEmailScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView style={[styles.safeArea, currentTheme === 'dark' && { backgroundColor: '#0f172a' }]}>
+      <StatusBar barStyle={currentTheme === 'dark' ? "light-content" : "dark-content"} />
 
-      <View style={styles.header}>
+      <View style={[styles.header, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderBottomColor: '#334155' }]}>
         <TouchableOpacity
-          style={styles.backButton}
+          style={[styles.backButton, currentTheme === 'dark' && { backgroundColor: '#334155' }]}
           onPress={() => router.replace('/kisisel/kisisel-settings')}
         >
-          <Ionicons name="arrow-back" size={24} color="#1e293b" />
+          <Ionicons name="arrow-back" size={24} color={currentTheme === 'dark' ? '#fff' : '#1e293b'} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>E-posta İşlemleri</Text>
+        <Text style={[styles.headerTitle, currentTheme === 'dark' && { color: '#fff' }]}>E-posta İşlemleri</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -127,52 +132,52 @@ export default function EditEmailScreen() {
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.container}>
-          <View style={styles.formCard}>
+          <View style={[styles.formCard, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Mevcut E-posta Adresiniz</Text>
+              <Text style={[styles.label, currentTheme === 'dark' && { color: '#94a3b8' }]}>Mevcut E-posta Adresiniz</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: '#f1f5f9' }]}
+                style={[styles.input, { backgroundColor: currentTheme === 'dark' ? '#0f172a' : '#f1f5f9', color: currentTheme === 'dark' ? '#94a3b8' : '#1e293b', borderColor: currentTheme === 'dark' ? '#334155' : '#e2e8f0' }]}
                 value={currentEmailInput}
                 onChangeText={setCurrentEmailInput}
                 placeholder={initialData.email || "mevcut@mail.com"}
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={currentTheme === 'dark' ? "#64748b" : "#94a3b8"}
                 editable={false}
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Yeni E-posta Adresi</Text>
+              <Text style={[styles.label, currentTheme === 'dark' && { color: '#94a3b8' }]}>Yeni E-posta Adresi</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, currentTheme === 'dark' && { backgroundColor: '#0f172a', borderColor: '#334155', color: '#fff' }]}
                 value={newEmail}
                 onChangeText={setNewEmail}
                 placeholder="Yeni e-posta adresini girin"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={currentTheme === 'dark' ? "#64748b" : "#94a3b8"}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Yeni E-posta Adresi (Tekrar)</Text>
+              <Text style={[styles.label, currentTheme === 'dark' && { color: '#94a3b8' }]}>Yeni E-posta Adresi (Tekrar)</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, currentTheme === 'dark' && { backgroundColor: '#0f172a', borderColor: '#334155', color: '#fff' }]}
                 value={confirmEmail}
                 onChangeText={setConfirmEmail}
                 placeholder="Yeni e-postayı tekrar girin"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={currentTheme === 'dark' ? "#64748b" : "#94a3b8"}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
             </View>
           </View>
 
-          <Text style={styles.infoText}>
+          <Text style={[styles.infoText, currentTheme === 'dark' && { color: '#64748b' }]}>
             * E-posta adresinizi değiştirdikten sonra yeni adresinizle giriş yapmanız gerekecektir.
           </Text>
         </ScrollView>
 
-        <View style={styles.footer}>
+        <View style={[styles.footer, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderTopColor: '#334155' }]}>
           <TouchableOpacity
             style={[styles.saveButton, loading && styles.disabledButton]}
             onPress={handleRequestCode}
@@ -195,24 +200,24 @@ export default function EditEmailScreen() {
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Kodu Doğrula</Text>
+              <Text style={[styles.modalTitle, currentTheme === 'dark' && { color: '#fff' }]}>Kodu Doğrula</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#64748b" />
+                <Ionicons name="close" size={24} color={currentTheme === 'dark' ? '#94a3b8' : '#64748b'} />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.modalSubTitle}>
+            <Text style={[styles.modalSubTitle, currentTheme === 'dark' && { color: '#94a3b8' }]}>
               {newEmail} adresine gönderilen 6 haneli kodu giriniz.
             </Text>
 
             <TextInput
-              style={styles.codeInput}
+              style={[styles.codeInput, currentTheme === 'dark' && { backgroundColor: '#0f172a', borderColor: '#334155', color: '#2e7d32' }]}
               value={verificationCode}
               onChangeText={setVerificationCode}
               placeholder="000000"
-              placeholderTextColor="#cbd5e1"
+              placeholderTextColor={currentTheme === 'dark' ? "#334155" : "#cbd5e1"}
               keyboardType="number-pad"
               maxLength={6}
               autoFocus={true}
@@ -235,7 +240,7 @@ export default function EditEmailScreen() {
               disabled={loading}
               style={{ marginTop: 15 }}
             >
-              <Text style={styles.resendText}>Kodu Tekrar Gönder</Text>
+              <Text style={[styles.resendText, currentTheme === 'dark' && { color: '#94a3b8' }]}>Kodu Tekrar Gönder</Text>
             </TouchableOpacity>
           </View>
         </View>
