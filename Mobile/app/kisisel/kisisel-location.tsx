@@ -7,15 +7,24 @@ import {
   ActivityIndicator,
   Animated,
   Platform,
+  Alert,
   Dimensions,
   Modal,
   ScrollView,
-  StatusBar
+  StatusBar,
+  Image,
+  Share,
+  LayoutAnimation,
+  UIManager
 } from 'react-native';
 import { MapView, Marker, PROVIDER_DEFAULT, Geojson } from '../../components/MapComponent';
 import * as Location from 'expo-location';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import DatabaseService from '../../database/DatabaseService';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 // GeoJSON verisini import ediyoruz
 import campusParcels from '../../assets/kampusParsel.json';
@@ -44,6 +53,8 @@ interface TrashBin {
   userFullName?: string;
   wasteType?: string;
   status?: string;
+  qrCode?: string;
+  barCode?: string;
 }
 
 function getFillLevel(percentage: number): FillLevel {
@@ -59,9 +70,12 @@ function getPinColor(percentage: number): string {
   return '#e74c3c';
 }
 
+
+
 export default function KisiselLocationScreen() {
   const mapRef = useRef<MapView>(null);
   const cardAnim = useRef(new Animated.Value(0)).current;
+  const wsRef = useRef<WebSocket | null>(null);
 
   const [bins, setBins] = useState<TrashBin[]>([]);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -70,6 +84,9 @@ export default function KisiselLocationScreen() {
   const [loading, setLoading] = useState(true);
   const [isListModalVisible, setIsListModalVisible] = useState(false);
   const [currentTheme, setCurrentTheme] = useState('light');
+  const [routeCoordinates, setRouteCoordinates] = useState<any[]>([]);
+  const [isInspectMode, setIsInspectMode] = useState(false);
+
 
   useEffect(() => {
     const unsubscribe = DatabaseService.subscribeToTheme((theme) => {
@@ -90,7 +107,32 @@ export default function KisiselLocationScreen() {
     const unsubscribe = DatabaseService.subscribeToBins(() => {
       loadBins();
     });
-    return unsubscribe;
+
+    // WebSocket bağlantısı: kutu ve talep değişikliklerini anlık dinle
+    const wsUrl = DatabaseService.getWsUrl();
+    const ws = new WebSocket(wsUrl);
+    ws.onopen = () => console.log('✅ WS Bağlandı (Kişisel Harita)');
+    ws.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        if (
+          payload.type === 'wasteRequestCreated' ||
+          payload.type === 'wasteRequestStatusChanged' ||
+          payload.type === 'binCreated' ||
+          payload.type === 'binUpdated' ||
+          payload.type === 'binDeleted'
+        ) {
+          loadBins();
+        }
+      } catch (_) {}
+    };
+    ws.onerror = (e) => console.warn('WS Hatası (Kişisel Harita):', e);
+    wsRef.current = ws;
+
+    return () => {
+      unsubscribe();
+      if (ws.readyState === WebSocket.OPEN) ws.close();
+    };
   }, []);
 
   // Bins listesi güncellendiğinde seçili kutunun da canlı değerlerini besle
@@ -129,7 +171,9 @@ export default function KisiselLocationScreen() {
         type: b.wasteCategory === 'PLASTIC' ? 'plastik' : b.wasteCategory === 'GLASS' ? 'cam' : b.wasteCategory === 'PAPER' ? 'kagit' : 'genel',
         capacity: (b.wasteCategory === 'PLASTIC' || b.wasteCategory === 'PAPER') ? 50 : 100,
         lastUpdated: 'Şimdi',
-        isRequest: false
+        isRequest: false,
+        qrCode: b.qrCode || undefined,
+        barCode: b.barCode || undefined
       }));
 
       setBins(mappedBins);
@@ -142,11 +186,55 @@ export default function KisiselLocationScreen() {
 
   useEffect(() => {
     if (selectedBin) {
-      Animated.spring(cardAnim, { toValue: 1, useNativeDriver: true, tension: 80, friction: 8 }).start();
+      if (!isInspectMode) {
+        Animated.spring(cardAnim, { toValue: 1, useNativeDriver: true, tension: 80, friction: 8 }).start();
+      } else {
+        Animated.timing(cardAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start();
+      }
     } else {
+      setIsInspectMode(false);
       Animated.timing(cardAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start();
     }
+  }, [selectedBin, isInspectMode]);
+
+  useEffect(() => {
+    if (selectedBin) {
+      fetchRoute(selectedBin);
+    } else {
+      setRouteCoordinates([]);
+    }
   }, [selectedBin]);
+
+  const fetchRoute = useCallback(async (destination: TrashBin) => {
+    if (!userLocation) {
+      Alert.alert('Konum Bekleniyor', 'GPS konumunuz henüz alınamadı. Lütfen birkaç saniye bekleyip tekrar deneyin.');
+      return;
+    }
+    try {
+      const url = `https://router.project-osrm.org/route/v1/foot/${userLocation.longitude},${userLocation.latitude};${destination.longitude},${destination.latitude}?overview=full&geometries=geojson`;
+      const response = await fetch(url);
+      const json = await response.json();
+      if (json.routes && json.routes.length > 0) {
+        const coords = json.routes[0].geometry.coordinates.map((c: any[]) => ({
+          latitude: c[1],
+          longitude: c[0]
+        }));
+        setRouteCoordinates(coords);
+      } else {
+        setRouteCoordinates([userLocation, { latitude: destination.latitude, longitude: destination.longitude }]);
+      }
+      setTimeout(() => {
+        mapRef.current?.animateToRegion({
+          latitude: destination.latitude,
+          longitude: destination.longitude,
+          latitudeDelta: 0.005,
+          longitudeDelta: 0.005,
+        });
+      }, 100);
+    } catch (e) {
+      setRouteCoordinates([userLocation, { latitude: destination.latitude, longitude: destination.longitude }]);
+    }
+  }, [userLocation]);
 
   const goToMyLocation = useCallback(async () => {
     if (userLocation) {
@@ -188,9 +276,18 @@ export default function KisiselLocationScreen() {
         ref={mapRef}
         style={styles.map}
         initialRegion={CAMPUS_CENTER}
+        showsUserLocation={true}
+        onPress={() => setSelectedBin(null)}
         campusParcels={campusParcels}
         bins={filteredBins}
-        onMarkerPress={setSelectedBin}
+        onMarkerPress={(bin) => {
+          setSelectedBin(bin);
+          setIsInspectMode(false);
+          setRouteCoordinates([]);
+        }}
+        staffLocation={userLocation}
+        routeCoordinates={routeCoordinates}
+        routeColor="green"
       />
 
       <View style={[styles.headerBar, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
@@ -238,7 +335,14 @@ export default function KisiselLocationScreen() {
       </View>
 
       {selectedBin && (
-        <Animated.View style={[styles.detailCard, currentTheme === 'dark' && { backgroundColor: '#1e293b' }, { transform: [{ translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [220, 0] }) }] }]}>
+        <Animated.View style={[styles.detailCard, currentTheme === 'dark' && { backgroundColor: '#1e293b' }, { 
+          opacity: cardAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0.8, 1] }),
+          transform: [
+            { translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [500, 0] }) },
+            { scale: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [0.1, 1] }) },
+            { translateX: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [150, 0] }) }
+          ] 
+        }]}>
           <View style={styles.cardHeader}>
             <View style={{ flex: 1, marginRight: 32 }}>
               <Text style={[styles.cardName, currentTheme === 'dark' && { color: '#fff' }]}>{selectedBin.name}</Text>
@@ -279,23 +383,55 @@ export default function KisiselLocationScreen() {
                 </View>
               </View>
             ) : (
-              /* Koordinat Gösterimi */
-              <View style={[styles.coordDisplayRow, currentTheme === 'dark' && { backgroundColor: '#334155' }]}>
-                <View style={styles.coordItem}>
-                  <Text style={[styles.coordLabel, currentTheme === 'dark' && { color: '#94a3b8' }]}>ENLEM:</Text>
-                  <Text style={[styles.coordValue, currentTheme === 'dark' && { color: '#fff' }]}>{selectedBin.latitude.toFixed(6)}</Text>
+              /* Koordinat Gösterimi + Rotayı İncele Butonu */
+              <>
+                <View style={[styles.coordDisplayRow, currentTheme === 'dark' && { backgroundColor: '#334155' }]}>
+                  <View style={styles.coordItem}>
+                    <Text style={[styles.coordLabel, currentTheme === 'dark' && { color: '#94a3b8' }]}>ENLEM:</Text>
+                    <Text style={[styles.coordValue, currentTheme === 'dark' && { color: '#fff' }]}>{selectedBin.latitude.toFixed(6)}</Text>
+                  </View>
+                  <View style={styles.coordItem}>
+                    <Text style={[styles.coordLabel, currentTheme === 'dark' && { color: '#94a3b8' }]}>BOYLAM:</Text>
+                    <Text style={[styles.coordValue, currentTheme === 'dark' && { color: '#fff' }]}>{selectedBin.longitude.toFixed(6)}</Text>
+                  </View>
                 </View>
-                <View style={styles.coordItem}>
-                  <Text style={[styles.coordLabel, currentTheme === 'dark' && { color: '#94a3b8' }]}>BOYLAM:</Text>
-                  <Text style={[styles.coordValue, currentTheme === 'dark' && { color: '#fff' }]}>{selectedBin.longitude.toFixed(6)}</Text>
+                <View style={styles.modalActionsMap}>
+                  <TouchableOpacity
+                    style={[styles.routeBtn, { backgroundColor: getPinColor(selectedBin.fillPercentage), flex: 1 }]}
+                    onPress={() => {
+                      setIsInspectMode(true);
+                    }}
+                  >
+                    <Ionicons name="map-outline" size={16} color="#fff" style={{ marginRight: 6 }} />
+                    <Text style={styles.routeBtnText}>Rotayı İncele</Text>
+                  </TouchableOpacity>
                 </View>
-              </View>
+              </>
             )}
           </View>
         </Animated.View>
       )}
 
-      {/* LİSTE MODALI (Üst Üste Binen Kutular İçin) */}
+      {/* Rotayı İncele Modu Floating Butonu */}
+      {selectedBin && isInspectMode && (
+        <Animated.View style={{
+          position: 'absolute', bottom: 30, right: 20, zIndex: 100,
+          opacity: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+          transform: [{ scale: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.5] }) }]
+        }}>
+          <TouchableOpacity
+            style={[
+              styles.floatingInspectBtn, 
+              { position: 'relative', bottom: 0, right: 0, backgroundColor: getPinColor(selectedBin.fillPercentage) }
+            ]}
+            onPress={() => setIsInspectMode(false)}
+          >
+            <Ionicons name="trash-outline" size={26} color="#fff" />
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
+      {/* LİSTE MODALI */}
       <Modal visible={isListModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, currentTheme === 'dark' && { backgroundColor: '#1e293b' }, { maxHeight: '70%' }]}>
@@ -374,6 +510,43 @@ const styles = StyleSheet.create({
   coordItem: { flex: 1 },
   coordLabel: { fontSize: 9, fontWeight: '800', color: '#94a3b8', marginBottom: 2 },
   coordValue: { fontSize: 12, fontWeight: '700', color: '#1e293b', fontFamily: 'monospace' },
+  routeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 14, elevation: 3 },
+  routeBtnText: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  floatingInspectBtn: { position: 'absolute', bottom: 30, right: 20, width: 60, height: 60, borderRadius: 30, backgroundColor: '#2e7d32', justifyContent: 'center', alignItems: 'center', elevation: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5 },
+  cardQrBtn: {
+    width: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f3e8ff',
+    borderRadius: 14,
+  },
+  qrCodeEmptyFrame: {
+    width: 240,
+    height: 240,
+    borderWidth: 3,
+    borderColor: '#7c3aed',
+    borderStyle: 'dashed',
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 20,
+  },
+  radioGroupMap: {
+    flexDirection: 'row',
+    gap: 30,
+    marginVertical: 30,
+  },
+  radioButtonMap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  radioTextMap: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
   
   // Badge Stili
   badge: {
@@ -391,6 +564,36 @@ const styles = StyleSheet.create({
   modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 24, maxHeight: '80%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 20, fontWeight: '800', color: '#1e293b' },
+
+  modalActionsMap: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+    paddingHorizontal: 10,
+  },
+  collectBtnMap: {
+    flex: 1,
+    backgroundColor: '#7c3aed',
+    flexDirection: 'row',
+    padding: 16,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  routeBtnMap: {
+    flex: 1,
+    flexDirection: 'row',
+    padding: 16,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  btnTextMap: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
 
   // LİSTE STYLES
   listItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },

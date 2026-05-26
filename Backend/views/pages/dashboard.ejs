@@ -404,8 +404,14 @@
   ws.onmessage = (event) => {
     try {
       const payload = JSON.parse(event.data);
-      if (payload.type === 'wasteRequestCreated' || payload.type === 'wasteRequestStatusChanged') {
-        console.log('🔄 Yeni evsel atık harita bildirimi algılandı, harita güncelleniyor...');
+      if (
+        payload.type === 'wasteRequestCreated' || 
+        payload.type === 'wasteRequestStatusChanged' || 
+        payload.type === 'binCreated' || 
+        payload.type === 'binUpdated' || 
+        payload.type === 'binDeleted'
+      ) {
+        console.log('🔄 Harita güncelleme bildirimi algılandı, veriler yenileniyor...');
         loadExistingBins();
       }
     } catch (err) {

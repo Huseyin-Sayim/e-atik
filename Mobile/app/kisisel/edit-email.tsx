@@ -201,11 +201,12 @@ export default function EditEmailScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
+            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setModalVisible(false)}>
+              <Ionicons name="close" size={24} color={currentTheme === 'dark' ? '#94a3b8' : '#64748b'} />
+            </TouchableOpacity>
+
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, currentTheme === 'dark' && { color: '#fff' }]}>Kodu Doğrula</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color={currentTheme === 'dark' ? '#94a3b8' : '#64748b'} />
-              </TouchableOpacity>
             </View>
 
             <Text style={[styles.modalSubTitle, currentTheme === 'dark' && { color: '#94a3b8' }]}>
@@ -380,8 +381,8 @@ const styles = StyleSheet.create({
   },
   modalCloseBtn: {
     position: 'absolute',
-    right: 0,
-    top: -5,
+    right: 16,
+    top: 16,
     padding: 4,
     zIndex: 10,
   },

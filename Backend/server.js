@@ -7,6 +7,7 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 const binRoutes = require('./routes/api/binRoutes');
 const wasteRoutes = require('./routes/api/wasteRoutes');
 const partnerStoreRoutes = require('./routes/api/partnerStoreRoutes');
+const wasteItemRoutes = require('./routes/api/wasteItemRoutes');
 const cookieParser = require('cookie-parser');
 const path = require('path');
 
@@ -15,10 +16,6 @@ const port = process.env.PORT || 2001;
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
-
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(cookieParser());
-app.use(express.json());
 
 // Tarayıcı üzerinden web testi yapılabilmesi için CORS ayarı
 app.use((req, res, next) => {
@@ -31,6 +28,11 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(cookieParser());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.get('/api-health', async (req, res) => {
   res.json({
@@ -46,6 +48,7 @@ app.use('/api/regions', regionRoutes);
 app.use('/api/bins', binRoutes);
 app.use('/api/waste-requests', wasteRoutes);
 app.use('/api/partner-stores', partnerStoreRoutes);
+app.use('/api/waste-items', wasteItemRoutes);
 app.use('/', dashboardRoutes);
 const staffLocations = new Map();
 

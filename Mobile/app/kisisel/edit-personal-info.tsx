@@ -88,7 +88,7 @@ export default function EditPersonalInfoScreen() {
         const finalLastName = lastName.trim() || initialData.soyad;
         
         // 1. Backend Güncelleme
-        await DatabaseService.updateUser(lowerEmail, { 
+        await DatabaseService.updateUser({ 
           name: finalFirstName,
           surname: finalLastName 
         });
@@ -125,7 +125,6 @@ export default function EditPersonalInfoScreen() {
     <SafeAreaView style={[styles.safeArea, currentTheme === 'dark' && { backgroundColor: '#0f172a' }]}>
       <StatusBar barStyle={currentTheme === 'dark' ? "light-content" : "dark-content"} />
       
-      {/* Top Bar */}
       <View style={[styles.header, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderBottomColor: '#334155' }]}>
         <TouchableOpacity 
           style={[styles.backButton, currentTheme === 'dark' && { backgroundColor: '#334155' }]} 
@@ -134,7 +133,7 @@ export default function EditPersonalInfoScreen() {
           <Ionicons name="arrow-back" size={24} color={currentTheme === 'dark' ? '#fff' : '#1e293b'} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, currentTheme === 'dark' && { color: '#fff' }]}>Bilgileri Düzenle</Text>
-        <View style={{ width: 40 }} /> {/* Dengeleme için */}
+        <View style={{ width: 40 }} />
       </View>
 
       <KeyboardAvoidingView 

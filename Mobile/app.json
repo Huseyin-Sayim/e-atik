@@ -12,7 +12,10 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Size en yakın atık toplama noktalarını gösterebilmek ve harita üzerinde konumunuzu takip edebilmek için konum iznine ihtiyaç duyuyoruz.",
-        "NSLocationAlwaysUsageDescription": "Uygulama kapalıyken de size yakın konteyner bildirimleri gönderebilmek için konum erişimi gereklidir."
+        "NSLocationAlwaysUsageDescription": "Uygulama kapalıyken de size yakın konteyner bildirimleri gönderebilmek için konum erişimi gereklidir.",
+        "NSCameraUsageDescription": "Atık QR ve Barkodlarını tarayabilmeniz için kamera erişim izni gereklidir.",
+        "NSPhotoLibraryUsageDescription": "QR ve Barkod görsellerini galerinize kaydedebilmek için galeri erişim izni gereklidir.",
+        "NSPhotoLibraryAddUsageDescription": "QR ve Barkod görsellerini galerinize kaydedebilmek için galeri yazma izni gereklidir."
       }
     },
     "android": {
@@ -52,6 +55,19 @@
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Harita üzerinde yakınınızdaki atık noktalarını bulabilmeniz için konum erişimi gereklidir."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Atık QR ve Barkodlarını tarayabilmeniz için kamera erişim izni gereklidir."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "QR ve Barkod görsellerini galerinize kaydedebilmek için galeri erişim izni gereklidir.",
+          "savePhotosPermission": "QR ve Barkod görsellerini galerinize kaydedebilmek için galeri yazma izni gereklidir."
         }
       ],
       "expo-web-browser"

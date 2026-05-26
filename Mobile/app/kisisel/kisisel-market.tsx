@@ -32,26 +32,28 @@ import DatabaseService from '../../database/DatabaseService';
 const { width } = Dimensions.get('window');
 const ITEM_WIDTH = (width - 60) / 3;
 
-const WASTE_ITEMS = [
-  { id: 9, name: 'Plastik Kapak', icon: 'database', library: 'MaterialCommunityIcons', coins: 2, color: '#06b6d4', description: 'Renkli kapaklar tekerlekli sandalye gibi projelere kaynak olur.', image: require('../../assets/images/plastic-cap.png') },
-  { id: 3, name: 'Kağıt', icon: 'file-alt', library: 'FontAwesome5', coins: 3, color: '#f59e0b', description: 'Kağıt atıklar ormanlarımızı korur ve enerji tasarrufu sağlar.', image: require('../../assets/images/paper-icon.png') },
-  { id: 11, name: 'Naylon Poşet', icon: 'bag', library: 'SimpleLineIcons', coins: 3, color: '#94a3b8', description: 'Naylon poşetler doğada çok geç çözünür, mutlaka geri dönüştürülmelidir.', image: require('../../assets/images/plastic-bag-icon.png') },
-  { id: 4, name: 'Karton', icon: 'box-open', library: 'FontAwesome5', coins: 4, color: '#8b4513', description: 'Karton ambalajlar geri kazanılarak yeni koli ve kutulara dönüşür.', image: require('../../assets/images/cardboard-icon.png') },
-  { id: 15, name: 'Cam Kavanoz', icon: 'jar', library: 'FontAwesome6', coins: 4, color: '#475569', description: 'Cam kavanozlar sterilize edilerek tekrar kullanılabilir veya geri dönüştürülebilir.', image: require('../../assets/images/jar-icon.png') },
-  { id: 1, name: 'Pet Şişe', icon: 'bottle-water', library: 'FontAwesome6', coins: 5, color: '#3b82f6', description: 'Plastik pet şişeler geri dönüştürülerek yeni tekstil ürünleri ve ambalajlar üretilir.', image: require('../../assets/images/pet-bottle-icon.png') },
-  { id: 14, name: 'Floresan Lamba', icon: 'lightbulb-variant-outline', library: 'MaterialCommunityIcons', coins: 5, color: '#f43f5e', description: 'Aydınlatma ürünleri içerdikleri civa nedeniyle özel işlemlerle geri dönüştürülmelidir.', image: require('../../assets/images/bulb-icon.png') },
-  { id: 5, name: 'Metal Kutu', icon: 'can-food', library: 'FontAwesome6', coins: 7, color: '#64748b', description: 'Alüminyum içecek kutuları %100 geri dönüştürülebilir.', image: require('../../assets/images/metal-can.png') },
-  { id: 2, name: 'Cam Şişe', icon: 'wine-bottle', library: 'FontAwesome6', coins: 8, color: '#10b981', description: 'Cam sonsuz kez geri dönüştürülebilir ve doğaya zarar vermez.', image: require('../../assets/images/glass-bottle-icon.png') },
-  { id: 12, name: 'Atık Lastik', icon: 'tire', library: 'MaterialCommunityIcons', coins: 10, color: '#4b5563', description: 'Kullanım ömrünü tamamlamış lastikler, asfalt ve zemin kaplama malzemelerine dönüştürülür.', image: require('../../assets/images/tire-icon.png') },
-  { id: 10, name: 'Tekstil', icon: 'tshirt', library: 'FontAwesome5', coins: 12, color: '#ec4899', description: 'Eski kıyafetler yalıtım malzemesi veya yeni iplik olabilir.', image: require('../../assets/images/shirt-icon.png') },
-  { id: 6, name: 'Pil', icon: 'battery-charging-100', library: 'MaterialCommunityIcons', coins: 15, color: '#ef4444', description: 'Atık pillerdeki ağır metaller toprağa karışmadan toplanmalıdır.', image: require('../../assets/images/battery-icon.png') },
-  { id: 13, name: 'Ahşap', icon: 'fence', library: 'MaterialCommunityIcons', coins: 15, color: '#a855f7', description: 'Ahşap parçaları mobilya veya yakacak peleti olur.', image: require('../../assets/images/wood-icon.png') },
-  { id: 8, name: 'Bitkisel Yağ', icon: 'tint', library: 'FontAwesome5', coins: 20, color: '#d97706', description: 'Atık yağlar biyodizel yakıta dönüştürülür.', image: require('../../assets/images/oil-icon.png') },
-  { id: 7, name: 'E-Atık', icon: 'laptop', library: 'FontAwesome5', coins: 50, color: '#6366f1', description: 'Eski elektronik cihazlar değerli madenler içerir.', image: require('../../assets/images/laptop-icon.png') },
-];
+const LOCAL_IMAGES: any = {
+  'Plastik Kapak': require('../../assets/images/plastic-cap.png'),
+  'Kağıt': require('../../assets/images/paper-icon.png'),
+  'Naylon Poşet': require('../../assets/images/plastic-bag-icon.png'),
+  'Karton': require('../../assets/images/cardboard-icon.png'),
+  'Cam Kavanoz': require('../../assets/images/jar-icon.png'),
+  'Pet Şişe': require('../../assets/images/pet-bottle-icon.png'),
+  'Floresan Lamba': require('../../assets/images/bulb-icon.png'),
+  'Metal Kutu': require('../../assets/images/metal-can.png'),
+  'Cam Şişe': require('../../assets/images/glass-bottle-icon.png'),
+  'Atık Lastik': require('../../assets/images/tire-icon.png'),
+  'Tekstil': require('../../assets/images/shirt-icon.png'),
+  'Pil': require('../../assets/images/battery-icon.png'),
+  'Ahşap': require('../../assets/images/wood-icon.png'),
+  'Bitkisel Yağ': require('../../assets/images/oil-icon.png'),
+  'E-Atık': require('../../assets/images/laptop-icon.png'),
+};
 
 export default function KisiselMarketScreen() {
   const [points, setPoints] = useState(0);
+  const [coinTooltipVisible, setCoinTooltipVisible] = useState(false);
+  const [wasteItems, setWasteItems] = useState<any[]>([]);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -98,16 +100,25 @@ export default function KisiselMarketScreen() {
     }, [])
   );
 
+  useEffect(() => {
+    loadData();
+  }, []);
+
   const loadData = async () => {
     try {
-      const email = await AsyncStorage.getItem('currentUserEmail');
-      if (email) {
-        const lowerEmail = email.toLowerCase();
-        const savedPoints = await AsyncStorage.getItem(`userPoints_${lowerEmail}`);
-        if (savedPoints) setPoints(parseInt(savedPoints));
+      const items = await DatabaseService.getWasteItems();
+      setWasteItems(items);
+    } catch (error) {
+      console.error('Market eşyaları yükleme hatası:', error);
+    }
+
+    try {
+      const currentUser = await DatabaseService.getCurrentUser();
+      if (currentUser && currentUser.wallet !== undefined) {
+        setPoints(currentUser.wallet ? currentUser.wallet.balance : 0);
       }
     } catch (error) {
-      console.error('Market veri yükleme hatası:', error);
+      console.error('Puan yükleme hatası:', error);
     }
   };
 
@@ -153,9 +164,21 @@ export default function KisiselMarketScreen() {
 
   const openScanner = async (mode: 'qr' | 'barcode') => {
     if (!permission?.granted) {
+       const userApproved = await new Promise((resolve) => {
+         Alert.alert(
+           "Kamera İzni Gerekli",
+           "Geri dönüşüm atıklarının QR veya Barkod kodlarını okutabilmek için kamera erişimine ihtiyacımız var. Kamera izni vermek istiyor musunuz?",
+           [
+             { text: "Vazgeç", onPress: () => resolve(false), style: "cancel" },
+             { text: "İzin Ver", onPress: () => resolve(true) }
+           ]
+         );
+       });
+       if (!userApproved) return;
+
        const res = await requestPermission();
        if (!res.granted) {
-          Alert.alert("Hata", "Kamera izni verilmedi.");
+          Alert.alert("Hata", "Kamera izni verilmedi. Ayarlardan kamera iznini etkinleştirmeniz gerekmektedir.");
           return;
        }
     }
@@ -166,52 +189,28 @@ export default function KisiselMarketScreen() {
   };
 
   const renderIcon = (item: any, size: number = 32) => {
-    const shouldHaveRadius = ['Cam Kavanoz', 'Metal Kutu', 'Atık Lastik', 'Plastik Kapak', 'Bitkisel Yağ'].includes(item.name);
-    
-    if (item.name === 'Naylon Poşet') {
+    const localImg = LOCAL_IMAGES[item.name];
+
+    if (item.imageUrl) {
       return (
-        <View style={{
-          width: 56,
-          height: 56,
-          borderRadius: 20,
-          backgroundColor: item.color + '20',
-          justifyContent: 'center',
-          alignItems: 'center',
-          overflow: 'hidden' // Clip the white background of the image
-        }}>
-          <Image 
-            source={item.image} 
-            style={{ 
-              width: size, 
-              height: size,
-              borderRadius: 20 // Round the image itself
-            }} 
-            resizeMode="contain" 
-          />
+        <View style={{ width: size, height: size, borderRadius: 20, backgroundColor: currentTheme === 'dark' ? '#334155' : '#f1f5f9', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
+          <Image source={{ uri: item.imageUrl }} style={{ width: size * 0.8, height: size * 0.8, borderRadius: 20 }} resizeMode="contain" />
         </View>
       );
     }
 
-    if (item.image) {
+    if (item.name === 'Naylon Poşet' && localImg) {
       return (
-        <View style={{
-          width: size,
-          height: size,
-          borderRadius: 20,
-          backgroundColor: currentTheme === 'dark' ? '#334155' : '#f1f5f9',
-          justifyContent: 'center',
-          alignItems: 'center',
-          overflow: 'hidden'
-        }}>
-          <Image 
-            source={item.image} 
-            style={{ 
-              width: size * 0.8, 
-              height: size * 0.8,
-              borderRadius: 10,
-            }} 
-            resizeMode="contain" 
-          />
+        <View style={{ width: 56, height: 56, borderRadius: 20, backgroundColor: item.color + '20', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
+          <Image source={localImg} style={{ width: size, height: size, borderRadius: 20 }} resizeMode="contain" />
+        </View>
+      );
+    }
+
+    if (localImg) {
+      return (
+        <View style={{ width: size, height: size, borderRadius: 20, backgroundColor: currentTheme === 'dark' ? '#334155' : '#f1f5f9', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
+          <Image source={localImg} style={{ width: size * 0.8, height: size * 0.8, borderRadius: 10 }} resizeMode="contain" />
         </View>
       );
     }
@@ -242,10 +241,14 @@ export default function KisiselMarketScreen() {
       
       <View style={[styles.topBar, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderBottomColor: '#334155' }]}>
         <Text style={[styles.headerTitle, currentTheme === 'dark' && { color: '#fff' }]}>Atık Marketi</Text>
-        <View style={[styles.coinBadge, currentTheme === 'dark' && { backgroundColor: '#334155' }]}>
+        <TouchableOpacity
+          style={[styles.coinBadge, currentTheme === 'dark' && { backgroundColor: '#334155' }]}
+          onPress={() => setCoinTooltipVisible(true)}
+          activeOpacity={0.75}
+        >
           <Text style={[styles.coinText, currentTheme === 'dark' && { color: '#fff' }]}>{points}</Text>
           <FontAwesome5 name="coins" size={22} color="#facc15" />
-        </View>
+        </TouchableOpacity>
       </View>
 
       <ScrollView 
@@ -271,7 +274,7 @@ export default function KisiselMarketScreen() {
         </View>
 
         <View style={styles.gridContainer}>
-          {WASTE_ITEMS.map((item) => (
+          {wasteItems.map((item) => (
             <TouchableOpacity 
               key={item.id} 
               style={[styles.card, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}
@@ -330,7 +333,7 @@ export default function KisiselMarketScreen() {
                         {selectedItem.coins}
                       </Text>
                       <FontAwesome5 name="coins" size={13} color="#eab308" />
-                      <Text style={[styles.pointsSuffixText, currentTheme === 'dark' && { color: '#64748b' }]}>Puan Kazandırır</Text>
+                      <Text style={[styles.pointsSuffixText, currentTheme === 'dark' && { color: '#64748b' }]}>Coin Kazandırır</Text>
                     </View>
                     <Text style={[styles.modalDescriptionCompact, currentTheme === 'dark' && { color: '#94a3b8' }]}>{selectedItem.description}</Text>
                   </View>
@@ -418,6 +421,62 @@ export default function KisiselMarketScreen() {
             )}
           </View>
         </View>
+      </Modal>
+
+      <Modal
+        visible={coinTooltipVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setCoinTooltipVisible(false)}
+      >
+        <Pressable 
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.15)' }} 
+          onPress={() => setCoinTooltipVisible(false)}
+        >
+          <View style={{
+            position: 'absolute',
+            top: Platform.OS === 'ios' ? 105 : (StatusBar.currentHeight ? StatusBar.currentHeight + 60 : 75),
+            right: 20,
+            width: 260,
+            backgroundColor: currentTheme === 'dark' ? '#1e293b' : '#fff',
+            borderRadius: 16,
+            padding: 16,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.15,
+            shadowRadius: 16,
+            elevation: 10,
+            borderWidth: 1,
+            borderColor: currentTheme === 'dark' ? '#334155' : '#f1f5f9',
+          }}>
+            {/* Arrow */}
+            <View style={{
+              position: 'absolute',
+              top: -6,
+              right: 24,
+              width: 12,
+              height: 12,
+              backgroundColor: currentTheme === 'dark' ? '#1e293b' : '#fff',
+              transform: [{ rotate: '45deg' }],
+              borderTopWidth: 1,
+              borderLeftWidth: 1,
+              borderColor: currentTheme === 'dark' ? '#334155' : '#f1f5f9',
+            }} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 }}>
+              <FontAwesome5 name="coins" size={16} color="#facc15" />
+              <Text style={{ fontWeight: '700', fontSize: 14, color: currentTheme === 'dark' ? '#fff' : '#1e293b' }}>
+                E-Atık Coin Nedir?
+              </Text>
+            </View>
+            <Text style={{ fontSize: 12, color: currentTheme === 'dark' ? '#94a3b8' : '#64748b', lineHeight: 18 }}>
+              Atıklarınızı geri dönüştürerek kazandığınız puanlardır. Anlaşmalı mağazalarda indirim ve ödüller için kullanabilirsiniz. Ne kadar çok geri dönüştürürseniz, o kadar çok coin kazanırsınız! 🌱
+            </Text>
+            <View style={{ marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: currentTheme === 'dark' ? '#334155' : '#f1f5f9', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Ionicons name="checkmark-circle" size={14} color="#10b981" />
+              <Text style={{ fontSize: 11, color: '#10b981', fontWeight: '600' }}>Mevcut bakiyeniz: {points} coin</Text>
+            </View>
+          </View>
+        </Pressable>
       </Modal>
     </SafeAreaView>
   );

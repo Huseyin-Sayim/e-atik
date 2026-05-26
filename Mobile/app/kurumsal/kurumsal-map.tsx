@@ -13,7 +13,12 @@ import {
   TextInput,
   ScrollView,
   KeyboardAvoidingView,
+  Image,
+  Share,
 } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as MediaLibrary from 'expo-media-library';
+import * as Sharing from 'expo-sharing';
 import { MapView, Marker, PROVIDER_DEFAULT, Geojson } from '../../components/MapComponent';
 import * as Location from 'expo-location';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -76,6 +81,8 @@ interface TrashBin {
   userFullName?: string;
   wasteType?: string;
   status?: string;
+  qrCode?: string;
+  barCode?: string;
 }
 
 function getFillLevel(percentage: number): FillLevel {
@@ -91,12 +98,154 @@ function getPinColor(percentage: number): string {
   return '#e74c3c';
 }
 
+/**
+ * QR ve Barkod için dinamik görsel URL'leri
+ */
+const getQrImageUrl = (code: string) => `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${code}`;
+const getBarcodeImageUrl = (code: string) => `https://barcode.tec-it.com/barcode.ashx?data=${code}&code=Code128`;
+
+const handleShareCode = async (bin: TrashBin, type: 'qr' | 'barkod') => {
+  try {
+    const code = type === 'qr' ? bin.qrCode : bin.barCode;
+    if (!code) {
+      Alert.alert('Hata', 'Kod bulunamadı.');
+      return;
+    }
+    const url = type === 'qr' ? getQrImageUrl(code) : getBarcodeImageUrl(code);
+
+    if (Platform.OS === 'web') {
+      await Share.share({
+        message: `${bin.name} - Atık Kutusu ${type.toUpperCase()} Kodu: ${code}\nLink: ${url}`,
+        title: 'Atık Kutusu Kodu Paylaş',
+      });
+      return;
+    }
+
+    const safeName = bin.name.replace(/[^a-zA-Z0-9]/g, '_');
+    const filename = `${safeName}_${type}.png`;
+    const fileUri = `${FileSystem.cacheDirectory}${filename}`;
+
+    const downloadResult = await FileSystem.downloadAsync(url, fileUri);
+    if (downloadResult.status !== 200) throw new Error('İndirme başarısız.');
+
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(downloadResult.uri, {
+        mimeType: 'image/png',
+        dialogTitle: `${bin.name} ${type.toUpperCase()} Kodunu Paylaş`,
+      });
+    } else {
+      Alert.alert('Hata', 'Bu cihazda paylaşım özelliği desteklenmiyor.');
+    }
+  } catch (error) {
+    console.error('Paylaşım hatası:', error);
+    Alert.alert('Hata', 'Paylaşım yapılamadı.');
+  }
+};
+
+const handlePrintCode = async (bin: TrashBin, type: 'qr' | 'barkod') => {
+  const code = type === 'qr' ? bin.qrCode : bin.barCode;
+  if (!code) {
+    Alert.alert('Hata', 'Kod bulunamadı.');
+    return;
+  }
+  const url = type === 'qr' ? getQrImageUrl(code) : getBarcodeImageUrl(code);
+  
+  if (Platform.OS === 'web') {
+    try {
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(`
+          <html>
+            <head>
+              <title>${bin.name} - ${type.toUpperCase()}</title>
+            </head>
+            <body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;">
+              <h2>${bin.name}</h2>
+              <p>${type.toUpperCase()} Kodu: ${code}</p>
+              <img src="${url}" style="max-width:90%;max-height:70%;object-fit:contain;" onload="window.print();window.close()"/>
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+      } else {
+        Alert.alert('Hata', 'Pop-up engelleyici yazdır penceresini engelledi.');
+      }
+    } catch (e) {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${bin.name}_${type}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  } else {
+    try {
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Galeri İzni Gerekli', 'QR/Barkod görselini galerinize kaydedebilmek için galeri erişim izni vermeniz gerekmektedir.');
+        return;
+      }
+
+      const safeName = bin.name.replace(/[^a-zA-Z0-9]/g, '_');
+      const filename = `${safeName}_${type}.png`;
+      const fileUri = `${FileSystem.cacheDirectory}${filename}`;
+      
+      const downloadResult = await FileSystem.downloadAsync(url, fileUri);
+      
+      if (downloadResult.status === 200) {
+        const asset = await MediaLibrary.createAssetAsync(downloadResult.uri);
+        Alert.alert(
+          'Galeriye Kaydedildi! ✅',
+          `${bin.name} kutusunun ${type.toUpperCase()} kodu başarıyla galerinize kaydedildi.\n\nGalerinizi açarak görseli bulabilir ve yazdırabilirsiniz.`,
+          [{ text: 'Tamam' }]
+        );
+      } else {
+        throw new Error('İndirme başarısız.');
+      }
+    } catch (error) {
+      console.error('Galeri kaydetme hatası:', error);
+      Alert.alert('Hata', 'Kod indirilirken/kaydedilirken bir hata oluştu.');
+    }
+  }
+};
+
+
+const isPointInPolygon = (latitude: number, longitude: number, polygon: number[][]) => {
+  const x = longitude;
+  const y = latitude;
+  
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i][0], yi = polygon[i][1];
+    const xj = polygon[j][0], yj = polygon[j][1];
+    
+    const intersect = ((yi > y) !== (yj > y))
+        && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  
+  return inside;
+};
+
+const findParcelForCoords = (lat: number, lng: number): string | null => {
+  if (!campusParcels || !campusParcels.features) return null;
+  for (const feature of campusParcels.features) {
+    if (feature.geometry && feature.geometry.type === 'Polygon') {
+      const polygon = feature.geometry.coordinates[0];
+      if (isPointInPolygon(lat, lng, polygon)) {
+        return feature.id || feature.properties?.id || null;
+      }
+    }
+  }
+  return null;
+};
 
 
 export default function KurumsalMapScreen() {
   const mapRef = useRef<MapView>(null);
   const cardAnim = useRef(new Animated.Value(0)).current;
   const currentRegionRef = useRef<{ latitude: number, longitude: number }>(CAMPUS_CENTER);
+  const isFirstLoad = useRef(true);
   const leafletMapRef = useRef<any>(null); // Gerçek Leaflet map instance'ı (web only)
   const router = useRouter();
 
@@ -115,7 +264,11 @@ export default function KurumsalMapScreen() {
   const [routeCoordinates, setRouteCoordinates] = useState<any[]>([]);
   const [isInspectMode, setIsInspectMode] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
+  const locationIntervalRef = useRef<any>(null);
   const [currentTheme, setCurrentTheme] = useState('light');
+  const [isQrModalVisible, setIsQrModalVisible] = useState(false);
+  const [qrModalBin, setQrModalBin] = useState<TrashBin | null>(null);
+  const [qrType, setQrType] = useState<'qr' | 'barkod' | null>(null);
 
   useEffect(() => {
     const initApp = async () => {
@@ -140,7 +293,7 @@ export default function KurumsalMapScreen() {
     ws.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data);
-        if (payload.type === 'wasteRequestCreated' || payload.type === 'wasteRequestStatusChanged') {
+        if (['wasteRequestCreated', 'wasteRequestStatusChanged', 'binCreated', 'binUpdated', 'binDeleted', 'locationUpdate'].includes(payload.type)) {
           console.log('🔄 Yeni evsel atık harita bildirimi algılandı, veriler yenileniyor...');
           loadBins();
         }
@@ -156,6 +309,9 @@ export default function KurumsalMapScreen() {
       unsubTheme();
       if (ws.readyState === WebSocket.OPEN) {
         ws.close();
+      }
+      if (locationIntervalRef.current) {
+        clearInterval(locationIntervalRef.current);
       }
     };
   }, []);
@@ -214,17 +370,7 @@ export default function KurumsalMapScreen() {
       }));
 
       // 2. Database update (arkada sessizce eşitle)
-      const targetBin = bins.find(b => b.id === binId);
-      if (targetBin) {
-        const payload = {
-          name: targetBin.name,
-          latitude: targetBin.latitude,
-          longitude: targetBin.longitude,
-          predictedFullness: 0,
-          wasteCategory: targetBin.type === 'plastik' ? 'PLASTIC' : targetBin.type === 'cam' ? 'GLASS' : targetBin.type === 'kagit' ? 'PAPER' : 'GENERAL'
-        };
-        await DatabaseService.updateBinItem(binId, payload);
-      }
+      await DatabaseService.updateBinFullness(binId, 0);
 
       // 3. 28px kavisli başarı uyarısı
       Alert.alert(
@@ -295,39 +441,6 @@ export default function KurumsalMapScreen() {
     return () => clearInterval(timer);
   }, [selectedBin]);
 
-  // ==========================================
-  // WEBSOCKET VE CANLI KONUM TAKİBİ
-  // ==========================================
-  useEffect(() => {
-    // Backend portu 2001, WebSocket server aynı portta çalışıyor.
-    const wsUrl = DatabaseService.getWsUrl();
-    const ws = new WebSocket(wsUrl);
-
-    ws.onopen = () => {
-      console.log('✅ WebSocket Bağlantısı Kuruldu (Mobil İstemci)');
-    };
-
-    ws.onmessage = (e) => {
-      try {
-        const payload = JSON.parse(e.data);
-        // İstersek diğer personellerin konumlarını da burada işleyebiliriz.
-        // Şimdilik sadece kendi konumumuzu yayınlıyoruz.
-      } catch (err) { }
-    };
-
-    ws.onerror = (e) => {
-      console.warn('WebSocket Hatası:', e);
-    };
-
-    wsRef.current = ws;
-
-    return () => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.close();
-      }
-    };
-  }, []);
-
   const setupLocation = async () => {
     try {
       // Ege Üniversitesi Metro İstasyonu Konumu (Sabit)
@@ -348,7 +461,10 @@ export default function KurumsalMapScreen() {
       
       sendUpdate();
       // Harita ekranındayken de her 4 saniyede bir gönder
-      setInterval(sendUpdate, 4000);
+      if (locationIntervalRef.current) {
+        clearInterval(locationIntervalRef.current);
+      }
+      locationIntervalRef.current = setInterval(sendUpdate, 4000);
     } catch (e) {
       console.warn('Konum sabitleme hatası');
     }
@@ -397,9 +513,11 @@ export default function KurumsalMapScreen() {
 
   const loadBins = async () => {
     try {
-      setLoading(true);
+      if (isFirstLoad.current) {
+        setLoading(true);
+      }
       let fetchedBins = await DatabaseService.getBins();
-
+  
       // Evsel atık bildirimlerini de çekelim
       let fetchedRequests: any[] = [];
       try {
@@ -407,7 +525,7 @@ export default function KurumsalMapScreen() {
       } catch (reqErr) {
         console.warn('Harita: Evsel atıklar çekilirken hata oluştu:', reqErr);
       }
-
+  
       const mappedBins = fetchedBins.map(b => {
         const type = b.wasteCategory === 'PLASTIC' ? 'plastik' : b.wasteCategory === 'GLASS' ? 'cam' : b.wasteCategory === 'PAPER' ? 'kagit' : 'genel';
         const capacity = b.capacityVolume || 100;
@@ -421,10 +539,12 @@ export default function KurumsalMapScreen() {
           type,
           capacity,
           countdown: defaultCountdown,
-          lastUpdated: 'Şimdi'
+          lastUpdated: 'Şimdi',
+          qrCode: b.qrCode || undefined,
+          barCode: b.barCode || undefined,
         };
       });
-
+  
       const activeRequests = fetchedRequests.filter(
         (req: any) => req.status === 'PENDING' || req.status === 'ON_ROUTE'
       );
@@ -433,7 +553,7 @@ export default function KurumsalMapScreen() {
         if (req.wasteType === 'DOMESTIC') catName = 'Organik Atık';
         else if (req.wasteType === 'ELECTRONIC') catName = 'Elektronik Atık';
         else if (req.wasteType === 'PLASTIC') catName = 'Ambalaj Atığı';
-
+  
         return {
           id: 'req_' + req.id,
           dbId: req.id,
@@ -452,12 +572,15 @@ export default function KurumsalMapScreen() {
           status: req.status
         };
       });
-
+  
       setBins([...mappedRequests, ...mappedBins]);
     } catch (e) {
       console.error('❌ Yükleme hatası:', e);
     } finally {
-      setLoading(false);
+      if (isFirstLoad.current) {
+        setLoading(false);
+        isFirstLoad.current = false;
+      }
     }
   };
 
@@ -484,6 +607,13 @@ export default function KurumsalMapScreen() {
       return;
     }
 
+    // Koordinatların hangi parselde (bölgede) olduğunu otomatik tespit et
+    const regionId = findParcelForCoords(lat, lng);
+    if (!regionId) {
+      Alert.alert('Hata', 'Seçtiğiniz konum kampüs sınırları (bölge) dışında! Lütfen kampüs içi bir bölgede seçim yapın.');
+      return;
+    }
+
     try {
       const payload = {
         name: editBin.name,
@@ -491,7 +621,9 @@ export default function KurumsalMapScreen() {
         longitude: lng,
         predictedFullness: editBin.fillPercentage || 0,
         wasteCategory: editBin.type === 'plastik' ? 'PLASTIC' : editBin.type === 'cam' ? 'GLASS' : editBin.type === 'kagit' ? 'PAPER' : 'GENERAL',
-        capacityVolume: editBin.capacity || 100
+        capacityVolume: editBin.capacity || 100,
+        type: editBin.capacity === 50 ? 'CONTAINER_SMALL' : 'CONTAINER_LARGE',
+        regionId: regionId
       };
 
       if (editBin.id) {
@@ -514,9 +646,9 @@ export default function KurumsalMapScreen() {
       setSelectedBin(null); // Kartı kapat ki eski ID ile kalmasın
       Alert.alert('Başarılı', 'Değişiklikler veritabanına kaydedildi.');
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Kayıt hatası:', error);
-      Alert.alert('Hata', 'Veritabanına kaydedilirken sorun oluştu.');
+      Alert.alert('Hata', error.message || 'Veritabanına kaydedilirken sorun oluştu.');
     }
   };
 
@@ -645,7 +777,7 @@ export default function KurumsalMapScreen() {
       )}
       <View style={[styles.headerBar, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderColor: '#334155' }]}>
         <View style={styles.headerContent}>
-          <View style={{ flexShrink: 1, marginRight: 6 }}>
+          <View style={{ flex: 1, marginRight: 10 }}>
             <Text style={[styles.headerTitle, currentTheme === 'dark' && { color: '#fff' }]}>🗺️ Kampüs Haritası</Text>
             <Text style={[styles.headerSubtitle, currentTheme === 'dark' && { color: '#94a3b8' }]}>{regularBins.length} Kutu • {requestBins.length} Talep</Text>
           </View>
@@ -874,15 +1006,25 @@ export default function KurumsalMapScreen() {
                     }}
                   >
                     <Ionicons name="create-outline" size={20} color={currentTheme === 'dark' ? '#34d399' : '#2e7d32'} />
-                    <Text style={[styles.cardEditBtnText, currentTheme === 'dark' && { color: '#fff' }]}>Düzenle</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.cardInspectBtn, { backgroundColor: getPinColor(selectedBin.fillPercentage), flex: 1.5, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }]}
+                    style={[styles.cardInspectBtn, { backgroundColor: getPinColor(selectedBin.fillPercentage), flex: 1, height: 44, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }]}
                     onPress={() => setIsInspectMode(true)}
                   >
                     <Ionicons name="map-outline" size={20} color="#fff" />
                     <Text style={styles.cardInspectBtnText}>Rotayı İncele</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.cardQrBtn]}
+                    onPress={() => {
+                      setQrModalBin(selectedBin);
+                      setQrType(null);
+                      setIsQrModalVisible(true);
+                    }}
+                  >
+                    <Ionicons name="qr-code-outline" size={20} color="#7c3aed" />
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -1110,6 +1252,78 @@ export default function KurumsalMapScreen() {
           </KeyboardAvoidingView>
         </View>
       </Modal>
+
+      {/* QR & BARKOD POPUP MODAL */}
+      <Modal visible={isQrModalVisible} animationType="fade" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { alignItems: 'center', paddingBottom: 40 }, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={[styles.modalTitle, currentTheme === 'dark' && { color: '#fff' }]}>Fiziksel Etiket Paneli</Text>
+                <Text style={{ fontSize: 12, color: '#64748b' }}>Kutunun üzerine yapıştırılacak kodu seçin</Text>
+              </View>
+              <TouchableOpacity onPress={() => setIsQrModalVisible(false)}>
+                <Ionicons name="close" size={28} color={currentTheme === 'dark' ? '#94a3b8' : '#333'} />
+              </TouchableOpacity>
+            </View>
+
+            {qrModalBin && (
+              <View style={{ width: '100%', alignItems: 'center' }}>
+                <Text style={{ color: '#7c3aed', fontWeight: '700', marginBottom: 20 }}>{qrModalBin.name}</Text>
+                
+                <View style={styles.qrCodeEmptyFrame}>
+                  {qrType ? (
+                    <Image 
+                      source={{ uri: qrType === 'qr' ? getQrImageUrl(qrModalBin.qrCode || '') : getBarcodeImageUrl(qrModalBin.barCode || '') }}
+                      style={{ width: '100%', height: qrType === 'qr' ? '100%' : 80 }}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="qr-code-outline" size={48} color="#cbd5e1" />
+                      <Text style={{ color: '#94a3b8', fontSize: 13, marginTop: 10, textAlign: 'center' }}>
+                        Lütfen kod türünü seçiniz
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Radio Buttons */}
+                <View style={styles.radioGroupMap}>
+                  <TouchableOpacity style={styles.radioButtonMap} onPress={() => setQrType('qr')}>
+                    <Ionicons name={qrType === 'qr' ? "radio-button-on" : "radio-button-off"} size={24} color="#7c3aed" />
+                    <Text style={[styles.radioTextMap, currentTheme === 'dark' && { color: '#fff' }]}>QR Kod</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.radioButtonMap} onPress={() => setQrType('barkod')}>
+                    <Ionicons name={qrType === 'barkod' ? "radio-button-on" : "radio-button-off"} size={24} color="#7c3aed" />
+                    <Text style={[styles.radioTextMap, currentTheme === 'dark' && { color: '#fff' }]}>Barkod</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Butonlar */}
+                <View style={styles.modalActionsMap}>
+                  <TouchableOpacity 
+                    style={[styles.collectBtnMap, !qrType && { backgroundColor: '#cbd5e1' }]}
+                    disabled={!qrType}
+                    onPress={() => handlePrintCode(qrModalBin, qrType!)}
+                  >
+                    <Ionicons name="cloud-download-outline" size={20} color="#fff" />
+                    <Text style={styles.btnTextMap}>İndir / Yazdır</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.routeBtnMap, { backgroundColor: '#f1f5f9' }, !qrType && { backgroundColor: '#f8fafc' }]}
+                    disabled={!qrType}
+                    onPress={() => handleShareCode(qrModalBin, qrType!)}
+                  >
+                    <Ionicons name="share-social-outline" size={20} color={qrType ? "#334155" : "#cbd5e1"} />
+                    <Text style={[styles.btnTextMap, { color: qrType ? '#334155' : '#cbd5e1' }]}>Paylaş</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1138,8 +1352,8 @@ const styles = StyleSheet.create({
   coordsText: { color: '#fff', fontSize: 11, fontWeight: '600', fontFamily: 'monospace' },
   headerBar: { position: 'absolute', top: 50, left: 16, right: 16, backgroundColor: '#fff', borderRadius: 16, padding: 12, elevation: 8 },
   headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerTitle: { fontSize: 14, fontWeight: '700', color: '#1e293b' },
-  headerSubtitle: { fontSize: 11, color: '#64748b' },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1e293b' },
+  headerSubtitle: { fontSize: 12, color: '#64748b' },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   resetBtn: { padding: 4 },
   binCountBadge: { backgroundColor: '#e8f5e9', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4, alignItems: 'center', minWidth: 40 },
@@ -1171,11 +1385,11 @@ const styles = StyleSheet.create({
   progressContainer: { height: 8, backgroundColor: '#f1f5f9', borderRadius: 4, overflow: 'hidden' },
   progressBar: { height: '100%', borderRadius: 4 },
   cardActions: { flexDirection: 'row', gap: 10 },
-  cardEditBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#e8f5e9', paddingVertical: 10, borderRadius: 12, gap: 6 },
+  cardEditBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: '#e8f5e9', borderRadius: 12 },
   cardEditBtnText: { color: '#2e7d32', fontWeight: '700' },
-  cardEmptyBtn: { width: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: '#e8f5e9', borderRadius: 12 },
-  cardDeleteBtn: { width: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff1f2', borderRadius: 12 },
-  cardInspectBtn: { backgroundColor: '#2e7d32', elevation: 2 },
+  cardEmptyBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: '#e8f5e9', borderRadius: 12 },
+  cardDeleteBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff1f2', borderRadius: 12 },
+  cardInspectBtn: { backgroundColor: '#2e7d32', elevation: 2, height: 44, justifyContent: 'center' },
   cardInspectBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 13 },
   floatingInspectBtn: { position: 'absolute', bottom: 30, right: 20, width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5 },
   fillBarContainer: { marginVertical: 4 },
@@ -1283,41 +1497,90 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: 'bold',
   },
+  cardQrBtn: {
+    width: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f3e8ff',
+    borderRadius: 12,
+  },
   capacityRadioBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    borderRadius: 8,
-    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    gap: 8,
   },
   capacityRadioBtnActive: {
-    borderColor: '#16a34a',
-    backgroundColor: '#f0fdf4',
+    borderColor: '#2e7d32',
+    backgroundColor: '#e8f5e9',
   },
   radioCheckbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     borderWidth: 2,
     borderColor: '#cbd5e1',
-    marginRight: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
   radioCheckboxActive: {
-    borderColor: '#16a34a',
-    backgroundColor: '#16a34a',
+    borderColor: '#2e7d32',
+    backgroundColor: '#2e7d32',
   },
   capacityRadioText: {
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '600',
     color: '#64748b',
-    fontWeight: '500',
   },
   capacityRadioTextActive: {
-    color: '#16a34a',
-    fontWeight: 'bold',
-  }
+    color: '#2e7d32',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    paddingBottom: 15,
+    marginBottom: 15,
+  },
+  qrCodeEmptyFrame: {
+    width: 220,
+    height: 220,
+    borderWidth: 3,
+    borderColor: '#7c3aed',
+    borderStyle: 'dashed',
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 20,
+  },
+  radioGroupMap: {
+    flexDirection: 'row',
+    gap: 30,
+    marginVertical: 25,
+  },
+  radioButtonMap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  radioTextMap: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  cardQrBtn: {
+    width: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f3e8ff',
+    borderRadius: 12,
+  },
 });

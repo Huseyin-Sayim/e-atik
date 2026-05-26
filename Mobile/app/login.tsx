@@ -81,16 +81,17 @@ export default function LoginScreen() {
     }
 
     setLoading(true);
+    const trimmedEmail = email.trim();
     try {
       let isValidUser;
       try {
-        isValidUser = await DatabaseService.loginUser(email, password);
+        isValidUser = await DatabaseService.loginUser(trimmedEmail, password);
       } catch (err: any) {
         setLoading(false);
-        if (err.message === 'kullanıcı bulunamadı') {
+        if (err.message?.toLowerCase().includes('bulunamadı')) {
           setErrorMessage('Böyle bir hesap bulunamadı. Lütfen önce hesap oluşturun.');
         } else {
-          setErrorMessage(err.message || 'Giriş yapılamadı, lütfen tekrar deneyiniz.');
+          setErrorMessage(err.message || 'Sunucuya bağlanılamadı. Lütfen backend sunucusunun çalıştığından emin olun.');
         }
         return;
       }

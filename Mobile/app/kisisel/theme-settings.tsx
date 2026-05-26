@@ -51,10 +51,7 @@ export default function ThemeSettingsScreen() {
       const userId = await AsyncStorage.getItem('currentUserId');
       await AsyncStorage.setItem(`theme_${userId}`, theme);
       
-      const email = await AsyncStorage.getItem('currentUserEmail');
-      if (email) {
-        await DatabaseService.updateUser(email.trim().toLowerCase(), { theme });
-      }
+      await DatabaseService.updateUser({ theme });
       
       DatabaseService.notifyThemeChanged(theme);
       

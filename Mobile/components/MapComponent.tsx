@@ -7,6 +7,7 @@ export const PROVIDER_DEFAULT = 'leaflet';
 export const Marker = () => null;
 export const Geojson = () => null;
 export const UrlTile = () => null;
+export const Polyline = () => null;
 
 export const MapView = forwardRef(({ style, initialRegion, campusParcels, bins, selectedParcelId, onMarkerPress, onParcelPress, staffLocation, routeCoordinates, routeColor, showRegionLabels }: any, ref) => {
   const webViewRef = useRef<WebView>(null);

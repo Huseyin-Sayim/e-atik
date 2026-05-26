@@ -1,6 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const { crypto } = require('crypto');
 
 const backupPath = path.join(__dirname, '../../data-backups/partner-stores-backup.json');
 

@@ -14,7 +14,7 @@ import {
   Modal
 } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -278,14 +278,18 @@ export default function KisiselSettingsScreen() {
   const [currentTheme, setCurrentTheme] = useState('light');
 
   useEffect(() => {
-    loadUserData();
-    
     const unsubscribe = DatabaseService.subscribeToTheme((theme) => {
       setCurrentTheme(theme);
     });
     
     return () => unsubscribe();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadUserData();
+    }, [])
+  );
 
   const loadUserData = async () => {
     try {
@@ -334,6 +338,10 @@ export default function KisiselSettingsScreen() {
               await AsyncStorage.setItem(`userSurname_${userId}`, currentUser.surname);
             }
           }
+        }
+        if (currentUser.email) {
+          setUserEmail(currentUser.email.trim().toLowerCase());
+          await AsyncStorage.setItem('currentUserEmail', currentUser.email.trim().toLowerCase());
         }
         if (currentUser.profileImage) {
           setProfileImage(currentUser.profileImage);
@@ -405,7 +413,7 @@ export default function KisiselSettingsScreen() {
       
       try {
         if (email) {
-          await DatabaseService.updateUser(email.trim().toLowerCase(), { profileImage: croppedBase64 });
+          await DatabaseService.updateUser({ profileImage: croppedBase64 });
           setCustomAlert({
             visible: true,
             title: 'Başarılı',
@@ -482,7 +490,7 @@ export default function KisiselSettingsScreen() {
                   }
                 }
                 if (email) {
-                  await DatabaseService.updateUser(email.trim().toLowerCase(), { profileImage: null });
+                  await DatabaseService.updateUser({ profileImage: null });
                 }
                 Alert.alert("Başarılı", "Profil fotoğrafınız başarıyla silindi! 🗑️");
               }

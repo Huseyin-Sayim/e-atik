@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Platform, StatusBar, TouchableOpacity, Image, Modal, Alert, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, Platform, StatusBar, TouchableOpacity, Image, Modal, Alert, RefreshControl, TextInput, Pressable } from 'react-native';
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -24,12 +24,31 @@ function isPointInPolygon(latitude: number, longitude: number, polygonCoordinate
   return inside;
 }
 
+const WASTE_CATEGORIES = [
+  { name: 'Plastik', icon: 'water-outline', color: '#06b6d4' },
+  { name: 'Kağıt & Karton', icon: 'document-text-outline', color: '#facc15' },
+  { name: 'Cam', icon: 'wine-outline', color: '#10b981' },
+  { name: 'Metal', icon: 'cog-outline', color: '#64748b' },
+  { name: 'Ahşap', icon: 'hammer-outline', color: '#a855f7' },
+  { name: 'Elektronik', icon: 'hardware-chip-outline', color: '#6366f1' },
+  { name: 'Atık Yağ', icon: 'funnel-outline', color: '#d97706' },
+  { name: 'Organik', icon: 'leaf-outline', color: '#84cc16' },
+  { name: 'Tekstil', icon: 'shirt-outline', color: '#ec4899' },
+  { name: 'Lastik', icon: 'ellipse-outline', color: '#4b5563' },
+  { name: 'Diğer', icon: 'trash-outline', color: '#94a3b8' },
+];
+
 export default function KurumsalIndexScreen() {
   const router = useRouter();
   const mapRef = useRef<any>(null);
   const [corpName, setCorpName] = useState('...');
+  const [corpEmail, setCorpEmail] = useState('');
   const [points, setPoints] = useState(0);
+  const [coinTooltipVisible, setCoinTooltipVisible] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [wasteRequests, setWasteRequests] = useState<any[]>([]);
+  const [bins, setBins] = useState<any[]>([]);
   const [topBins, setTopBins] = useState<any[]>([]);
   const topBinsRef = useRef<any[]>([]);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>({ latitude: 38.4595, longitude: 27.2287 });
@@ -39,10 +58,204 @@ export default function KurumsalIndexScreen() {
   const wsRef = useRef<WebSocket | null>(null);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [completeModalVisible, setCompleteModalVisible] = useState(false);
+  const [earnedCoins, setEarnedCoins] = useState('');
+  const [wasteWeight, setWasteWeight] = useState('');
   const [currentTheme, setCurrentTheme] = useState('light');
+  const [journeyModalVisible, setJourneyModalVisible] = useState(false);
+  const [journeyStats, setJourneyStats] = useState<any[]>([]);
+  const [categoryDetailVisible, setCategoryDetailVisible] = useState(false);
+  const [selectedCategoryDetail, setSelectedCategoryDetail] = useState<any>(null);
+  const [wasteItems, setWasteItems] = useState<any[]>([]);
+
+  // Calculate statistics when transactions change
+  useEffect(() => {
+    // Logic placeholder based on requirement
+  }, []);
+
+  const getStandardLiters = (itemName: string): number => {
+    const name = itemName.toLowerCase();
+    if (name.includes('plastik kapak')) return 0.1;
+    if (name.includes('pet şişe')) return 0.5;
+    if (name.includes('cam şişe') || name.includes('cam kavanoz')) return 1.0;
+    if (name.includes('naylon poşet')) return 0.2;
+    if (name.includes('metal kutu')) return 0.3;
+    if (name.includes('karton') || name.includes('kağıt')) return 2.0;
+    if (name.includes('pil')) return 0.05;
+    if (name.includes('atık lastik')) return 50.0;
+    if (name.includes('tekstil')) return 3.0;
+    if (name.includes('ahşap')) return 5.0;
+    if (name.includes('bitkisel yağ')) return 1.0;
+    if (name.includes('e-atık') || name.includes('floresan')) return 2.0;
+    return 1.0;
+  };
+
+  const matchCategory = (statName: string, wItemName: string) => {
+    const sName = statName.toLowerCase();
+    const wName = wItemName.toLowerCase();
+    
+    if (sName === wName) return true;
+    if (sName.includes('organik') && wName.includes('organik')) return true;
+    if (sName.includes('elektronik') && wName.includes('elektronik')) return true;
+    if (sName.includes('plastik') && (wName.includes('plastik') || wName.includes('ambalaj'))) return true;
+    if (sName.includes('ambalaj') && (wName.includes('plastik') || wName.includes('ambalaj'))) return true;
+    if (sName.includes('cam') && wName.includes('cam')) return true;
+    if (sName.includes('kağıt') && wName.includes('kağıt')) return true;
+    if (sName.includes('metal') && wName.includes('metal')) return true;
+    if (sName.includes('yağ') && wName.includes('yağ')) return true;
+    
+    return false;
+  };
+
+  const calculateJourneyStats = (txs: any[]) => {
+    const stats: Record<string, { volume: number; coins: number; items: Record<string, { count: number; volume: number }> }> = {};
+    
+    txs.forEach(tx => {
+      if (tx.type !== 'EARNED') return;
+      const rawDesc = tx.description || '';
+      
+      let formattedDesc = rawDesc;
+      if (rawDesc === 'QR Kod Tarama Ödülü' || rawDesc === 'Geri Dönüşüm Ödülü' || rawDesc === 'Atık Dönüşüm Ödülü' || rawDesc === 'Atık Toplama/Dönüşüm İşlemi') {
+        switch (tx.amount) {
+          case 2: formattedDesc = 'Plastik Kapak Geri Dönüştürme Ödülü'; break;
+          case 3: formattedDesc = 'Kağıt / Naylon Poşet Geri Dönüştürme Ödülü'; break;
+          case 4: formattedDesc = 'Karton / Cam Kavanoz Geri Dönüştürme Ödülü'; break;
+          case 5: formattedDesc = 'Pet Şişe / Geri Dönüştürme Ödülü'; break;
+          case 7: formattedDesc = 'Metal Kutu Geri Dönüştürme Ödülü'; break;
+          case 8: formattedDesc = 'Cam Şişe Geri Dönüştürme Ödülü'; break;
+          case 10: formattedDesc = 'Atık Lastik Geri Dönüştürme Ödülü'; break;
+          case 12: formattedDesc = 'Tekstil Geri Dönüştürme Ödülü'; break;
+          case 15: formattedDesc = 'Pil / Ahşap Geri Dönüştürme Ödülü'; break;
+          case 20: formattedDesc = 'Bitkisel Yağ Geri Dönüştürme Ödülü'; break;
+          case 50: formattedDesc = 'E-Atık Geri Dönüştürme Ödülü'; break;
+          default: formattedDesc = 'Atık Dönüşüm Ödülü';
+        }
+      } else {
+        formattedDesc = rawDesc.replace(/\s*\((qr|barkod)\s*\|\s*[^)]+\)/g, '').replace(/\s*\(qr\)/g, '').trim();
+      }
+      
+      let category = '';
+      let volume = 0;
+      let itemLabel = '';
+
+      if (rawDesc.includes('Evsel Atık') || formattedDesc.includes('Evsel Atık')) {
+        volume = 5.0;
+        const kgMatch = rawDesc.match(/(\d+(\.\d+)?)kg/) || formattedDesc.match(/(\d+(\.\d+)?)kg/);
+        if (kgMatch && kgMatch[1]) {
+          volume = parseFloat(kgMatch[1]);
+        }
+        
+        category = 'Karışık Evsel';
+        itemLabel = 'Evsel Atık';
+        if (rawDesc.includes('DOMESTIC') || rawDesc.includes('organic') || rawDesc.includes('Organik')) {
+          category = 'Organik';
+          itemLabel = 'Organik Atık';
+        }
+        if (rawDesc.includes('ELECTRONIC') || rawDesc.includes('electronic') || rawDesc.includes('Elektronik')) {
+          category = 'Elektronik';
+          itemLabel = 'Elektronik Atık';
+        }
+        if (rawDesc.includes('PLASTIC') || rawDesc.includes('packaging') || rawDesc.includes('Ambalaj') || rawDesc.includes('Plastik')) {
+          category = 'Plastik';
+          itemLabel = 'Ambalaj Atığı';
+        }
+        
+      } else {
+        let itemName = formattedDesc;
+        if (formattedDesc.includes(' Geri Dönüştürme Ödülü')) {
+          itemName = formattedDesc.split(' Geri Dönüştürme Ödülü')[0];
+        } else if (formattedDesc.includes(' Geri Dönüşüm Ödülü')) {
+          itemName = formattedDesc.split(' Geri Dönüşüm Ödülü')[0];
+        } else if (formattedDesc.includes(' Ödülü')) {
+          itemName = formattedDesc.split(' Ödülü')[0];
+        }
+        
+        volume = getStandardLiters(itemName);
+        itemLabel = itemName;
+        
+        category = 'Diğer';
+        const lowerName = itemName.toLowerCase();
+        if (lowerName.includes('plastik') || lowerName.includes('pet') || lowerName.includes('poşet')) {
+          category = 'Plastik';
+        } else if (lowerName.includes('cam')) {
+          category = 'Cam';
+        } else if (lowerName.includes('kağıt') || lowerName.includes('karton')) {
+          category = 'Kağıt & Karton';
+        } else if (lowerName.includes('metal')) {
+          category = 'Metal';
+        } else if (lowerName.includes('yağ')) {
+          category = 'Atık Yağ';
+        } else if (lowerName.includes('ahşap') || lowerName.includes('tahta')) {
+          category = 'Ahşap';
+        } else if (lowerName.includes('tekstil') || lowerName.includes('giysi') || lowerName.includes('kıyafet')) {
+          category = 'Tekstil';
+        } else if (lowerName.includes('lastik')) {
+          category = 'Lastik';
+        } else if (lowerName.includes('pil') || lowerName.includes('e-atık') || lowerName.includes('floresan') || lowerName.includes('lamba') || lowerName.includes('elektronik') || lowerName.includes('laptop')) {
+          category = 'Elektronik';
+        }
+      }
+
+      if (category && volume > 0) {
+        if (!stats[category]) {
+          stats[category] = { volume: 0, coins: 0, items: {} };
+        }
+        stats[category].volume += volume;
+        stats[category].coins += tx.amount || 0;
+        const label = itemLabel || 'Bilinmeyen';
+        if (!stats[category].items[label]) {
+          stats[category].items[label] = { count: 0, volume: 0 };
+        }
+        stats[category].items[label].count += 1;
+        stats[category].items[label].volume += volume;
+      }
+    });
+
+    const statsArray = Object.keys(stats).map(key => ({
+      name: key,
+      volume: stats[key].volume.toFixed(1),
+      coins: stats[key].coins,
+      icon: getCategoryIcon(key),
+      color: getCategoryColor(key),
+      items: Object.entries(stats[key].items).map(([name, d]) => ({ name, count: d.count, volume: d.volume }))
+    })).sort((a, b) => parseFloat(b.volume) - parseFloat(a.volume));
+
+    setJourneyStats(statsArray);
+  };
+
+  const getCategoryIcon = (cat: string) => {
+    switch (cat) {
+      case 'Organik': return 'leaf-outline';
+      case 'Elektronik': return 'hardware-chip-outline';
+      case 'Plastik': return 'water-outline';
+      case 'Cam': return 'wine-outline';
+      case 'Kağıt & Karton': return 'document-text-outline';
+      case 'Metal': return 'cog-outline';
+      case 'Ahşap': return 'hammer-outline';
+      case 'Atık Yağ': return 'funnel-outline';
+      case 'Tekstil': return 'shirt-outline';
+      case 'Lastik': return 'ellipse-outline';
+      default: return 'trash-outline';
+    }
+  };
+
+  const getCategoryColor = (cat: string) => {
+    switch (cat) {
+      case 'Organik': return '#84cc16';
+      case 'Elektronik': return '#6366f1';
+      case 'Plastik': return '#06b6d4';
+      case 'Cam': return '#10b981';
+      case 'Kağıt & Karton': return '#facc15';
+      case 'Metal': return '#64748b';
+      case 'Ahşap': return '#a855f7';
+      case 'Atık Yağ': return '#d97706';
+      case 'Tekstil': return '#ec4899';
+      case 'Lastik': return '#4b5563';
+      default: return '#94a3b8';
+    }
+  };
 
   React.useEffect(() => {
-    // Profil ve Atık Kutusu abonelikleri
     const unsubProfile = DatabaseService.subscribeToProfilePhoto((newPhoto) => {
       setProfileImage(newPhoto);
     });
@@ -53,7 +266,6 @@ export default function KurumsalIndexScreen() {
       setCurrentTheme(theme);
     });
 
-    // WebSocket Bağlantısı (Mini Harita İçin)
     const wsUrl = DatabaseService.getWsUrl();
     const ws = new WebSocket(wsUrl);
     ws.onopen = () => console.log('✅ WebSocket Bağlantısı Kuruldu (Mini Harita)');
@@ -61,13 +273,11 @@ export default function KurumsalIndexScreen() {
     ws.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data);
-        if (payload.type === 'wasteRequestCreated' || payload.type === 'wasteRequestStatusChanged') {
+        if (['wasteRequestCreated', 'wasteRequestStatusChanged', 'binCreated', 'binUpdated', 'binDeleted'].includes(payload.type)) {
           console.log('🔄 Yeni evsel atık işlemi/talebi algılandı, veriler yenileniyor...');
           loadData();
         }
-      } catch (err) {
-        // Diğer mesaj tiplerini yoksay
-      }
+      } catch (err) {}
     };
     wsRef.current = ws;
 
@@ -93,7 +303,6 @@ export default function KurumsalIndexScreen() {
           if (isActive) {
             setUserLocation(staticLoc);
             
-            // WebSocket üzerinden canlı konumu sunucuya yayınla
             const sendUpdate = () => {
               if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
                 const currentBins = topBinsRef.current;
@@ -116,7 +325,7 @@ export default function KurumsalIndexScreen() {
             };
 
             sendUpdate();
-            intervalId = setInterval(sendUpdate, 4000); // Her 4 saniyede bir kalp atışı gönder
+            intervalId = setInterval(sendUpdate, 4000);
           }
         } catch (e) {
           console.warn('Konum sabitleme hatası', e);
@@ -150,7 +359,7 @@ export default function KurumsalIndexScreen() {
         }));
         setRouteCoordinates(coords);
       } else {
-        setRouteCoordinates([{ latitude: loc.latitude, longitude: loc.longitude }, { latitude: targetBin.latitude, longitude: targetBin.longitude }]);
+        setRouteCoordinates([{ latitude: loc.latitude, longitude: loc.longitude }, { latitude: targetBin.latitude, longitude: targetBin.latitude }]);
       }
     } catch (e) {
       console.warn("OSRM Route Error Mini Map:", e);
@@ -161,7 +370,7 @@ export default function KurumsalIndexScreen() {
     if (topBins.length > 0 && userLocation) {
       fetchRouteForMiniMap(topBins[0], userLocation);
     }
-  }, [topBins, userLocation]); // Personel hareket ettikçe rotayı canlı olarak yeniden hesapla!
+  }, [topBins, userLocation]);
 
   useEffect(() => {
     if (topBins.length > 0 && mapRef.current) {
@@ -172,7 +381,6 @@ export default function KurumsalIndexScreen() {
         coordinates.push({ latitude: userLocation.latitude, longitude: userLocation.longitude });
       }
       
-      // Harita bileşeninin hazır olduğundan emin olmak için çok kısa bir gecikme
       setTimeout(() => {
         if (coordinates.length === 1) {
           mapRef.current?.animateToRegion({
@@ -218,8 +426,17 @@ export default function KurumsalIndexScreen() {
 
       if (email) {
         const lowerEmail = email.toLowerCase();
-        const savedName = await AsyncStorage.getItem(`userName_${lowerEmail}`);
-        const savedSurname = await AsyncStorage.getItem(`userSurname_${lowerEmail}`);
+        const userId = await AsyncStorage.getItem('currentUserId');
+        let savedName = null;
+        let savedSurname = null;
+        if (userId) {
+          savedName = await AsyncStorage.getItem(`userName_${userId}`);
+          savedSurname = await AsyncStorage.getItem(`userSurname_${userId}`);
+        }
+        if (!savedName) {
+          savedName = await AsyncStorage.getItem(`userName_${lowerEmail}`);
+          savedSurname = await AsyncStorage.getItem(`userSurname_${lowerEmail}`);
+        }
         
         if (savedName) {
           fullName = savedName + (savedSurname ? ' ' + savedSurname : '');
@@ -253,6 +470,12 @@ export default function KurumsalIndexScreen() {
             await AsyncStorage.setItem(`userName_${lowerEmail}`, currentUser.name);
             if (currentUser.surname) {
               await AsyncStorage.setItem(`userSurname_${lowerEmail}`, currentUser.surname);
+            }
+            if (userId) {
+              await AsyncStorage.setItem(`userName_${userId}`, currentUser.name);
+              if (currentUser.surname) {
+                await AsyncStorage.setItem(`userSurname_${userId}`, currentUser.surname);
+              }
             }
           }
           if (currentUser.profileImage) {
@@ -360,6 +583,20 @@ export default function KurumsalIndexScreen() {
       setTopBins(sliced);
       topBinsRef.current = sliced;
 
+      // Kurumsal işlemlerini (veya genel transactions) yükle
+      try {
+        const fetchedTransactions = await DatabaseService.getTransactions();
+        
+        const fetchedWasteItems = await DatabaseService.getWasteItems();
+        setWasteItems(fetchedWasteItems);
+
+        if (Array.isArray(fetchedTransactions)) {
+          calculateJourneyStats(fetchedTransactions);
+        }
+      } catch (txErr) {
+        console.warn('Kurumsal işlem geçmişi yükleme hatası:', txErr);
+      }
+
     } catch (error) {
       console.error('Veri yükleme hatası:', error);
     }
@@ -422,10 +659,14 @@ export default function KurumsalIndexScreen() {
             <Text style={[styles.corpName, currentTheme === 'dark' && { color: '#fff' }]}>{corpName}</Text>
           </View>
         </View>
-        <View style={[styles.pointContainer, currentTheme === 'dark' && { backgroundColor: '#334155', borderColor: '#475569' }]}>
+        <TouchableOpacity 
+          style={[styles.pointContainer, currentTheme === 'dark' && { backgroundColor: '#334155', borderColor: '#475569' }]}
+          onPress={() => setCoinTooltipVisible(true)}
+          activeOpacity={0.75}
+        >
           <Text style={[styles.pointText, currentTheme === 'dark' && { color: '#fff' }]}>{points}</Text>
           <FontAwesome5 name="coins" size={20} color="#FFD700" solid />
-        </View>
+        </TouchableOpacity>
       </View>
 
       <ScrollView 
@@ -442,22 +683,42 @@ export default function KurumsalIndexScreen() {
         }
       >
         
-        {/* Yapılan Son İşlemleri Gör Buton Kartı */}
-        <TouchableOpacity 
-          style={[styles.transactionsButtonCard, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderColor: '#334155' }]} 
-          onPress={() => router.push('/kurumsal/kurumsal-transactions' as any)}
-        >
-          <View style={styles.transactionsButtonLeft}>
-            <View style={[styles.transactionsIconBg, currentTheme === 'dark' && { backgroundColor: '#065f46' }]}>
-              <MaterialCommunityIcons name="history" size={24} color={currentTheme === 'dark' ? '#34d399' : '#2e7d32'} />
-            </View>
-            <View>
-              <Text style={[styles.transactionsButtonTitle, currentTheme === 'dark' && { color: '#fff' }]}>Yapılan Son İşlemler</Text>
-              <Text style={[styles.transactionsButtonSubtitle, currentTheme === 'dark' && { color: '#94a3b8' }]}>Firma faaliyet geçmişinizi görüntüleyin</Text>
-            </View>
+        {/* Hızlı İşlemler Section */}
+        <View style={styles.quickActionsSection}>
+          <Text style={[styles.sectionTitle, currentTheme === 'dark' && { color: '#fff' }]}>Hızlı İşlemler</Text>
+          <View style={styles.quickActionsRow}>
+
+            <TouchableOpacity 
+              style={[
+                styles.quickActionSquare, 
+                { backgroundColor: '#eff6ff', borderColor: '#bfdbfe', borderWidth: 1.5 },
+                currentTheme === 'dark' && { backgroundColor: '#1e293b', borderColor: '#334155' }
+              ]}
+              onPress={() => router.push('/kurumsal/kurumsal-transactions' as any)}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.quickActionIconContainer, { backgroundColor: '#3b82f620' }]}>
+                <MaterialCommunityIcons name="history" size={28} color="#3b82f6" />
+              </View>
+              <Text style={[styles.quickActionLabel, currentTheme === 'dark' && { color: '#fff' }]}>Son İşlemler</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[
+                styles.quickActionSquare, 
+                { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0', borderWidth: 1.5 },
+                currentTheme === 'dark' && { backgroundColor: '#1e293b', borderColor: '#334155' }
+              ]}
+              onPress={() => setJourneyModalVisible(true)}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.quickActionIconContainer, { backgroundColor: '#10b98120' }]}>
+                <Ionicons name="leaf-outline" size={28} color="#10b981" />
+              </View>
+              <Text style={[styles.quickActionLabel, currentTheme === 'dark' && { color: '#fff' }]}>Geri Dönüşüm{"\n"}Yolculuğum</Text>
+            </TouchableOpacity>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={currentTheme === 'dark' ? '#fff' : '#64748b'} />
-        </TouchableOpacity>
+        </View>
 
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, currentTheme === 'dark' && { color: '#fff' }]}>Öncelikli Bildirimler Listesi</Text>
@@ -692,15 +953,10 @@ export default function KurumsalIndexScreen() {
 
                   <TouchableOpacity 
                     style={styles.collectBtn}
-                    onPress={async () => {
-                      try {
-                        await DatabaseService.updateWasteRequestStatus(selectedItem.dbId, 'COLLECTED');
-                        await loadData();
-                        setModalVisible(false);
-                        Alert.alert('Tebrikler!', 'Evsel atık başarıyla toplandı. Bildirim listesinden kaldırıldı.');
-                      } catch (err: any) {
-                        Alert.alert('Hata', err.message || 'Toplama işlemi tamamlanırken hata oluştu.');
-                      }
+                    onPress={() => {
+                      setEarnedCoins('');
+                      setWasteWeight('');
+                      setCompleteModalVisible(true);
                     }}
                   >
                     <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
@@ -712,6 +968,329 @@ export default function KurumsalIndexScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Tamamlama Detayları Modalı */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={completeModalVisible}
+        onRequestClose={() => setCompleteModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, currentTheme === 'dark' && { color: '#fff' }]}>Atığı Tamamla</Text>
+              <TouchableOpacity onPress={() => setCompleteModalVisible(false)}>
+                <Ionicons name="close" size={24} color={currentTheme === 'dark' ? '#94a3b8' : '#64748b'} />
+              </TouchableOpacity>
+            </View>
+            <View style={{ width: '100%', paddingVertical: 10 }}>
+              <Text style={{ fontSize: 14, color: currentTheme === 'dark' ? '#94a3b8' : '#64748b', marginBottom: 5 }}>Kazandırılacak Coin</Text>
+              <TextInput
+                style={[styles.inputField, currentTheme === 'dark' && { backgroundColor: '#0f172a', color: '#fff', borderColor: '#334155' }]}
+                placeholder={
+                  selectedItem?.wasteType === 'DOMESTIC' ? 'Standart: 50 Puan' :
+                  selectedItem?.wasteType === 'ELECTRONIC' ? 'Standart: 100 Puan' :
+                  selectedItem?.wasteType === 'PLASTIC' ? 'Standart: 30 Puan' : 'Standart: 50 Puan'
+                }
+                placeholderTextColor={currentTheme === 'dark' ? '#64748b' : '#94a3b8'}
+                keyboardType="numeric"
+                value={earnedCoins}
+                onChangeText={setEarnedCoins}
+              />
+              
+              <Text style={{ fontSize: 14, color: currentTheme === 'dark' ? '#94a3b8' : '#64748b', marginBottom: 5, marginTop: 15 }}>Ağırlık (kg)</Text>
+              <TextInput
+                style={[styles.inputField, currentTheme === 'dark' && { backgroundColor: '#0f172a', color: '#fff', borderColor: '#334155' }]}
+                placeholder={
+                  selectedItem?.wasteType === 'DOMESTIC' ? 'Standart: 5.0 kg' :
+                  selectedItem?.wasteType === 'ELECTRONIC' ? 'Standart: 10.0 kg' :
+                  selectedItem?.wasteType === 'PLASTIC' ? 'Standart: 3.0 kg' : 'Standart: 5.0 kg'
+                }
+                placeholderTextColor={currentTheme === 'dark' ? '#64748b' : '#94a3b8'}
+                keyboardType="numeric"
+                value={wasteWeight}
+                onChangeText={setWasteWeight}
+              />
+              
+              <TouchableOpacity 
+                style={[styles.collectBtn, { marginTop: 20 }]}
+                onPress={async () => {
+                  try {
+                    const c = (earnedCoins && earnedCoins.trim()) ? parseInt(earnedCoins) : undefined;
+                    const w = (wasteWeight && wasteWeight.trim()) ? parseFloat(wasteWeight) : undefined;
+                    await DatabaseService.updateWasteRequestStatus(selectedItem.dbId, 'COLLECTED', c, w);
+                    await loadData();
+                    setCompleteModalVisible(false);
+                    setModalVisible(false);
+                    Alert.alert('Tebrikler!', 'Evsel atık başarıyla toplandı. Bildirim listesinden kaldırıldı.');
+                  } catch (err: any) {
+                    Alert.alert('Hata', err.message || 'Toplama işlemi tamamlanırken hata oluştu.');
+                  }
+                }}
+              >
+                <Ionicons name="checkmark-done" size={20} color="#fff" style={{ marginRight: 8 }} />
+                <Text style={styles.btnText}>Onayla ve Kaydet</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Geri Dönüşüm Yolculuğum İstatistik Modalı */}
+      <Modal
+        animationType="slide"
+        transparent={false}
+        visible={journeyModalVisible}
+        onRequestClose={() => setJourneyModalVisible(false)}
+      >
+        <SafeAreaView style={[styles.fullModalSafeArea, currentTheme === 'dark' && { backgroundColor: '#0f172a' }, { position: 'relative' }]}>
+          <View style={[styles.fullModalHeader, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderBottomColor: '#334155' }]}>
+            <TouchableOpacity 
+              style={[styles.fullModalBackButtonCircle, currentTheme === 'dark' && { backgroundColor: '#334155' }]}
+              onPress={() => setJourneyModalVisible(false)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="caret-back" size={20} color={currentTheme === 'dark' ? '#fff' : '#1e293b'} style={{ marginRight: 2 }} />
+            </TouchableOpacity>
+            <Text style={[styles.fullModalTitle, currentTheme === 'dark' && { color: '#fff' }]}>Geri Dönüşüm Yolculuğum</Text>
+            <View style={{ width: 44 }} />
+          </View>
+
+          <ScrollView contentContainerStyle={styles.fullModalScrollContent} showsVerticalScrollIndicator={false}>
+            {/* Toplam İstatistik Kartı */}
+            <View style={[styles.statsSummaryCard, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderColor: '#334155' }]}>
+              <View style={styles.statsSummaryHeader}>
+                <Ionicons name="leaf" size={40} color="#2e7d32" />
+                <View style={{ marginLeft: 15, flex: 1 }}>
+                  <Text style={[styles.statsSummarySubtitle, currentTheme === 'dark' && { color: '#94a3b8' }]}>Toplam Geri Dönüşüm</Text>
+                  <Text style={[styles.statsSummaryTitle, currentTheme === 'dark' && { color: '#fff' }]}>
+                    {journeyStats.reduce((sum, item) => sum + parseFloat(item.volume), 0).toFixed(1)} L / kg
+                  </Text>
+                </View>
+              </View>
+              <Text style={[styles.statsSummaryFootnote, currentTheme === 'dark' && { color: '#94a3b8' }]}>
+                Doğaya katkı sağladığınız tüm geri dönüşüm miktarlarının özeti.
+              </Text>
+            </View>
+
+            {/* Kategori Bazlı Dağılım */}
+            <Text style={[styles.statsSectionTitle, currentTheme === 'dark' && { color: '#fff' }]}>Atık Kategorisi Dağılımı</Text>
+            
+            {journeyStats.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="leaf-outline" size={48} color="#94a3b8" style={{ marginBottom: 12 }} />
+                <Text style={[styles.emptyText, currentTheme === 'dark' && { color: '#94a3b8' }]}>Henüz geri dönüşüm bildiriminiz bulunmuyor.</Text>
+              </View>
+            ) : (
+              <View style={[styles.journeyStatsList, currentTheme === 'dark' && { backgroundColor: '#1e293b', borderColor: '#334155' }]}>
+                {(() => {
+                  const totalVolume = journeyStats.reduce((sum, s) => sum + parseFloat(s.volume), 0) || 1;
+                  const sortedCategories = [...WASTE_CATEGORIES].map(cat => {
+                    const stat = journeyStats.find(s => s.name === cat.name);
+                    const volume = stat ? parseFloat(stat.volume) : 0;
+                    const earnedCoins = stat ? stat.coins : 0;
+                    return {
+                      ...cat,
+                      volume,
+                      earnedCoins
+                    };
+                  }).sort((a, b) => b.volume - a.volume);
+
+                  return sortedCategories.map((cat, index) => {
+                    const percentage = Math.min(100, Math.round((cat.volume / totalVolume) * 100));
+                    const statEntry = journeyStats.find(s => s.name === cat.name) || {
+                      name: cat.name,
+                      volume: '0.0',
+                      coins: 0,
+                      icon: cat.icon,
+                      color: cat.color,
+                      items: []
+                    };
+                    return (
+                      <TouchableOpacity
+                        key={index}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          setSelectedCategoryDetail(statEntry);
+                          setCategoryDetailVisible(true);
+                        }}
+                        style={[styles.journeyStatItem, index === sortedCategories.length - 1 && { borderBottomWidth: 0 }, currentTheme === 'dark' && { borderBottomColor: '#334155' }]}
+                      >
+                        <View style={[styles.journeyStatIconContainer, { backgroundColor: (cat.color || '#16a34a') + '20' }]}>
+                          <Ionicons name={cat.icon} size={24} color={cat.color || '#16a34a'} />
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 15 }}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                            <Text style={[styles.journeyStatName, currentTheme === 'dark' && { color: '#fff' }]}>{cat.name}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Text style={[styles.journeyStatVolume, { color: cat.color || '#16a34a' }]}>{cat.volume > 0 ? cat.volume.toFixed(1) : '0'} L</Text>
+                              <Ionicons name="chevron-forward" size={14} color="#94a3b8" />
+                            </View>
+                          </View>
+                          <View style={styles.progressBarBg}>
+                            <View style={[styles.progressBarFill, { width: `${percentage}%`, backgroundColor: cat.color || '#16a34a' }]} />
+                          </View>
+                          <Text style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                            Kazanç: {cat.earnedCoins.toFixed(0)} Puan | Dağılımdaki payı: %{percentage}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  });
+                })()}
+              </View>
+            )}
+          </ScrollView>
+
+          {/* Kategori Detay Overlay — journey modal'ın en altında, en üst z-index katmanı olması için */}
+          {categoryDetailVisible && selectedCategoryDetail && (
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={() => setCategoryDetailVisible(false)}
+              style={{
+                position: 'absolute',
+                top: 0, left: 0, right: 0, bottom: 0,
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                justifyContent: 'flex-end',
+                zIndex: 999,
+              }}
+            >
+              <TouchableOpacity activeOpacity={1} onPress={() => {}} style={{ width: '100%' }}>
+                <View style={{
+                  backgroundColor: currentTheme === 'dark' ? '#1e293b' : '#fff',
+                  borderTopLeftRadius: 24,
+                  borderTopRightRadius: 24,
+                  paddingBottom: 34,
+                  maxHeight: 520,
+                  width: '100%'
+                }}>
+                  {/* Handle bar */}
+                  <View style={{ alignItems: 'center', paddingTop: 12, marginBottom: 4 }}>
+                    <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#e2e8f0' }} />
+                  </View>
+
+                  {/* Header */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: currentTheme === 'dark' ? '#334155' : '#f1f5f9' }}>
+                    <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: selectedCategoryDetail.color + '20', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                      <Ionicons name={selectedCategoryDetail.icon} size={24} color={selectedCategoryDetail.color} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 18, fontWeight: '700', color: currentTheme === 'dark' ? '#fff' : '#1e293b' }}>
+                        {selectedCategoryDetail.name}
+                      </Text>
+                      <Text style={{ fontSize: 13, color: '#94a3b8', marginTop: 2 }}>
+                        Toplam: {parseFloat(selectedCategoryDetail.volume).toFixed(1)} L · {selectedCategoryDetail.coins} 🪙
+                      </Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setCategoryDetailVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                      <Ionicons name="close-circle" size={26} color="#94a3b8" />
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text style={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 8, fontSize: 12, fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                    Geri Dönüştürülen Ürünler
+                  </Text>
+
+                  <ScrollView style={{ paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
+                    {(selectedCategoryDetail.items || []).length === 0 ? (
+                      <View style={{ alignItems: 'center', paddingVertical: 40, paddingHorizontal: 10 }}>
+                        <Ionicons name="leaf-outline" size={48} color="#94a3b8" style={{ marginBottom: 12 }} />
+                        <Text style={{ color: currentTheme === 'dark' ? '#94a3b8' : '#64748b', textAlign: 'center', fontSize: 14, lineHeight: 20 }}>
+                          Henüz bu kategoride atık dönüştürmediniz. Atıklarınızı dönüştürerek hem puan kazanabilir hem de çevreye katkı sağlayabilirsiniz! 🌱
+                        </Text>
+                      </View>
+                    ) : (
+                      (selectedCategoryDetail.items || []).map((item: any, i: number) => (
+                        <View key={i} style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          paddingVertical: 13,
+                          borderBottomWidth: i < selectedCategoryDetail.items.length - 1 ? 1 : 0,
+                          borderBottomColor: currentTheme === 'dark' ? '#334155' : '#f1f5f9',
+                        }}>
+                          <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: selectedCategoryDetail.color + '15', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                            <Ionicons name={selectedCategoryDetail.icon} size={18} color={selectedCategoryDetail.color} />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 15, fontWeight: '500', color: currentTheme === 'dark' ? '#f1f5f9' : '#1e293b' }}>
+                              {item.name}
+                            </Text>
+                            <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>
+                              {item.volume.toFixed(1)} L
+                            </Text>
+                          </View>
+                          <View style={{ backgroundColor: selectedCategoryDetail.color + '20', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 }}>
+                            <Text style={{ fontSize: 14, fontWeight: '700', color: selectedCategoryDetail.color }}>
+                              {item.count}x
+                            </Text>
+                          </View>
+                        </View>
+                      ))
+                    )}
+                  </ScrollView>
+                </View>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          )}
+        </SafeAreaView>
+      </Modal>
+      <Modal
+        visible={coinTooltipVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setCoinTooltipVisible(false)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.15)' }}
+          onPress={() => setCoinTooltipVisible(false)}
+        >
+          <View style={{
+            position: 'absolute',
+            top: Platform.OS === 'ios' ? 105 : (StatusBar.currentHeight ? StatusBar.currentHeight + 60 : 75),
+            right: 20,
+            width: 260,
+            backgroundColor: currentTheme === 'dark' ? '#1e293b' : '#fff',
+            borderRadius: 16,
+            padding: 16,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.15,
+            shadowRadius: 16,
+            elevation: 10,
+            borderWidth: 1,
+            borderColor: currentTheme === 'dark' ? '#334155' : '#f1f5f9',
+          }}>
+            {/* Arrow */}
+            <View style={{
+              position: 'absolute',
+              top: -6,
+              right: 24,
+              width: 12,
+              height: 12,
+              backgroundColor: currentTheme === 'dark' ? '#1e293b' : '#fff',
+              transform: [{ rotate: '45deg' }],
+              borderTopWidth: 1,
+              borderLeftWidth: 1,
+              borderColor: currentTheme === 'dark' ? '#334155' : '#f1f5f9',
+            }} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 }}>
+              <FontAwesome5 name="coins" size={16} color="#facc15" />
+              <Text style={{ fontWeight: '700', fontSize: 14, color: currentTheme === 'dark' ? '#fff' : '#1e293b' }}>
+                E-Atık Coin Nedir?
+              </Text>
+            </View>
+            <Text style={{ fontSize: 12, color: currentTheme === 'dark' ? '#94a3b8' : '#64748b', lineHeight: 18 }}>
+              Atıkları teslim ederek ve geri dönüşüm süreçlerini tamamlayarak kurumunuza kazandırılan puanlardır. Kurumsal avantajlar ve ödüller için kullanılabilir. 🌱
+            </Text>
+            <View style={{ marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: currentTheme === 'dark' ? '#334155' : '#f1f5f9', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Ionicons name="checkmark-circle" size={14} color="#10b981" />
+              <Text style={{ fontSize: 11, color: '#10b981', fontWeight: '600' }}>Mevcut bakiyeniz: {points} coin</Text>
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -1092,5 +1671,175 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontWeight: 'bold',
-  }
+  },
+  inputField: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 16,
+    color: '#1e293b',
+    backgroundColor: '#f8fafc',
+  },
+  quickActionsSection: {
+    marginBottom: 25,
+  },
+  quickActionsRow: {
+    flexDirection: 'row',
+    gap: 15,
+    marginTop: 15,
+  },
+  quickActionSquare: {
+    width: 110,
+    height: 110,
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.02,
+    shadowRadius: 10,
+    elevation: 1,
+  },
+  quickActionIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    position: 'relative',
+  },
+  quickActionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1e293b',
+    textAlign: 'center',
+    lineHeight: 14,
+  },
+  fullModalSafeArea: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  fullModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    height: 72,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    backgroundColor: '#fff',
+  },
+  fullModalBackButtonCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0f172a',
+  },
+  fullModalScrollContent: {
+    padding: 20,
+  },
+  statsSummaryCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  statsSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  statsSummarySubtitle: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  statsSummaryTitle: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: '#1e293b',
+  },
+  statsSummaryFootnote: {
+    fontSize: 12,
+    color: '#64748b',
+    lineHeight: 18,
+  },
+  statsSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    marginBottom: 15,
+  },
+  journeyStatsList: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    paddingHorizontal: 15,
+    marginBottom: 30,
+  },
+  journeyStatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  journeyStatIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  journeyStatName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  journeyStatVolume: {
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  progressBarBg: {
+    height: 8,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 4,
+    width: '100%',
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  emptyContainer: {
+    padding: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#94a3b8',
+    textAlign: 'center',
+  },
 });

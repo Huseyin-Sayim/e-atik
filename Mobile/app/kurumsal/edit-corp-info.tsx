@@ -82,7 +82,7 @@ export default function EditCorpInfoScreen() {
         }
         
         // 1. Backend Güncelleme
-        await DatabaseService.updateUser(lowerEmail, { 
+        await DatabaseService.updateUser({ 
           name: name,
           surname: surname
         });

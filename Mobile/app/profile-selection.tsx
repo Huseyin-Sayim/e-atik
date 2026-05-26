@@ -29,7 +29,7 @@ export default function ProfileSelectionScreen() {
       try {
         await AsyncStorage.setItem(`profileType_${userId}`, type);
 
-        await DatabaseService.updateUser(email.trim().toLowerCase(), {
+        await DatabaseService.updateUser({
           profileType: type,
           isFirstLogin: false
         });

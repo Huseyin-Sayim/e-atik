@@ -4,6 +4,11 @@ const prisma = new PrismaClient();
 
 const getUsers =  async (req, res) => {
   try {
+    // Güvenlik Notu: Sadece adminler listeyi görebilmeli
+    if (req.user.role !== 'ADMIN') {
+      return res.status(403).json({ message: "Bu işlem için yetkiniz yok." });
+    }
+
     const users = await prisma.user.findMany();
     res.status(200).json({
       message: "success",
@@ -60,15 +65,16 @@ const updateWorkRegion = async (req, res) => {
 
 const deleteUser = async (req, res) => {
   try {
-    const {id} = req.user;
+    const userId = req.user.userId;
     const user = await prisma.user.delete({
       where: {
-        id
+        id: userId
       }
     })
     res.status(200).json({
       message: "success",
-      data: user
+      data: user,
+      id: userId
     })
   } catch (err) {
     return res.status(500).json({message: 'Bir hata oluştu'})
@@ -77,33 +83,44 @@ const deleteUser = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   try {
-    const { email, profileImage, profileType, name, surname, city, district, regionId } = req.body;
+    const userId = req.user.userId;
+    const { profileImage, profileType, name, surname, city, district, regionId, phoneNumber, theme } = req.body;
     
     // Prepare update data
     const updateData = {
       ...(profileImage !== undefined && { profileImage }),
       ...(profileType && { profileType }),
+      ...(theme && { theme }), // Tema desteği eklendi
       ...(name && { name }),
+      ...(phoneNumber && { phoneNumber }),
       ...(surname && { surname }),
       ...(city && { city }),
       ...(district && { district }),
     };
 
-    if (regionId !== undefined) {
-      if (regionId === null || regionId === '') {
-        updateData.region = { disconnect: true };
+    if (regionId !== undefined && regionId !== null && regionId !== '') {
+      // regionId hem UUID hem de 'akademik' gibi bir string olabilir
+      const region = await prisma.region.findFirst({
+        where: {
+          OR: [
+            // regionId geçerli bir UUID formatındaysa kontrol et
+            ...(regionId.length > 20 ? [{ id: regionId }] : []),
+            { region_id: String(regionId) } // 'akademik', 'hastane' gibi string ise
+          ]
+        }
+      });
+
+      if (region) {
+        updateData.regionId = region.id;
       } else {
-        updateData.region = {
-          connectOrCreate: {
-            where: { name: regionId },
-            create: { name: regionId, region_id: regionId }
-          }
-        };
+        console.warn(`⚠️ Bölge eşleşmedi: ${regionId}`);
       }
+    } else if (regionId === null || regionId === '') {
+      updateData.regionId = null;
     }
 
     const updatedUser = await prisma.user.update({
-      where: { email: email.toLowerCase() },
+      where: { id: userId },
       data: updateData,
       include: {
         region: true

@@ -84,7 +84,7 @@ export default function EditPersonalAddressScreen() {
         const finalDistrict = district.trim() || initialData.district;
         
         // 1. Backend Güncelleme
-        await DatabaseService.updateUser(lowerEmail, { 
+        await DatabaseService.updateUser({ 
           city: finalCity,
           district: finalDistrict 
         });

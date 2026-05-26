@@ -5,6 +5,41 @@ const prisma = new PrismaClient();
 const fs = require('fs');
 const path = require('path');
 
+// ============================================================
+// YARDIMCI: Benzersiz QR Kod ve EAN-13 tarzı Barkod üreteci
+// ============================================================
+function generateUniqueQR() {
+  const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
+  const ts = Date.now().toString(36).toUpperCase();
+  return `QR-BIN-${rand}-${ts}`;
+}
+
+function generateUniqueBarcode() {
+  // EAN-13 formatı: 978 + 10 rastgele rakam (Toplam 13 hane)
+  // digits değişkeninin mükerrer tanımlanması düzeltildi.
+  const randomDigits = Math.floor(Math.random() * 9000000000 + 1000000000).toString();
+  return `978${randomDigits}`;
+}
+
+// ============================================================
+// YARDIMCI: WebSocket broadcast – tüm açık bağlantılara gönder
+// ============================================================
+function broadcastBinEvent(type, data) {
+  try {
+    const wss = global.wss;
+    if (!wss) return;
+    const msg = JSON.stringify({ type, data });
+    wss.clients.forEach(client => {
+      if (client.readyState === 1) {
+        client.send(msg);
+      }
+    });
+    console.log(`📡 [WS BROADCAST] ${type} → ${wss.clients.size} istemci`);
+  } catch (err) {
+    console.error('broadcastBinEvent hatası:', err);
+  }
+}
+
 // Tüm aktif kutuları yerel diskte bins-backup.json dosyasına yedekleme fonksiyonu
 const backupBins = async () => {
   try {
@@ -33,33 +68,37 @@ async function resolveRegionFromParcelKey(parcelKey) {
 const getBins = async (req, res) => {
   try {
     const { regionId } = req.query;
-    const backupPath = path.join(__dirname, '../../data-backups/bins-backup.json');
-    if (fs.existsSync(backupPath)) {
-      const raw = fs.readFileSync(backupPath, 'utf-8');
-      let bins = JSON.parse(raw);
-      console.log('📖 [OKUMA] Çöp kutuları doğrudan bins-backup.json dosyasından okundu.');
-      if (regionId && typeof regionId === 'string') {
-        bins = bins.filter(b => b.regionId === regionId || (b.region && b.region.region_id === regionId));
-      }
-      return res.status(200).json(bins);
-    }
 
-    // Eğer yedek dosyası yoksa veritabanından çek ve yedek dosyasını sıfırdan oluştur
-    console.log('⚠️ [OKUMA] bins-backup.json bulunamadı. Veritabanından okunuyor...');
+    // Her zaman güncel DB'den çek (proaktif QR/Barkod doldurma için)
+    console.log('📖 [OKUMA] Çöp kutuları veritabanından okunuyor...');
     const where = {};
     if (regionId && typeof regionId === 'string') {
       where.regionId = regionId;
     }
-    const bins = await prisma.bin.findMany({
+    let bins = await prisma.bin.findMany({
       where,
       include: { region: { select: { id: true, name: true, region_id: true } } },
       orderBy: { createdAt: 'desc' },
     });
 
-    const backupDir = path.dirname(backupPath);
-    if (!fs.existsSync(backupDir)) {
-      fs.mkdirSync(backupDir, { recursive: true });
+    // Proaktif QR/Barkod doldurma: null kalmış eski kayıtları güncelle
+    const nullBins = bins.filter(b => !b.qrCode || !b.barCode);
+    if (nullBins.length > 0) {
+      console.log(`⚙️ [QR/BARKOD] ${nullBins.length} kutuda QR/Barkod eksik, otomatik dolduruluyor...`);
+      for (const b of nullBins) {
+        const updateData = {};
+        if (!b.qrCode) updateData.qrCode = generateUniqueQR();
+        if (!b.barCode) updateData.barCode = generateUniqueBarcode();
+        await prisma.bin.update({ where: { id: b.id }, data: updateData });
+        Object.assign(b, updateData);
+      }
+      console.log('✅ [QR/BARKOD] Eksik kodlar başarıyla tamamlandı.');
     }
+
+    // Yedek dosyasını güncelle
+    const backupPath = path.join(__dirname, '../../data-backups/bins-backup.json');
+    const backupDir = path.dirname(backupPath);
+    if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
     fs.writeFileSync(backupPath, JSON.stringify(bins, null, 2), 'utf-8');
 
     res.status(200).json(bins);
@@ -71,13 +110,28 @@ const getBins = async (req, res) => {
 const getBinById = async (req, res) => {
   try {
     const { id } = req.params;
-    const bin = await prisma.bin.findUnique({
+    let bin = await prisma.bin.findUnique({
       where: { id },
       include: { region: { select: { id: true, name: true, region_id: true } } },
     });
     if (!bin) {
       return res.status(404).json({ message: 'Çöp kutusu bulunamadı.' });
     }
+
+    // Proaktif QR/Barkod doldurma
+    if (!bin.qrCode || !bin.barCode) {
+      const updateData = {};
+      if (!bin.qrCode) updateData.qrCode = generateUniqueQR();
+      if (!bin.barCode) updateData.barCode = generateUniqueBarcode();
+      bin = await prisma.bin.update({
+        where: { id },
+        data: updateData,
+        include: { region: { select: { id: true, name: true, region_id: true } } },
+      });
+      console.log(`✅ [QR/BARKOD] ID=${id} kutusu için eksik kodlar üretildi.`);
+      await backupBins();
+    }
+
     res.status(200).json(bin);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -87,7 +141,7 @@ const getBinById = async (req, res) => {
 // Yeni kutu oluştur
 const createBin = async (req, res) => {
   try {
-    const { latitude, longitude, wasteCategory, type, capacityVolume, regionId: parcelKey } = req.body;
+    const { name, latitude, longitude, wasteCategory, type, capacityVolume, predictedFullness, regionId: parcelKey } = req.body;
 
     const inside = assertPointInParcel(latitude, longitude, parcelKey);
     if (!inside.ok) {
@@ -102,20 +156,34 @@ const createBin = async (req, res) => {
       });
     }
 
+    // Benzersiz QR Kod ve Barkod üret
+    const qrCode = generateUniqueQR();
+    const barCode = generateUniqueBarcode();
+
+    // Senkronizasyon için QR ve Barkod'un anında eklendiğinden emin oluyoruz
+    // Bu sayede mobil uygulama 'binCreated' event'ini aldığında kodlar hazır olur.
     const bin = await prisma.bin.create({
       data: {
+        name: name || null,
         latitude,
         longitude,
         wasteCategory,
         type,
         capacityVolume,
+        predictedFullness: predictedFullness !== undefined ? parseFloat(predictedFullness) : 0.0,
         regionId: region.id,
+        qrCode,
+        barCode,
       },
       include: { region: { select: { id: true, name: true, region_id: true } } },
     });
 
     await backupBins();
 
+    // WebSocket: tüm bağlı istemcilere bildir
+    broadcastBinEvent('binCreated', bin);
+
+    console.log(`✅ [CREATE] Kutu oluşturuldu: ${bin.id} | QR: ${qrCode} | Barkod: ${barCode}`);
     res.status(201).json({ message: 'Çöp kutusu başarıyla oluşturuldu.', data: bin });
   } catch (err) {
     console.error(err);
@@ -135,6 +203,7 @@ const updateBin = async (req, res) => {
     }
 
     const {
+      name,
       latitude,
       longitude,
       wasteCategory,
@@ -168,6 +237,7 @@ const updateBin = async (req, res) => {
     }
 
     const data = {};
+    if (name !== undefined) data.name = name;
     if (latitude !== undefined) data.latitude = latitude;
     if (longitude !== undefined) data.longitude = longitude;
     if (wasteCategory !== undefined) data.wasteCategory = wasteCategory;
@@ -187,6 +257,9 @@ const updateBin = async (req, res) => {
       data,
       include: { region: { select: { id: true, name: true, region_id: true } } },
     });
+
+    // Güncelleme sonrası tüm cihazlara anlık bildirim gönder
+    broadcastBinEvent('binUpdated', bin);
 
     await backupBins();
 
@@ -208,87 +281,116 @@ const deleteBin = async (req, res) => {
 
     await backupBins();
 
+    // WebSocket: silme olayını tüm istemcilere yayınla
+    broadcastBinEvent('binDeleted', { id });
+
     res.status(200).json({ message: 'Çöp kutusu silindi.' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-// ZORLA 21 NOKTAYI DB'YE EKLEME FONKSİYONU
-const seedDefaultBins = async (req, res) => {
+// ============================================================
+// YARDIMCI: Anlaşmalı Mağazalar (Partner Stores) Handlers
+// ============================================================
+const getPartnerStores = async (req, res) => {
   try {
-    // Önceki kutuları temizle
-    await prisma.bin.deleteMany({});
+    // Prisma modelinizde PartnerStore varsa oradan çekiyoruz
+    const stores = await prisma.partnerStore?.findMany() || [];
+    res.status(200).json(stores);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
 
-    const backupPath = path.join(__dirname, '../../data-backups/bins-backup.json');
-    let dataToInsert = null;
-    let sourceMessage = 'varsayılan Ege Üniversitesi kampüs listesi';
+const addPartnerStore = async (req, res) => {
+  try {
+    const { name, latitude, longitude, address, category } = req.body;
+    const store = await prisma.partnerStore.create({
+      data: { name, latitude: parseFloat(latitude), longitude: parseFloat(longitude), address, category }
+    });
+    res.status(201).json(store);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
 
-    // Eğer yerel diskte bir yedekleme varsa, oradan yükle!
-    if (fs.existsSync(backupPath)) {
-      try {
-        const raw = fs.readFileSync(backupPath, 'utf-8');
-        const backedUpBins = JSON.parse(raw);
-        if (backedUpBins && backedUpBins.length > 0) {
-          dataToInsert = backedUpBins.map(bin => ({
-            name: bin.name || 'Adsız Kutu',
-            latitude: parseFloat(bin.latitude),
-            longitude: parseFloat(bin.longitude),
-            wasteCategory: bin.wasteCategory || 'GENERAL',
-            type: bin.type || 'WASTE_POINT',
-            capacityVolume: parseFloat(bin.capacityVolume || 100),
-            predictedFullness: parseFloat(bin.predictedFullness || 0)
-          }));
-          sourceMessage = 'yerel JSON yedek dosyası (bins-backup.json)';
-        }
-      } catch (backupErr) {
-        console.error('Yedek dosyası okunurken hata oluştu, varsayılanlara dönülüyor:', backupErr);
-      }
+const deletePartnerStore = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.partnerStore.delete({ where: { id } });
+    res.status(200).json({ message: 'Mağaza silindi.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Kutu Boşaltma (Fullness sıfırlama)
+const emptyBin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const bin = await prisma.bin.update({
+      where: { id },
+      data: { predictedFullness: 0 },
+      include: { region: true }
+    });
+    broadcastBinEvent('binUpdated', bin);
+    res.status(200).json({ message: 'Kutu boşaltıldı.', data: bin });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Kutu doluluk oranını güncelleme (Sadece isAuth kontrolü ile çalışır)
+const updateBinFullness = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { predictedFullness } = req.body;
+
+    if (predictedFullness === undefined) {
+      return res.status(400).json({ message: 'Doluluk oranı belirtilmelidir.' });
     }
 
-    // Yedek yoksa varsayılan listeyi kullan
-    if (!dataToInsert) {
-      const DEFAULT_BINS = [];
-      dataToInsert = DEFAULT_BINS.map(bin => {
-        let wasteCat = 'GENERAL';
-        if (bin.type === 'plastik') wasteCat = 'PLASTIC';
-        if (bin.type === 'cam') wasteCat = 'GLASS';
-        if (bin.type === 'kagit') wasteCat = 'PAPER';
-
-        return {
-          name: bin.name,
-          latitude: bin.latitude,
-          longitude: bin.longitude,
-          wasteCategory: wasteCat,
-          type: 'WASTE_POINT',
-          capacityVolume: 100,
-          predictedFullness: bin.fillPercentage || 0,
-        };
-      });
+    const existing = await prisma.bin.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ message: 'Çöp kutusu bulunamadı.' });
     }
 
-    await prisma.bin.createMany({
-      data: dataToInsert
+    const bin = await prisma.bin.update({
+      where: { id },
+      data: { predictedFullness: Number(predictedFullness) },
+      include: { region: { select: { id: true, name: true, region_id: true } } },
     });
 
-    // Seedleme sonrası güncel durumu diskteki yedeğe yaz/eşitle
+    broadcastBinEvent('binUpdated', bin);
     await backupBins();
 
-    const count = await prisma.bin.count();
-    res.status(200).json({ 
-      success: true, 
-      message: `Harika! Veritabanına ${sourceMessage} üzerinden başarıyla ${count} kutu enjekte edildi.` 
-    });
+    res.status(200).json({ message: 'Doluluk oranı güncellendi.', data: bin });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message, stack: err.stack });
+    console.error(err);
+    res.status(500).json({ error: err.message });
   }
 };
 
 module.exports = {
   getBins,
+  getAllBins: getBins,    // binRoutes.js bu ismi bekliyor olabilir
   getBinById,
+  getBin: getBinById,     // Olası isim uyuşmazlığı için
   createBin,
+  addBin: createBin,      // DatabaseService.ts bunu bekliyor
   updateBin,
+  updateBinItem: updateBin, // DatabaseService.ts bunu bekliyor
   deleteBin,
-  seedDefaultBins,
+  deleteBinItem: deleteBin, // DatabaseService.ts bunu bekliyor
+  // Partner Store Handlers
+  getPartnerStores,
+  addPartnerStore,
+  createPartnerStore: addPartnerStore,
+  deletePartnerStore,
+  // Custom Actions
+  emptyBin,
+  updateBinFullness
 };
+
+// ZORLA 21

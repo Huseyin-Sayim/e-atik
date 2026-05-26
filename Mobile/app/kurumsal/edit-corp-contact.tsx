@@ -69,7 +69,7 @@ export default function EditCorpContactScreen() {
         const finalPhone = phoneNumber.trim();
         
         // 1. Backend Güncelleme
-        await DatabaseService.updateContactInfo(lowerEmail, { 
+        await DatabaseService.updateUser({ 
           phoneNumber: finalPhone
         });
         

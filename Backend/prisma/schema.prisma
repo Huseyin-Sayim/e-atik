@@ -70,6 +70,7 @@ model User {
   isVerified        Boolean            @default(false)
   profileImage      String?            @db.Text
   profileType       String?
+  theme             String             @default("light")
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   refreshTokens     RefreshToken[]
@@ -164,6 +165,8 @@ model Bin {
   longitude         Float
   capacityVolume    Float           @default(100.0)
   predictedFullness Float           @default(0.0)
+  qrCode            String?         @unique
+  barCode           String?         @unique
   regionId          String?
   region            Region?         @relation(fields: [regionId], references: [id])
   logs              CollectionLog[]
@@ -204,4 +207,19 @@ model ScannedQRCode {
   user        User     @relation(fields: [userId], references: [id])
   coinsEarned Int
   createdAt   DateTime @default(now())
+}
+
+model WasteItem {
+  id          String   @id @default(uuid())
+  name        String
+  coins       Int
+  color       String
+  description String
+  imageUrl    String?  // Kullanıcının girebileceği özel resim URL'si veya yerel referans
+  icon        String?  // Vektör simge adı (varsayılan)
+  library     String?  // Simge kütüphanesi (varsayılan)
+  row         Int      @default(0)
+  column      Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

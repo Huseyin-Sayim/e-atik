@@ -60,14 +60,14 @@ export default function RegionSelectScreen() {
       if (selectedParcelId) {
         await AsyncStorage.setItem('@staff_selected_region', selectedParcelId);
         const currentUser = await DatabaseService.getCurrentUser();
-        if (currentUser && currentUser.email) {
-          await DatabaseService.updateUser(currentUser.email, { regionId: selectedParcelId });
+        if (currentUser) {
+          await DatabaseService.updateUser({ regionId: selectedParcelId });
         }
       } else {
         await AsyncStorage.removeItem('@staff_selected_region');
         const currentUser = await DatabaseService.getCurrentUser();
-        if (currentUser && currentUser.email) {
-          await DatabaseService.updateUser(currentUser.email, { regionId: null });
+        if (currentUser) {
+          await DatabaseService.updateUser({ regionId: null });
         }
       }
       router.back();

@@ -67,6 +67,7 @@ const schemas = {
 
   binCreate: joi
     .object({
+      name: joi.string().trim().allow('', null).optional(),
       latitude: joi.number().min(-90).max(90).required(),
       longitude: joi.number().min(-180).max(180).required(),
       wasteCategory: joi
@@ -75,6 +76,7 @@ const schemas = {
         .required(),
       type: joi.string().valid('CONTAINER_LARGE', 'CONTAINER_SMALL', 'WASTE_POINT').required(),
       capacityVolume: joi.number().positive().required(),
+      predictedFullness: joi.number().min(0).max(100).optional(),
       regionId: joi.string().trim().required().messages({
         'string.empty': 'Parsel / bölge bilgisi zorunludur.',
       }),
@@ -83,6 +85,7 @@ const schemas = {
 
   binUpdate: joi
     .object({
+      name: joi.string().trim().allow('', null).optional(),
       latitude: joi.number().min(-90).max(90).optional(),
       longitude: joi.number().min(-180).max(180).optional(),
       wasteCategory: joi

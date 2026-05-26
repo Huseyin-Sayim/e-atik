@@ -11,7 +11,8 @@ import {
   Animated,
   Modal,
   FlatList,
-  ActivityIndicator
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -25,6 +26,8 @@ interface TrashBin {
   fillPercentage: number;
   type: 'plastik' | 'kagit' | 'cam' | 'genel';
   capacity: number;
+  qrCode?: string;
+  barCode?: string;
 }
 
 export default function KisiselScanScreen() {
@@ -77,7 +80,9 @@ export default function KisiselScanScreen() {
         longitude: parseFloat(b.longitude),
         fillPercentage: b.predictedFullness || 0,
         type: b.wasteCategory === 'PLASTIC' ? 'plastik' : b.wasteCategory === 'GLASS' ? 'cam' : b.wasteCategory === 'PAPER' ? 'kagit' : 'genel',
-        capacity: (b.wasteCategory === 'PLASTIC' || b.wasteCategory === 'PAPER') ? 50 : 100
+        capacity: (b.wasteCategory === 'PLASTIC' || b.wasteCategory === 'PAPER') ? 50 : 100,
+        qrCode: b.qrCode,
+        barCode: b.barCode
       }));
       setBins(mappedBins);
 
@@ -119,6 +124,18 @@ export default function KisiselScanScreen() {
     setScanMode(mode);
     
     if (!permission?.granted) {
+      const userApproved = await new Promise((resolve) => {
+        Alert.alert(
+          "Kamera İzni Gerekli",
+          "Atık kutularının QR veya Barkod kodlarını taratabilmek için kamera erişimine ihtiyacımız var. Kamera izni vermek istiyor musunuz?",
+          [
+            { text: "Vazgeç", onPress: () => resolve(false), style: "cancel" },
+            { text: "İzin Ver", onPress: () => resolve(true) }
+          ]
+        );
+      });
+      if (!userApproved) return;
+
       const status = await requestPermission();
       if (!status.granted) {
         setAlertInfo({
@@ -135,16 +152,25 @@ export default function KisiselScanScreen() {
 
   // Taranan kodla eşleşen kutuyu bulan yardımcı metod
   const matchScannedBin = (data: string) => {
-    // 1. Önce doğrudan ID eşleşmesi ara
-    let found = bins.find(b => b.id.toString() === data.trim());
+    const trimmedData = data.trim();
+    // 1. Doğrudan QR veya Barkod eşleşmesi ara (en kesin yöntem!)
+    let found = bins.find(b => 
+      (b.qrCode && b.qrCode === trimmedData) || 
+      (b.barCode && b.barCode === trimmedData)
+    );
     if (!found) {
-      // 2. Kutu adında taranan kodun geçip geçmediğine bak (harf duyarsız)
-      found = bins.find(b => b.name.toLowerCase().includes(data.trim().toLowerCase()));
+      // 2. Doğrudan ID eşleşmesi ara
+      found = bins.find(b => b.id.toString() === trimmedData);
+    }
+    if (!found) {
+      // 3. Kutu adında taranan kodun geçip geçmediğine bak (harf duyarsız)
+      found = bins.find(b => b.name.toLowerCase().includes(trimmedData.toLowerCase()));
     }
     return found;
   };
 
   const handleBarCodeScanned = async ({ type, data }: { type: string, data: string }) => {
+    console.log('📷 [TARAYICI - KIŞISEL] Tip:', type, '| Veri:', data);
     if (scanned || processingRef.current) return;
     setScanned(true);
     processingRef.current = true;
@@ -184,15 +210,7 @@ export default function KisiselScanScreen() {
       const currentPercentage = targetBin.fillPercentage;
       const newPercentage = Math.min(100, currentPercentage + 5);
 
-      const payload = {
-        name: targetBin.name,
-        latitude: targetBin.latitude,
-        longitude: targetBin.longitude,
-        predictedFullness: newPercentage,
-        wasteCategory: targetBin.type === 'plastik' ? 'PLASTIC' : targetBin.type === 'cam' ? 'GLASS' : targetBin.type === 'kagit' ? 'PAPER' : 'GENERAL'
-      };
-
-      await DatabaseService.updateBinItem(binId, payload);
+      await DatabaseService.updateBinFullness(binId, newPercentage);
       
       // Local state güncelle
       setBins(prev => prev.map(b => b.id === binId ? { ...b, fillPercentage: newPercentage } : b));
@@ -275,7 +293,7 @@ export default function KisiselScanScreen() {
               style={StyleSheet.absoluteFillObject}
               onBarcodeScanned={handleBarCodeScanned}
               barcodeScannerSettings={{
-                barcodeTypes: scanMode === 'qr' ? ['qr'] : ['ean13', 'ean8', 'code128', 'code39', 'upc_a', 'upc_e'],
+                barcodeTypes: ['qr', 'ean13', 'ean8', 'code128', 'code39', 'upc_a', 'upc_e'],
               }}
             >
               <View style={styles.scannerOverlayCompact}>

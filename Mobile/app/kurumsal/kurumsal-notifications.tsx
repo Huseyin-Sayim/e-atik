@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Platform, StatusBar, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, Platform, StatusBar, TouchableOpacity, ActivityIndicator, Modal, Alert } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import DatabaseService from '../../database/DatabaseService';
@@ -60,7 +60,7 @@ export default function KurumsalNotificationsScreen() {
     ws.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data);
-        if (payload.type === 'wasteRequestCreated' || payload.type === 'wasteRequestStatusChanged') {
+        if (['wasteRequestCreated', 'wasteRequestStatusChanged', 'binCreated', 'binUpdated', 'binDeleted'].includes(payload.type)) {
           console.log('🔄 Yeni evsel atık bildirim listesi güncellemesi algılandı...');
           loadNotifications();
         }
@@ -143,9 +143,9 @@ export default function KurumsalNotificationsScreen() {
       // Kutuları doluluk oranlarına göre sırala (büyükten küçüğe)
       const sortedBins = [...filteredBins].sort((a, b) => b.fillPercentage - a.fillPercentage);
 
-      // Kırmızı kutuların hepsi temizlendiyse ve bölge seçilmişse "Başka bölge seçin" uyarısını tetikle
-      const redBins = sortedBins.filter(b => b.fillPercentage >= 75);
-      if (selectedRegionId && redBins.length === 0) {
+      // Seçili bölgedeki tüm atık kutularının doluluğu 0 ise uyarıyı göster (tüm atıklar toplanmışsa)
+      const hasUncollectedWastes = filteredBins.some(b => b.fillPercentage > 0);
+      if (selectedRegionId && filteredBins.length > 0 && !hasUncollectedWastes) {
         setShowRegionPrompt(true);
       } else {
         setShowRegionPrompt(false);
@@ -188,7 +188,7 @@ export default function KurumsalNotificationsScreen() {
           <Ionicons name="arrow-back" size={24} color={currentTheme === 'dark' ? '#fff' : '#1e293b'} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, currentTheme === 'dark' && { color: '#fff' }]}>Tüm Bildirimler</Text>
-        <View style={{ width: 40 }} /> {/* Sağ tarafta denge için boşluk */}
+        <View style={{ width: 40 }} />
       </View>
 
       {loading ? (
@@ -202,7 +202,7 @@ export default function KurumsalNotificationsScreen() {
             <View style={[styles.regionPromptBanner, currentTheme === 'dark' && { backgroundColor: '#1e3a8a', borderColor: '#1e40af' }]}>
               <Ionicons name="information-circle" size={24} color={currentTheme === 'dark' ? '#60a5fa' : '#2563eb'} />
               <Text style={[styles.regionPromptText, currentTheme === 'dark' && { color: '#bfdbfe' }]}>
-                Seçili bölgedeki acil atıklar toplandı, lütfen başka bir bölge seçiniz.
+                Seçili bölgedeki tüm atıklar toplandı, lütfen başka bir bölge seçiniz.
               </Text>
             </View>
           )}
@@ -272,7 +272,6 @@ export default function KurumsalNotificationsScreen() {
         </View>
       )}
 
-      {/* Detay Popup Modal (Evsel Atık Talepleri İçin) */}
       <Modal
         animationType="slide"
         transparent={true}

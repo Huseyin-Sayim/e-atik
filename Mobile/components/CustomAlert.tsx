@@ -39,15 +39,28 @@ export function CustomAlertModal() {
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [buttons, setButtons] = useState<AlertButton[]>([]);
+  // Her yeni alert'te key değişir → Android yeni bir Dialog penceresi oluşturur
+  // Bu sayede alert her zaman en üstte görünür, başka modalların arkasında kalmaz
+  const [alertKey, setAlertKey] = useState(0);
 
   useEffect(() => {
+    let openTimer: ReturnType<typeof setTimeout> | null = null;
     alertTrigger = (t: string, m: string, b?: AlertButton[]) => {
+      // Önceki zamanlayıcıyı iptal et (rapid-fire alert'lerde race condition önler)
+      if (openTimer) clearTimeout(openTimer);
       setTitle(t);
       setMessage(m);
       setButtons(b || []);
-      setVisible(true);
+      // Önce kapat (varsa), sonra yeni key ile yeniden aç
+      setVisible(false);
+      setAlertKey(prev => prev + 1);
+      // 100ms gecikme — Android'de yeni native Dialog'un en üstte oluşmasını garanti eder
+      openTimer = setTimeout(() => {
+        setVisible(true);
+      }, 100);
     };
     return () => {
+      if (openTimer) clearTimeout(openTimer);
       alertTrigger = () => {};
     };
   }, []);
@@ -175,10 +188,13 @@ export function CustomAlertModal() {
 
   return (
     <Modal
+      key={alertKey}
       animationType="fade"
       transparent={true}
       visible={visible}
       onRequestClose={() => setVisible(false)}
+      statusBarTranslucent={true}
+      hardwareAccelerated={true}
     >
       <View style={styles.overlay}>
         <View style={styles.alertBox}>
@@ -204,7 +220,7 @@ export function CustomAlertModal() {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)', // Premium dark overlay
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -213,7 +229,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 340,
     backgroundColor: '#ffffff',
-    borderRadius: 28, // Ultra smooth visible premium radius as requested
+    borderRadius: 28,
     padding: 24,
     alignItems: 'center',
     ...Platform.select({
@@ -224,7 +240,7 @@ const styles = StyleSheet.create({
         shadowRadius: 24,
       },
       android: {
-        elevation: 12,
+        elevation: 24,
       }
     }),
   },
@@ -263,7 +279,7 @@ const styles = StyleSheet.create({
   },
   button: {
     height: 48,
-    borderRadius: 16, // Beautiful matching radius for buttons
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },

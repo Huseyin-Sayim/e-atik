@@ -8,8 +8,11 @@
     "longitude": 27.2293,
     "capacityVolume": 100,
     "predictedFullness": 40,
+    "qrCode": "QR-BIN-ILT6TY-MPL8SLKM",
+    "barCode": "9787620594091",
     "regionId": null,
-    "createdAt": "2026-05-19T16:38:05.404Z"
+    "createdAt": "2026-05-19T16:38:05.404Z",
+    "region": null
   },
   {
     "id": "04b60a24-d8d6-477b-b87e-4eebf855330d",
@@ -20,8 +23,11 @@
     "longitude": 27.2089,
     "capacityVolume": 100,
     "predictedFullness": 82,
+    "qrCode": "QR-BIN-0S6JFW-MPL8SLLU",
+    "barCode": "9785706126941",
     "regionId": null,
-    "createdAt": "2026-05-19T16:34:14.271Z"
+    "createdAt": "2026-05-19T16:34:14.271Z",
+    "region": null
   },
   {
     "id": "ec4965ef-50ad-4aeb-ba4f-07487e6d394d",
@@ -32,8 +38,11 @@
     "longitude": 27.212,
     "capacityVolume": 100,
     "predictedFullness": 45,
+    "qrCode": "QR-BIN-18SERY-MPL8SLMB",
+    "barCode": "9781066770428",
     "regionId": null,
-    "createdAt": "2026-05-19T16:32:27.843Z"
+    "createdAt": "2026-05-19T16:32:27.843Z",
+    "region": null
   },
   {
     "id": "742406fe-d813-450d-b886-bcd646ff52f0",
@@ -44,8 +53,11 @@
     "longitude": 27.2165,
     "capacityVolume": 100,
     "predictedFullness": 67,
+    "qrCode": "QR-BIN-49P1OG-MPL8SLMR",
+    "barCode": "9788845608087",
     "regionId": null,
-    "createdAt": "2026-05-19T16:30:16.132Z"
+    "createdAt": "2026-05-19T16:30:16.132Z",
+    "region": null
   },
   {
     "id": "4dec173d-6205-480b-afbd-b10a36b2a62f",
@@ -56,8 +68,11 @@
     "longitude": 27.2137,
     "capacityVolume": 100,
     "predictedFullness": 65,
+    "qrCode": "QR-BIN-HWZQCO-MPL8SLN5",
+    "barCode": "9783925796456",
     "regionId": null,
-    "createdAt": "2026-05-19T16:27:27.966Z"
+    "createdAt": "2026-05-19T16:27:27.966Z",
+    "region": null
   },
   {
     "id": "0d361daa-8b4f-4a71-90ec-2a1314fb678f",
@@ -68,8 +83,11 @@
     "longitude": 27.2146,
     "capacityVolume": 50,
     "predictedFullness": 42,
+    "qrCode": "QR-BIN-1SPBEJ-MPL8SLNR",
+    "barCode": "9785277426165",
     "regionId": null,
-    "createdAt": "2026-05-19T16:25:35.327Z"
+    "createdAt": "2026-05-19T16:25:35.327Z",
+    "region": null
   },
   {
     "id": "b3b0f423-2c3b-4d3f-a5a2-b6297dab0868",
@@ -80,8 +98,11 @@
     "longitude": 27.2136,
     "capacityVolume": 100,
     "predictedFullness": 61,
+    "qrCode": "QR-BIN-OQ828I-MPL8SLO6",
+    "barCode": "9783369119672",
     "regionId": null,
-    "createdAt": "2026-05-19T16:24:14.763Z"
+    "createdAt": "2026-05-19T16:24:14.763Z",
+    "region": null
   },
   {
     "id": "bcd65ef7-b21f-4138-91d0-f7b49ec45e9e",
@@ -92,8 +113,11 @@
     "longitude": 27.2106,
     "capacityVolume": 100,
     "predictedFullness": 80,
+    "qrCode": "QR-BIN-TC3NKW-MPL8SLOI",
+    "barCode": "9783101450313",
     "regionId": null,
-    "createdAt": "2026-05-19T16:21:42.623Z"
+    "createdAt": "2026-05-19T16:21:42.623Z",
+    "region": null
   },
   {
     "id": "aa6c8cd7-2e6a-4e8c-9c5b-2cfdec2a6d97",
@@ -104,8 +128,11 @@
     "longitude": 27.2115,
     "capacityVolume": 100,
     "predictedFullness": 70,
+    "qrCode": "QR-BIN-V4ZPMM-MPL8SLOX",
+    "barCode": "9788313831677",
     "regionId": null,
-    "createdAt": "2026-05-19T16:18:31.010Z"
+    "createdAt": "2026-05-19T16:18:31.010Z",
+    "region": null
   },
   {
     "id": "16eb4e86-00e7-4429-ae8f-c200f97e464f",
@@ -116,8 +143,11 @@
     "longitude": 27.2125,
     "capacityVolume": 100,
     "predictedFullness": 78,
+    "qrCode": "QR-BIN-VD9AMS-MPL8SLP9",
+    "barCode": "9786102986998",
     "regionId": null,
-    "createdAt": "2026-05-19T16:15:48.951Z"
+    "createdAt": "2026-05-19T16:15:48.951Z",
+    "region": null
   },
   {
     "id": "96425a34-d89f-4bef-aacb-a31ef9485898",
@@ -128,8 +158,11 @@
     "longitude": 27.213,
     "capacityVolume": 100,
     "predictedFullness": 65,
+    "qrCode": "QR-BIN-B5J44O-MPL8SLPJ",
+    "barCode": "9782646711046",
     "regionId": null,
-    "createdAt": "2026-05-19T16:14:49.483Z"
+    "createdAt": "2026-05-19T16:14:49.483Z",
+    "region": null
   },
   {
     "id": "fb338030-22b8-4154-b02d-f3e87d640477",
@@ -140,8 +173,11 @@
     "longitude": 27.215,
     "capacityVolume": 100,
     "predictedFullness": 40,
+    "qrCode": "QR-BIN-09GVBD-MPL8SLPT",
+    "barCode": "9782592786917",
     "regionId": null,
-    "createdAt": "2026-05-19T16:13:13.249Z"
+    "createdAt": "2026-05-19T16:13:13.249Z",
+    "region": null
   },
   {
     "id": "6c4f46fb-98cd-4abf-8cbc-7c97b50bb651",
@@ -152,8 +188,11 @@
     "longitude": 27.2154,
     "capacityVolume": 100,
     "predictedFullness": 57,
+    "qrCode": "QR-BIN-26673E-MPL8SLQ6",
+    "barCode": "9784353069711",
     "regionId": null,
-    "createdAt": "2026-05-19T16:10:09.062Z"
+    "createdAt": "2026-05-19T16:10:09.062Z",
+    "region": null
   },
   {
     "id": "38b703b4-fce1-4dfe-9675-c651f836d992",
@@ -164,8 +203,11 @@
     "longitude": 27.2218,
     "capacityVolume": 50,
     "predictedFullness": 50,
+    "qrCode": "QR-BIN-4BVB3M-MPL8SLQO",
+    "barCode": "9784867243489",
     "regionId": null,
-    "createdAt": "2026-05-19T16:03:58.547Z"
+    "createdAt": "2026-05-19T16:03:58.547Z",
+    "region": null
   },
   {
     "id": "930d1eab-3195-466b-9fa1-6cda26ff6f6a",
@@ -176,8 +218,11 @@
     "longitude": 27.2253,
     "capacityVolume": 100,
     "predictedFullness": 42,
+    "qrCode": "QR-BIN-A9D6K1-MPL8SLQW",
+    "barCode": "9785118155711",
     "regionId": null,
-    "createdAt": "2026-05-19T16:01:49.068Z"
+    "createdAt": "2026-05-19T16:01:49.068Z",
+    "region": null
   },
   {
     "id": "fdbc70aa-3e9a-452f-b9b9-67b9c8d73b09",
@@ -188,8 +233,11 @@
     "longitude": 27.2262,
     "capacityVolume": 100,
     "predictedFullness": 60,
+    "qrCode": "QR-BIN-BYJSMN-MPL8SLRA",
+    "barCode": "9781099300888",
     "regionId": null,
-    "createdAt": "2026-05-19T15:59:56.673Z"
+    "createdAt": "2026-05-19T15:59:56.673Z",
+    "region": null
   },
   {
     "id": "64da5f94-f1ac-4fe3-91ac-774de5955136",
@@ -200,8 +248,11 @@
     "longitude": 27.2262,
     "capacityVolume": 100,
     "predictedFullness": 45,
+    "qrCode": "QR-BIN-ICNH9E-MPL8SLRJ",
+    "barCode": "9785911169813",
     "regionId": null,
-    "createdAt": "2026-05-19T15:58:32.055Z"
+    "createdAt": "2026-05-19T15:58:32.055Z",
+    "region": null
   },
   {
     "id": "1e9ea0bb-198e-4aac-b8e4-8db696ece4d2",
@@ -212,8 +263,11 @@
     "longitude": 27.22315,
     "capacityVolume": 100,
     "predictedFullness": 66,
+    "qrCode": "QR-BIN-YGOL50-MPL8SLS6",
+    "barCode": "9784069626387",
     "regionId": null,
-    "createdAt": "2026-05-19T15:54:53.451Z"
+    "createdAt": "2026-05-19T15:54:53.451Z",
+    "region": null
   },
   {
     "id": "11eefc17-dd63-44b1-9b50-b68277dcebfc",
@@ -224,8 +278,11 @@
     "longitude": 27.22366,
     "capacityVolume": 100,
     "predictedFullness": 56,
+    "qrCode": "QR-BIN-H7KF7H-MPL8SLSH",
+    "barCode": "9786475378563",
     "regionId": null,
-    "createdAt": "2026-05-19T15:52:43.092Z"
+    "createdAt": "2026-05-19T15:52:43.092Z",
+    "region": null
   },
   {
     "id": "46b2fa2e-d9b8-493b-b820-c9266d40e9d0",
@@ -236,8 +293,11 @@
     "longitude": 27.2288,
     "capacityVolume": 100,
     "predictedFullness": 42,
+    "qrCode": "QR-BIN-3UUNYJ-MPL8SLSS",
+    "barCode": "9789441258783",
     "regionId": null,
-    "createdAt": "2026-05-19T15:47:22.521Z"
+    "createdAt": "2026-05-19T15:47:22.521Z",
+    "region": null
   },
   {
     "id": "9e8f3210-b24b-435a-97a7-2ee751b7496b",
@@ -248,8 +308,11 @@
     "longitude": 27.2287,
     "capacityVolume": 100,
     "predictedFullness": 70,
+    "qrCode": "QR-BIN-SRGKE5-MPL8SLT5",
+    "barCode": "9785300716458",
     "regionId": null,
-    "createdAt": "2026-05-19T15:45:37.625Z"
+    "createdAt": "2026-05-19T15:45:37.625Z",
+    "region": null
   },
   {
     "id": "b98315f0-c7ed-40ef-b13d-7233fa5836f2",
@@ -260,8 +323,11 @@
     "longitude": 27.2196,
     "capacityVolume": 50,
     "predictedFullness": 40,
+    "qrCode": "QR-BIN-MQ2Z8D-MPL8SLTM",
+    "barCode": "9785558625957",
     "regionId": null,
-    "createdAt": "2026-05-19T15:42:53.243Z"
+    "createdAt": "2026-05-19T15:42:53.243Z",
+    "region": null
   },
   {
     "id": "d9efb732-8541-48c6-adcb-c9748754f8c6",
@@ -272,8 +338,11 @@
     "longitude": 27.2243,
     "capacityVolume": 100,
     "predictedFullness": 63,
+    "qrCode": "QR-BIN-CIWGE1-MPL8SLTY",
+    "barCode": "9789662863689",
     "regionId": null,
-    "createdAt": "2026-05-19T15:41:01.834Z"
+    "createdAt": "2026-05-19T15:41:01.834Z",
+    "region": null
   },
   {
     "id": "75cc2350-5325-4c82-80a6-0dc8940679d5",
@@ -284,8 +353,11 @@
     "longitude": 27.2258,
     "capacityVolume": 100,
     "predictedFullness": 78,
+    "qrCode": "QR-BIN-7JTIUJ-MPL8SLU6",
+    "barCode": "9785283359830",
     "regionId": null,
-    "createdAt": "2026-05-19T15:38:58.653Z"
+    "createdAt": "2026-05-19T15:38:58.653Z",
+    "region": null
   },
   {
     "id": "364a3bb1-c98f-4828-901e-245c247a6ce5",
@@ -296,8 +368,11 @@
     "longitude": 27.2274,
     "capacityVolume": 100,
     "predictedFullness": 90,
+    "qrCode": "QR-BIN-KF1UF1-MPL8SLUI",
+    "barCode": "9784744191597",
     "regionId": null,
-    "createdAt": "2026-05-19T15:35:31.622Z"
+    "createdAt": "2026-05-19T15:35:31.622Z",
+    "region": null
   },
   {
     "id": "2cae1150-c15f-4e2f-9294-96fb5846eb70",
@@ -308,8 +383,11 @@
     "longitude": 27.2265,
     "capacityVolume": 100,
     "predictedFullness": 74,
+    "qrCode": "QR-BIN-32TTL5-MPL8SLV3",
+    "barCode": "9781407318605",
     "regionId": null,
-    "createdAt": "2026-05-19T15:34:07.947Z"
+    "createdAt": "2026-05-19T15:34:07.947Z",
+    "region": null
   },
   {
     "id": "e8bf1355-4440-4499-9b56-2222242a4935",
@@ -320,8 +398,11 @@
     "longitude": 27.2243,
     "capacityVolume": 100,
     "predictedFullness": 72,
+    "qrCode": "QR-BIN-BVTO0R-MPL8SLVE",
+    "barCode": "9789359118018",
     "regionId": null,
-    "createdAt": "2026-05-19T15:25:30.013Z"
+    "createdAt": "2026-05-19T15:25:30.013Z",
+    "region": null
   },
   {
     "id": "97142e31-ea81-4038-a0a0-82b6221a97d8",
@@ -332,8 +413,11 @@
     "longitude": 27.2258,
     "capacityVolume": 100,
     "predictedFullness": 61,
+    "qrCode": "QR-BIN-S1JVSF-MPL8SLVU",
+    "barCode": "9782487820271",
     "regionId": null,
-    "createdAt": "2026-05-19T15:23:16.781Z"
+    "createdAt": "2026-05-19T15:23:16.781Z",
+    "region": null
   },
   {
     "id": "3c698680-e292-4aaa-a25c-46d46ad4781c",
@@ -344,8 +428,11 @@
     "longitude": 27.2271,
     "capacityVolume": 100,
     "predictedFullness": 53,
+    "qrCode": "QR-BIN-M19WFV-MPL8SLW4",
+    "barCode": "9788851290788",
     "regionId": null,
-    "createdAt": "2026-05-19T15:21:46.493Z"
+    "createdAt": "2026-05-19T15:21:46.493Z",
+    "region": null
   },
   {
     "id": "ac7bc83e-3aad-4611-9252-e52f24c1cc30",
@@ -356,8 +443,11 @@
     "longitude": 27.2277,
     "capacityVolume": 100,
     "predictedFullness": 50,
+    "qrCode": "QR-BIN-0RDL2N-MPL8SLWF",
+    "barCode": "9785991352091",
     "regionId": null,
-    "createdAt": "2026-05-19T15:18:40.321Z"
+    "createdAt": "2026-05-19T15:18:40.321Z",
+    "region": null
   },
   {
     "id": "5156fd77-360a-4365-8a85-42748f9c4450",
@@ -368,8 +458,11 @@
     "longitude": 27.2288,
     "capacityVolume": 100,
     "predictedFullness": 88,
+    "qrCode": "QR-BIN-F6Z1PE-MPL8SLWO",
+    "barCode": "9783909025943",
     "regionId": null,
-    "createdAt": "2026-05-19T15:15:34.635Z"
+    "createdAt": "2026-05-19T15:15:34.635Z",
+    "region": null
   },
   {
     "id": "8ec0c195-508e-4ad4-a4a7-0437577fff7c",
@@ -380,8 +473,11 @@
     "longitude": 27.23099,
     "capacityVolume": 100,
     "predictedFullness": 53,
+    "qrCode": "QR-BIN-BL70B6-MPL8SLWZ",
+    "barCode": "9789029520188",
     "regionId": null,
-    "createdAt": "2026-05-19T15:13:21.465Z"
+    "createdAt": "2026-05-19T15:13:21.465Z",
+    "region": null
   },
   {
     "id": "591104c2-afb4-4e19-92c8-668c852efa9e",
@@ -392,8 +488,11 @@
     "longitude": 27.2322,
     "capacityVolume": 100,
     "predictedFullness": 45,
+    "qrCode": "QR-BIN-9E1R6F-MPL8SLX8",
+    "barCode": "9787164277476",
     "regionId": null,
-    "createdAt": "2026-05-19T15:12:08.233Z"
+    "createdAt": "2026-05-19T15:12:08.233Z",
+    "region": null
   },
   {
     "id": "f2d09140-0fc3-43a7-a90a-bb0e2555e69e",
@@ -404,8 +503,11 @@
     "longitude": 27.2322,
     "capacityVolume": 100,
     "predictedFullness": 56,
+    "qrCode": "QR-BIN-VTWW86-MPL8SLXH",
+    "barCode": "9786495177669",
     "regionId": null,
-    "createdAt": "2026-05-19T15:10:29.766Z"
+    "createdAt": "2026-05-19T15:10:29.766Z",
+    "region": null
   },
   {
     "id": "aa00e8a0-962a-4b75-814a-465d4a91aaf5",
@@ -416,8 +518,11 @@
     "longitude": 27.2327,
     "capacityVolume": 100,
     "predictedFullness": 45,
+    "qrCode": "QR-BIN-EZ8NFS-MPL8SLXT",
+    "barCode": "9788433190980",
     "regionId": null,
-    "createdAt": "2026-05-19T15:09:20.658Z"
+    "createdAt": "2026-05-19T15:09:20.658Z",
+    "region": null
   },
   {
     "id": "e23cd8fb-af49-4763-994a-4c9587430356",
@@ -428,8 +533,11 @@
     "longitude": 27.2308,
     "capacityVolume": 100,
     "predictedFullness": 76,
+    "qrCode": "QR-BIN-31DOM9-MPL8SLYD",
+    "barCode": "9782286094422",
     "regionId": null,
-    "createdAt": "2026-05-19T15:07:45.547Z"
+    "createdAt": "2026-05-19T15:07:45.547Z",
+    "region": null
   },
   {
     "id": "4fe518e6-4d15-4fcd-b651-c197a53bf61d",
@@ -440,8 +548,11 @@
     "longitude": 27.2321,
     "capacityVolume": 100,
     "predictedFullness": 54,
+    "qrCode": "QR-BIN-JY8STQ-MPL8SLYO",
+    "barCode": "9786269892946",
     "regionId": null,
-    "createdAt": "2026-05-19T15:05:40.435Z"
+    "createdAt": "2026-05-19T15:05:40.435Z",
+    "region": null
   },
   {
     "id": "042c3973-88f0-4f0f-8b90-3367e7ac069e",
@@ -452,8 +563,11 @@
     "longitude": 27.2326,
     "capacityVolume": 100,
     "predictedFullness": 75,
+    "qrCode": "QR-BIN-RSYZQ0-MPL8SLZ0",
+    "barCode": "9786139865378",
     "regionId": null,
-    "createdAt": "2026-05-19T15:02:25.739Z"
+    "createdAt": "2026-05-19T15:02:25.739Z",
+    "region": null
   },
   {
     "id": "5ec5b12a-f12e-40e9-b019-1d49bbe624c3",
@@ -464,8 +578,11 @@
     "longitude": 27.2308,
     "capacityVolume": 50,
     "predictedFullness": 43,
+    "qrCode": "QR-BIN-MKZ5JK-MPL8SLZA",
+    "barCode": "9787362408485",
     "regionId": null,
-    "createdAt": "2026-05-19T15:00:16.060Z"
+    "createdAt": "2026-05-19T15:00:16.060Z",
+    "region": null
   },
   {
     "id": "fcd18792-41d7-4471-b3ca-64edf2509049",
@@ -476,8 +593,11 @@
     "longitude": 27.2325,
     "capacityVolume": 100,
     "predictedFullness": 64,
+    "qrCode": "QR-BIN-65QOKP-MPL8SLZO",
+    "barCode": "9781707384931",
     "regionId": null,
-    "createdAt": "2026-05-19T14:57:36.737Z"
+    "createdAt": "2026-05-19T14:57:36.737Z",
+    "region": null
   },
   {
     "id": "20332730-8f42-4b8d-b54a-b3a235492826",
@@ -488,8 +608,11 @@
     "longitude": 27.2349,
     "capacityVolume": 100,
     "predictedFullness": 53,
+    "qrCode": "QR-BIN-5WJ7VT-MPL8SM03",
+    "barCode": "9785243290357",
     "regionId": null,
-    "createdAt": "2026-05-19T14:55:17.736Z"
+    "createdAt": "2026-05-19T14:55:17.736Z",
+    "region": null
   },
   {
     "id": "142362be-58d0-48a6-802b-f6139ddfe76a",
@@ -500,8 +623,11 @@
     "longitude": 27.232,
     "capacityVolume": 100,
     "predictedFullness": 45,
+    "qrCode": "QR-BIN-0DUYQ4-MPL8SM0B",
+    "barCode": "9783510433096",
     "regionId": null,
-    "createdAt": "2026-05-19T14:52:14.769Z"
+    "createdAt": "2026-05-19T14:52:14.769Z",
+    "region": null
   },
   {
     "id": "75a9ba4b-4062-4b8e-8806-c73fbbaf0cb4",
@@ -512,8 +638,11 @@
     "longitude": 27.22975,
     "capacityVolume": 100,
     "predictedFullness": 63,
+    "qrCode": "QR-BIN-THVG33-MPL8SM0O",
+    "barCode": "9785848827850",
     "regionId": null,
-    "createdAt": "2026-05-19T14:13:52.142Z"
+    "createdAt": "2026-05-19T14:13:52.142Z",
+    "region": null
   },
   {
     "id": "1cd622a3-3bc8-4fce-94a2-5af5e2cf48be",
@@ -524,8 +653,11 @@
     "longitude": 27.2285,
     "capacityVolume": 100,
     "predictedFullness": 49,
+    "qrCode": "QR-BIN-GXSNDP-MPL8SM0W",
+    "barCode": "9781823809280",
     "regionId": null,
-    "createdAt": "2026-05-19T14:12:23.970Z"
+    "createdAt": "2026-05-19T14:12:23.970Z",
+    "region": null
   },
   {
     "id": "f0136fb4-c29c-4e61-900f-e2bf884975a2",
@@ -536,8 +668,11 @@
     "longitude": 27.229,
     "capacityVolume": 50,
     "predictedFullness": 33,
+    "qrCode": "QR-BIN-FJ1ID9-MPL8SM15",
+    "barCode": "9785707578288",
     "regionId": null,
-    "createdAt": "2026-05-19T14:10:15.811Z"
+    "createdAt": "2026-05-19T14:10:15.811Z",
+    "region": null
   },
   {
     "id": "18d904fd-4593-4711-8419-3f068212e4f0",
@@ -548,8 +683,11 @@
     "longitude": 27.2287,
     "capacityVolume": 100,
     "predictedFullness": 50,
+    "qrCode": "QR-BIN-RFAHZF-MPL8SM1E",
+    "barCode": "9782484936812",
     "regionId": null,
-    "createdAt": "2026-05-19T14:08:14.454Z"
+    "createdAt": "2026-05-19T14:08:14.454Z",
+    "region": null
   },
   {
     "id": "ef3a8efd-01ce-4388-b9e0-0b47b72fcb91",
@@ -560,8 +698,11 @@
     "longitude": 27.2278,
     "capacityVolume": 100,
     "predictedFullness": 60,
+    "qrCode": "QR-BIN-OEVCXA-MPL8SM1O",
+    "barCode": "9787552774211",
     "regionId": null,
-    "createdAt": "2026-05-19T14:06:23.681Z"
+    "createdAt": "2026-05-19T14:06:23.681Z",
+    "region": null
   },
   {
     "id": "6d2d8cae-7f83-4af3-9984-5c713d61bcad",
@@ -572,8 +713,11 @@
     "longitude": 27.228,
     "capacityVolume": 100,
     "predictedFullness": 26,
+    "qrCode": "QR-BIN-QWQMKD-MPL8SM21",
+    "barCode": "9782169379983",
     "regionId": null,
-    "createdAt": "2026-05-19T14:04:32.896Z"
+    "createdAt": "2026-05-19T14:04:32.896Z",
+    "region": null
   },
   {
     "id": "a9053591-62c8-40a8-8468-4fed6b40696f",
@@ -583,9 +727,12 @@
     "latitude": 38.4507,
     "longitude": 27.22928,
     "capacityVolume": 50,
-    "predictedFullness": 53,
+    "predictedFullness": 55,
+    "qrCode": "QR-BIN-CZDIBS-MPL8SM2D",
+    "barCode": "9785131520307",
     "regionId": null,
-    "createdAt": "2026-05-19T13:24:09.598Z"
+    "createdAt": "2026-05-19T13:24:09.598Z",
+    "region": null
   },
   {
     "id": "7de103b1-429e-4210-932f-c4013eb253bf",
@@ -596,8 +743,11 @@
     "longitude": 27.2288,
     "capacityVolume": 100,
     "predictedFullness": 70,
+    "qrCode": "QR-BIN-I8GA34-MPL8SM2L",
+    "barCode": "9786966036831",
     "regionId": null,
-    "createdAt": "2026-05-18T19:05:05.631Z"
+    "createdAt": "2026-05-18T19:05:05.631Z",
+    "region": null
   },
   {
     "id": "59870576-b8b7-475d-b093-d930d98b32ab",
@@ -608,7 +758,10 @@
     "longitude": 27.229,
     "capacityVolume": 100,
     "predictedFullness": 64,
+    "qrCode": "QR-BIN-6FV44K-MPL8SM2W",
+    "barCode": "9781027651985",
     "regionId": null,
-    "createdAt": "2026-05-18T17:12:06.818Z"
+    "createdAt": "2026-05-18T17:12:06.818Z",
+    "region": null
   }
 ]

@@ -11,8 +11,15 @@ const getBaseApiUrl = () => {
     return `http://${hostname}:2001/api`;
   }
 
-  const debuggerHost = Constants.expoConfig?.hostUri;
+  // Expo SDK 50+ ve farklı çalışma modları için daha geniş kapsamlı IP tespiti
+  const debuggerHost = Constants.expoConfig?.hostUri || 
+                       Constants.manifest2?.extra?.expoGo?.debuggerHost || 
+                       Constants.manifest?.debuggerHost;
+                       
   const localhost = debuggerHost?.split(':').shift();
+
+  // iOS Simülatörü ise ve cihaz değilse localhost kullanabilir
+  if (Platform.OS === 'ios' && !Constants.isDevice) return 'http://localhost:2001/api';
 
   if (!localhost) {
     console.warn('[DATABASE_SERVICE] Host IP bulunamadı, 10.0.2.2 (emülatör) deneniyor.');
@@ -20,7 +27,8 @@ const getBaseApiUrl = () => {
   }
 
   const url = `http://${localhost}:2001/api`;
-  console.log('[DATABASE_SERVICE] Dinamik API URL:', url);
+  console.log('🌐 [DATABASE_SERVICE] API Hedef Adresi:', url);
+  console.log('📱 [DATABASE_SERVICE] Platform:', Platform.OS);
   return url;
 };
 
@@ -28,140 +36,163 @@ const BASE_API_URL = getBaseApiUrl();
 const AUTH_API_URL = `${BASE_API_URL}/auth`;
 const USER_API_URL = `${BASE_API_URL}/users`;
 
-class DatabaseService {
-  static getWsUrl(): string {
+const DatabaseService = {
+  getWsUrl(): string {
     if (Platform.OS === 'web') {
       const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
       return `ws://${hostname}:2001`;
     }
-
-    const debuggerHost = Constants.expoConfig?.hostUri;
+    const debuggerHost = Constants.expoConfig?.hostUri || Constants.manifest2?.extra?.expoGo?.debuggerHost;
     const localhost = debuggerHost?.split(':').shift();
-
-    if (!localhost) {
-      return 'ws://10.0.2.2:2001';
-    }
+    if (!localhost) return 'ws://10.0.2.2:2001';
     return `ws://${localhost}:2001`;
-  }
+  },
 
-  private static handleError(error: any): never {
-    console.error('[DATABASE_SERVICE_ERROR]:', error);
-    if (error.name === 'AbortError' || error.message === 'Aborted') {
-      throw new Error('Sunucuya bağlanırken zaman aşımı oluştu. Lütfen sunucunun açık olduğundan emin olun.');
-    }
-    if (error.message === 'Failed to fetch' || error.message.includes('Network request failed')) {
-      throw new Error('Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol ediniz.');
+  handleError(error: any): never {
+    // Failed to fetch durumunda detaylı bilgi bas
+    if (error.message === 'Network request failed') {
+      console.error('❌ [DATABASE_SERVICE_ERROR]: Sunucuya fiziksel erişim sağlanamadı!');
+      console.error(`📍 Hedef URL: ${BASE_API_URL}`);
+      console.error('🛠️  Çözüm Adımları:');
+      console.error('1- Backend terminaline bak; "app crashed" yazıyorsa TypeError düzeltilmemiştir.');
+      console.error('2- Telefon ve PC aynı Wi-Fi ağında mı? Kontrol et.');
+      console.error('3- PC IP adresin değişmiş olabilir. Terminalde "ipconfig" yazıp logdaki IP ile karşılaştır.');
+      throw new Error('Sunucuya bağlanılamadı. Lütfen ağ ayarlarını ve backend loglarını kontrol edin.');
+    } else {
+      console.error('[DATABASE_SERVICE_ERROR]:', error);
     }
     throw error;
-  }
+  },
 
-  /**
-   * Tüm kayıtlı kullanıcıları döner (Backend'den çeker).
-   */
-  static async getUsers(): Promise<User[]> {
+  async safeParseJson(response: Response) {
+    if (response.status === 401 || response.status === 403) {
+      // Gerçek backend hata mesajını okumaya çalış
+      let backendMsg = '';
+      try {
+        const errBody = await response.clone().json();
+        backendMsg = errBody?.message || JSON.stringify(errBody);
+      } catch {
+        backendMsg = await response.clone().text().catch(() => '');
+      }
+      console.error(`🔐 [AUTH HATA] HTTP ${response.status} — Backend mesajı: "${backendMsg}" — URL: ${response.url}`);
+      if (response.status === 401) {
+        throw new Error('Oturumunuzun süresi doldu veya token geçersiz. Lütfen tekrar giriş yapın. (401)');
+      } else {
+        throw new Error('Bu işlem için yetkiniz yok. Hesap rolünüzü kontrol edin. (403)');
+      }
+    }
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      return await response.json();
+    }
+    const text = await response.text();
+    throw new Error(`Sunucu hatası (${response.status}): JSON bekleniyordu ama farklı bir yanıt alındı. Yanıt özeti: ${text.substring(0, 100)}...`);
+  },
+
+  async getUsers(): Promise<User[]> {
     try {
       const token = await AsyncStorage.getItem('accessToken');
       const response = await fetch(`${USER_API_URL}?t=${new Date().getTime()}`, {
         headers: {
           'Authorization': token ? `Bearer ${token}` : '',
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         }
       });
-      if (!response.ok) throw new Error('Kullanıcılar getirilemedi.');
-      const text = await response.text();
-      try {
-        const json = JSON.parse(text);
-        return json.data || [];
-      } catch (parseError) {
-        console.error('[DATABASE_SERVICE] getUsers JSON parse hatası! Ham yanıt:', text.substring(0, 500));
-        throw parseError;
-      }
+      const json = await this.safeParseJson(response);
+      if (!response.ok) throw new Error(json.message || 'Kullanıcılar getirilemedi.');
+      return json.data || [];
     } catch (error) {
       console.error('API okuma hatası:', error);
       return [];
     }
-  }
+  },
 
-  /**
-   * Kullanıcının şifresini değiştirir.
-   */
-  static async changePassword(oldPassword: string, newPassword: string): Promise<void> {
+  async updateUser(arg1: any, arg2?: any): Promise<any> {
+    try {
+      const userData = arg2 !== undefined ? arg2 : arg1;
+      const token = await AsyncStorage.getItem('accessToken');
+      const response = await fetch(`${USER_API_URL}/update-profile`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(userData)
+      });
+      const json = await this.safeParseJson(response);
+      if (!response.ok) throw new Error(json.message || 'Profil güncellenemedi.');
+      return json.data || json;
+    } catch (error) {
+      this.handleError(error);
+    }
+  },
+
+  async changePassword(oldPassword: string, newPassword: string): Promise<void> {
     try {
       const token = await AsyncStorage.getItem('accessToken');
       const response = await fetch(`${AUTH_API_URL}/change-password`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify({ oldPassword, newPassword })
       });
       if (!response.ok) {
-        const json = await response.json();
+        const json = await this.safeParseJson(response);
         throw new Error(json.message || 'Şifre değiştirilemedi.');
       }
     } catch (error) {
       this.handleError(error);
     }
-  }
+  },
 
-  /**
-   * Kullanıcının telefon numarasını veya e-postasını günceller.
-   */
-  static async updateContactInfo(email: string, data: { phoneNumber?: string, email?: string }): Promise<void> {
-    await this.updateUser(email, data);
-  }
-
-  /**
-   * E-posta değişikliği için kod ister.
-   */
-  static async requestEmailChange(newEmail: string): Promise<void> {
+  async requestEmailChange(newEmail: string): Promise<void> {
     try {
       const token = await AsyncStorage.getItem('accessToken');
       const response = await fetch(`${AUTH_API_URL}/request-email-change`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify({ newEmail })
       });
       if (!response.ok) {
-        const json = await response.json();
+        const json = await this.safeParseJson(response);
         throw new Error(json.message || 'Doğrulama kodu gönderilemedi.');
       }
     } catch (error) {
       this.handleError(error);
     }
-  }
+  },
 
-  /**
-   * E-posta değişikliğini kod ile onaylar.
-   */
-  static async verifyEmailChange(newEmail: string, code: string): Promise<void> {
+  async verifyEmailChange(newEmail: string, code: string): Promise<void> {
     try {
       const token = await AsyncStorage.getItem('accessToken');
       const response = await fetch(`${AUTH_API_URL}/verify-email-change`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify({ newEmail, code })
       });
       if (!response.ok) {
-        const json = await response.json();
+        const json = await this.safeParseJson(response);
         throw new Error(json.message || 'Doğrulama başarısız.');
       }
     } catch (error) {
       this.handleError(error);
     }
-  }
+  },
 
-  /**
-   * Aktif oturumdaki kullanıcının profil bilgilerini döner.
-   */
-  static async getCurrentUser(): Promise<User | null> {
+  async getCurrentUser(): Promise<User | null> {
     try {
       const token = await AsyncStorage.getItem('accessToken');
       if (!token) return null;
@@ -169,28 +200,20 @@ class DatabaseService {
       const response = await fetch(`${USER_API_URL}/me?t=${new Date().getTime()}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         }
       });
       if (!response.ok) return null;
-      const text = await response.text();
-      try {
-        const json = JSON.parse(text);
-        return json.data || null;
-      } catch (parseError) {
-        console.error('[DATABASE_SERVICE] getCurrentUser JSON parse hatası! Ham yanıt:', text.substring(0, 500));
-        throw parseError;
-      }
+      const json = await this.safeParseJson(response);
+      return json.data || null;
     } catch (error) {
       console.error('API profile çekme hatası:', error);
       return null;
     }
-  }
+  },
 
-  /**
-   * QR Kodu veya Barkodu backend'e gönderir ve coin ekler.
-   */
-  static async scanQrCode(code: string, coins: number, description?: string, scanType?: 'qr' | 'barcode'): Promise<any> {
+  async scanQrCode(code: string, coins: number, description?: string, scanType?: 'qr' | 'barcode'): Promise<any> {
     try {
       const token = await AsyncStorage.getItem('accessToken');
       if (!token) throw new Error('Oturum bulunamadı.');
@@ -199,479 +222,433 @@ class DatabaseService {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify({ code, coins, description, scanType })
       });
-      const json = await response.json();
-      if (!response.ok) {
-        throw new Error(json.message || 'QR kod veya barkod işlenirken bir hata oluştu.');
-      }
+      const json = await this.safeParseJson(response);
+      if (!response.ok) throw new Error(json.message || 'QR kod işlenirken hata oluştu.');
       return json;
     } catch (error) {
       this.handleError(error);
     }
-  }
-  /**
-   * Kullanıcının işlem geçmişini backend'den çeker.
-   */
-  static async getTransactions(): Promise<any[]> {
+  },
+
+  async getTransactions(): Promise<any[]> {
     try {
       const token = await AsyncStorage.getItem('accessToken');
       if (!token) return [];
-
       const response = await fetch(`${USER_API_URL}/transactions?t=${new Date().getTime()}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         }
       });
-      if (!response.ok) throw new Error('İşlem geçmişi getirilemedi.');
-      const json = await response.json();
+      const json = await this.safeParseJson(response);
+      if (!response.ok) throw new Error(json.message || 'İşlem geçmişi getirilemedi.');
       return json.data || [];
     } catch (error) {
-      console.log('getTransactions hatası (Backend offline olabilir):', error);
+      console.log('getTransactions hatası:', error);
       return [];
     }
-  }
+  },
 
-  /**
-   * Yeni bir kullanıcı kaydeder (Backend /register).
-   */
-  static async addUser(user: any): Promise<void> {
+  async addUser(user: any): Promise<void> {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-
       const response = await fetch(`${AUTH_API_URL}/register`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
-        body: JSON.stringify(user),
-        signal: controller.signal
+        body: JSON.stringify(user)
       });
-      clearTimeout(timeoutId);
-
-      // JSON Korumalı Ayrıştırma Kalkanı
-      let json: any = {};
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        try {
-          json = await response.json();
-        } catch (e) {
-          throw new Error('İşlem sırasında sunucudan geçersiz bir yanıt alındı. Lütfen daha sonra tekrar deneyiniz.');
-        }
-      } else {
-        throw new Error('Sunucu şu anda hizmet veremiyor. Lütfen daha sonra tekrar deneyiniz.');
-      }
-
       if (!response.ok) {
-        const errorMsg = json.message || 'Kayıt sırasında bir hata oluştu. Lütfen bilgilerinizi kontrol edip tekrar deneyiniz.';
-        throw new Error(errorMsg);
+        const json = await this.safeParseJson(response);
+        throw new Error(json.message || 'Kayıt sırasında hata oluştu.');
       }
     } catch (error) {
       this.handleError(error);
     }
-  }
+  },
 
-  /**
-   * Giriş kontrolü (Backend /login).
-   */
-  static async loginUser(email: string, password: string): Promise<any> {
+  async loginUser(email: string, password: string): Promise<any> {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 saniye sonra iptal et
-
       const response = await fetch(`${AUTH_API_URL}/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email, password }),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
-      // JSON Korumalı Ayrıştırma Kalkanı
-      let json: any = {};
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        try {
-          json = await response.json();
-        } catch (e) {
-          throw new Error('Giriş yapılırken sunucudan geçersiz bir yanıt alındı. Lütfen daha sonra tekrar deneyiniz.');
-        }
-      } else {
-        throw new Error('Sunucumuz şu anda hizmet veremiyor. Lütfen daha sonra tekrar deneyiniz.');
-      }
-
-      if (!response.ok) {
-        throw new Error(json.message || 'E-posta veya şifre hatalı. Lütfen bilgilerinizi kontrol ediniz.');
-      }
-
-      // Token'ları AsyncStorage'a kaydet
-      if (json.accessToken) {
-        await AsyncStorage.setItem('accessToken', json.accessToken);
-      }
-      if (json.refreshToken) {
-        await AsyncStorage.setItem('refreshToken', json.refreshToken);
-      }
-
-      // login.tsx tarafının eskisi gibi çalışabilmesi için dönen datayı uyarlıyoruz
-      const userData = json.user || json.data || {};
-      return userData;
-    } catch (error) {
-      this.handleError(error);
-    }
-  }
-
-  /**
-   * (İleride eklenebilir)
-   */
-  static async updateUser(email: string, updates: any): Promise<void> {
-    try {
-      const token = await AsyncStorage.getItem('accessToken');
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-      const response = await fetch(`${USER_API_URL}/update-profile`, {
-        method: 'PUT',
-        headers: {
+        headers: { 
           'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
+          'Accept': 'application/json'
         },
-        body: JSON.stringify({
-          email,
-          ...updates
-        }),
-        signal: controller.signal
+        body: JSON.stringify({ email, password })
       });
-      clearTimeout(timeoutId);
+      const json = await this.safeParseJson(response);
+      if (!response.ok) throw new Error(json.message || 'E-posta veya şifre hatalı.');
 
-      if (!response.ok) {
-        const json = await response.json();
-        throw new Error(json.message || 'Profil güncellenirken hata oluştu.');
-      }
+      if (json.accessToken) await AsyncStorage.setItem('accessToken', json.accessToken);
+      if (json.refreshToken) await AsyncStorage.setItem('refreshToken', json.refreshToken);
+
+      return json.user || json.data || {};
     } catch (error) {
       this.handleError(error);
     }
-  }
+  },
 
-  static async forgotPassword(email: string): Promise<void> {
+  async forgotPassword(email: string): Promise<void> {
     try {
       const response = await fetch(`${AUTH_API_URL}/reset/password`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify({ email })
       });
-
       if (!response.ok) {
-        const json = await response.json();
-        throw new Error(json.message || 'Kod gönderilirken bir hata oluştu.');
+        const json = await this.safeParseJson(response);
+        throw new Error(json.message || 'Sıfırlama linki gönderilemedi.');
       }
     } catch (error: any) {
       this.handleError(error);
     }
-  }
+  },
 
-  static async verifyResetCode(email: string, code: string): Promise<void> {
+  async verifyResetCode(code: string): Promise<void> {
     try {
       const token = await AsyncStorage.getItem('accessToken');
-      const response = await fetch(`${AUTH_API_URL}/verify/mail`, { // Not: Yeni backend GET /verify/mail/:code bekliyor. Bu kısım ileride güncellenebilir.
-        method: 'POST',
+      const response = await fetch(`${AUTH_API_URL}/verify/mail/${code}`, {
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
-        },
-        body: JSON.stringify({ email, code })
+          'Authorization': token ? `Bearer ${token}` : '',
+          'Accept': 'application/json'
+        }
       });
-
       if (!response.ok) {
-        const json = await response.json();
+        const json = await this.safeParseJson(response);
         throw new Error(json.message || 'Kod doğrulanamadı.');
       }
     } catch (error: any) {
       this.handleError(error);
     }
-  }
+  },
 
-  static async resetPassword(email: string, code: string, newPassword: string): Promise<void> {
+  async resetPassword(token: string, newPassword: string): Promise<void> {
     try {
-      const response = await fetch(`${AUTH_API_URL}/reset/password`, { // Not: Yeni backend token bekliyor olabilir.
+      const response = await fetch(`${AUTH_API_URL}/reset/password/${token}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
-        body: JSON.stringify({ email, code, newPassword })
+        body: JSON.stringify({ password: newPassword })
       });
-
       if (!response.ok) {
-        const json = await response.json();
+        const json = await this.safeParseJson(response);
         throw new Error(json.message || 'Şifre güncellenirken hata oluştu.');
       }
     } catch (error: any) {
       this.handleError(error);
     }
-  }
+  },
 
-  static async clearDatabase(): Promise<void> {
-    console.warn("Clear database API'de tanımlı değil.");
-  }
-
-  // ==========================================
-  // EVSEL ATIK TALEPLERİ (WASTE REQUESTS) API İŞLEMLERİ
-  // ==========================================
-
-  static async getWasteRequests(): Promise<any[]> {
+  async getWasteRequests(): Promise<any[]> {
     try {
       const token = await AsyncStorage.getItem('accessToken');
-      console.log(`🔑 [DATABASE_SERVICE] getWasteRequests tetiklendi. Platform: ${Platform.OS} | Token var mı: ${!!token} | Token ilk 15 hane: ${token ? token.substring(0, 15) + '...' : 'YOK'}`);
       const response = await fetch(`${BASE_API_URL}/waste-requests?t=${new Date().getTime()}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
+          'Authorization': token ? `Bearer ${token}` : '',
+          'Accept': 'application/json'
         }
       });
-      if (!response.ok) {
-        console.warn(`❌ [DATABASE_SERVICE] getWasteRequests API hatası! Status: ${response.status}`);
-        throw new Error('Evsel atık talepleri getirilemedi.');
-      }
-      const json = await response.json();
-      return json.data || [];
+      const json = await this.safeParseJson(response);
+      if (!response.ok) throw new Error(json.message || 'Talepler getirilemedi.');
+      return Array.isArray(json) ? json : (json.data || []);
     } catch (error) {
       console.error('getWasteRequests hatası:', error);
       return [];
     }
-  }
+  },
 
-  static async createWasteRequest(requestData: any): Promise<any> {
-    try {
-      const token = await AsyncStorage.getItem('accessToken');
-      const response = await fetch(`${BASE_API_URL}/waste-requests`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
-        },
-        body: JSON.stringify(requestData)
-      });
-      const json = await response.json();
-      if (!response.ok) throw new Error(json.message || 'Evsel atık talebi eklenemedi.');
-      return json;
-    } catch (error) {
-      console.error('createWasteRequest hatası:', error);
-      throw error;
-    }
-  }
-
-  static async updateWasteRequestStatus(id: string, status: string): Promise<any> {
+  async updateWasteRequestStatus(id: string, status: string, earnedCoins?: number, weight?: number): Promise<any> {
     try {
       const token = await AsyncStorage.getItem('accessToken');
       const response = await fetch(`${BASE_API_URL}/waste-requests/${id}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
+          'Authorization': token ? `Bearer ${token}` : '',
+          'Accept': 'application/json'
         },
-        body: JSON.stringify({ status })
+        body: JSON.stringify({ status, earnedCoins, weight })
       });
-      const json = await response.json();
-      if (!response.ok) throw new Error(json.message || 'Talep durumu güncellenemedi.');
+      const json = await this.safeParseJson(response);
+      if (!response.ok) throw new Error(json.message || 'Durum güncellenemedi.');
       return json.data || json;
     } catch (error) {
-      console.error('updateWasteRequestStatus hatası:', error);
-      throw error;
+      this.handleError(error);
     }
-  }
+  },
 
-  // ==========================================
-  // ATIK KUTULARI (BINS) API İŞLEMLERİ
-  // ==========================================
-
-  static async getBins(): Promise<any[]> {
+  async getBins(): Promise<any[]> {
     try {
-      // Sadece timestamp ile cache kırma (Özel headerlar CORS hatası veriyordu)
       const response = await fetch(`${BASE_API_URL}/bins?t=${new Date().getTime()}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        cache: 'no-store'
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
       });
-      if (!response.ok) throw new Error('Kutular getirilemedi.');
-      return await response.json();
+      const json = await this.safeParseJson(response);
+      if (!response.ok) throw new Error(json.message || 'Kutular getirilemedi.');
+      return json;
     } catch (error) {
       console.error('getBins hatası:', error);
       return [];
     }
-  }
+  },
 
-  static async addBin(binData: any): Promise<any> {
+  async addBin(binData: any): Promise<any> {
     try {
+      const token = await AsyncStorage.getItem('accessToken');
+      console.log(`🪣 [ADD_BIN] Token var mı: ${token ? 'EVET' : 'HAYIR — AsyncStorage boş!'}`);
+      if (token) {
+        console.log(`🪣 [ADD_BIN] Token ilk 30 karakter: ${token.substring(0, 30)}...`);
+      }
+      console.log(`🪣 [ADD_BIN] Gönderilen veri: ${JSON.stringify(binData)}`);
       const response = await fetch(`${BASE_API_URL}/bins/create`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
         body: JSON.stringify(binData)
       });
-      if (!response.ok) throw new Error('Kutu eklenemedi.');
-      return await response.json();
+      console.log(`🪣 [ADD_BIN] Backend yanıt kodu: HTTP ${response.status}`);
+      const json = await this.safeParseJson(response);
+      if (!response.ok) throw new Error(json.message || 'Kutu eklenemedi.');
+      return json;
     } catch (error) {
-      console.error('addBin hatası:', error);
       throw error;
     }
-  }
+  },
 
-  static async updateBinItem(id: string, binData: any): Promise<any> {
+  async updateBinItem(id: string, binData: any): Promise<any> {
     try {
+      const token = await AsyncStorage.getItem('accessToken');
       const response = await fetch(`${BASE_API_URL}/bins/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
         body: JSON.stringify(binData)
       });
-      if (!response.ok) throw new Error('Kutu güncellenemedi.');
-      return await response.json();
+      const json = await this.safeParseJson(response);
+      if (!response.ok) throw new Error(json.message || 'Kutu güncellenemedi.');
+      return json;
     } catch (error) {
-      console.error('updateBinItem hatası:', error);
       throw error;
     }
-  }
+  },
 
-  static async deleteBinItem(id: string): Promise<void> {
+  async updateBinFullness(id: string, predictedFullness: number): Promise<any> {
     try {
+      const token = await AsyncStorage.getItem('accessToken');
+      const response = await fetch(`${BASE_API_URL}/bins/${id}/fullness`, {
+        method: 'PATCH',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
+        body: JSON.stringify({ predictedFullness })
+      });
+      const json = await this.safeParseJson(response);
+      if (!response.ok) throw new Error(json.message || 'Kutu doluluk oranı güncellenemedi.');
+      return json;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  async deleteBinItem(id: string): Promise<void> {
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
       const response = await fetch(`${BASE_API_URL}/bins/${id}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 
+          'Accept': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        }
       });
-      if (!response.ok) throw new Error('Kutu silinemedi.');
+      if (!response.ok) {
+        const json = await this.safeParseJson(response);
+        throw new Error(json.message || 'Kutu silinemedi.');
+      }
     } catch (error) {
-      console.error('deleteBinItem hatası:', error);
       throw error;
     }
-  }
+  },
 
-  // ==========================================
-  // ANLAŞMALI MAĞAZALAR (PARTNER STORES)
-  // ==========================================
-  static async getPartnerStores(): Promise<any[]> {
+  async getPartnerStores(): Promise<any[]> {
     try {
       const response = await fetch(`${BASE_API_URL}/partner-stores?t=${new Date().getTime()}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        cache: 'no-store'
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
       });
-      if (!response.ok) throw new Error('Mağazalar getirilemedi.');
-      return await response.json();
+      const json = await this.safeParseJson(response);
+      if (!response.ok) throw new Error(json.error || 'Mağazalar getirilemedi.');
+      return json || [];
     } catch (error) {
-      console.error('getPartnerStores hatası:', error);
-      return [];
+      console.error('getPartnerStores hatası, yerel yedeğe dönülüyor:', error);
+      return partnerStoresData || [];
     }
-  }
+  },
 
-  static async addPartnerStore(storeData: any): Promise<any> {
+  async addPartnerStore(storeData: any): Promise<any> {
     try {
       const response = await fetch(`${BASE_API_URL}/partner-stores/create`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify(storeData)
       });
-      if (!response.ok) throw new Error('Mağaza eklenemedi.');
-      return await response.json();
+      const json = await this.safeParseJson(response);
+      if (!response.ok) throw new Error(json.error || 'Mağaza eklenemedi.');
+      return json;
     } catch (error) {
       console.error('addPartnerStore hatası:', error);
       throw error;
     }
-  }
+  },
 
-  static async deletePartnerStore(id: string): Promise<void> {
+  async deletePartnerStore(id: string): Promise<void> {
     try {
       const response = await fetch(`${BASE_API_URL}/partner-stores/${id}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 
+          'Accept': 'application/json'
+        }
       });
-      if (!response.ok) throw new Error('Mağaza silinemedi.');
+      if (!response.ok) {
+        const json = await this.safeParseJson(response);
+        throw new Error(json.error || 'Mağaza silinemedi.');
+      }
     } catch (error) {
       console.error('deletePartnerStore hatası:', error);
       throw error;
     }
-  }
+  },
 
-  // Profil fotoğrafı değişimlerini tüm ekranlara anlık yansıtmak için Pub-Sub (Yayıncı-Abone) mekanizması
-  static currentProfilePhoto: string | null = null;
-  private static profileListeners: ((photo: string | null) => void)[] = [];
+  async getWasteItems(): Promise<any[]> {
+    try {
+      const response = await fetch(`${BASE_API_URL}/waste-items?t=${new Date().getTime()}`, {
+        method: 'GET',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+      if (!response.ok) throw new Error('Market öğeleri getirilemedi.');
+      return await response.json();
+    } catch (error) {
+      return [];
+    }
+  },
 
-  static subscribeToProfilePhoto(listener: (photo: string | null) => void) {
+  async createWasteItem(itemData: any): Promise<any> {
+    try {
+      const response = await fetch(`${BASE_API_URL}/waste-items`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(itemData)
+      });
+      const json = await this.safeParseJson(response);
+      if (!response.ok) throw new Error(json.error || 'Atık öğesi eklenemedi.');
+      return json;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  async updateWasteItem(id: string, itemData: any): Promise<any> {
+    try {
+      const response = await fetch(`${BASE_API_URL}/waste-items/${id}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(itemData)
+      });
+      const json = await this.safeParseJson(response);
+      if (!response.ok) throw new Error(json.error || 'Atık öğesi güncellenemedi.');
+      return json;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  async deleteWasteItem(id: string): Promise<void> {
+    try {
+      const response = await fetch(`${BASE_API_URL}/waste-items/${id}`, {
+        method: 'DELETE',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!response.ok) throw new Error('Atık öğesi silinemedi.');
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Pub-Sub Mechanism for Theme, Profile and Bins
+  currentProfilePhoto: null as string | null,
+  profileListeners: [] as ((photo: string | null) => void)[],
+  subscribeToProfilePhoto(listener: (photo: string | null) => void) {
     this.profileListeners.push(listener);
-    // Bileşen mount edildiği saniye, hafızadaki en son resmi anında yolla (gecikmesiz yükleme)
-    if (this.currentProfilePhoto !== undefined) {
-      listener(this.currentProfilePhoto);
-    }
-    return () => {
-      this.profileListeners = this.profileListeners.filter(l => l !== listener);
-    };
-  }
+    if (this.currentProfilePhoto !== null) listener(this.currentProfilePhoto);
+    return () => { this.profileListeners = this.profileListeners.filter(l => l !== listener); };
+  },
+  notifyProfilePhotoChanged(photo: string | null) {
+    this.currentProfilePhoto = photo;
+    this.profileListeners.forEach(l => l(photo));
+  },
 
-  static notifyProfilePhotoChanged(photo: string | null) {
-    this.currentProfilePhoto = photo; // Resmi anlık olarak global hafızaya (RAM) kaydet
-    this.profileListeners.forEach(listener => {
-      try {
-        listener(photo);
-      } catch (e) {
-        console.error('Profil fotoğrafı dinleyicisi tetiklenirken hata:', e);
-      }
-    });
-  }
-
-  // Tema değişimlerini anlık yansıtmak için Pub-Sub mekanizması
-  static currentTheme: string = 'light';
-  private static themeListeners: ((theme: string) => void)[] = [];
-
-  static subscribeToTheme(listener: (theme: string) => void) {
+  currentTheme: 'light' as string,
+  themeListeners: [] as ((theme: string) => void)[],
+  subscribeToTheme(listener: (theme: string) => void) {
     this.themeListeners.push(listener);
-    if (this.currentTheme) {
-      listener(this.currentTheme);
-    }
-    return () => {
-      this.themeListeners = this.themeListeners.filter(l => l !== listener);
-    };
-  }
-
-  static notifyThemeChanged(theme: string) {
+    listener(this.currentTheme);
+    return () => { this.themeListeners = this.themeListeners.filter(l => l !== listener); };
+  },
+  notifyThemeChanged(theme: string) {
     this.currentTheme = theme;
-    this.themeListeners.forEach(listener => {
-      try {
-        listener(theme);
-      } catch (e) {
-        console.error('Tema dinleyicisi tetiklenirken hata:', e);
-      }
-    });
-  }
+    this.themeListeners.forEach(l => l(theme));
+  },
 
-  // Atık kutularındaki canlı dolum/boşaltım senkronizasyonu için Pub-Sub mekanizması
-  private static binListeners: (() => void)[] = [];
-
-  static subscribeToBins(listener: () => void) {
+  binListeners: [] as (() => void)[],
+  subscribeToBins(listener: () => void) {
     this.binListeners.push(listener);
-    return () => {
-      this.binListeners = this.binListeners.filter(l => l !== listener);
-    };
+    return () => { this.binListeners = this.binListeners.filter(l => l !== listener); };
+  },
+  notifyBinsChanged() {
+    this.binListeners.forEach(l => l());
   }
-
-  static notifyBinsChanged() {
-    this.binListeners.forEach(listener => {
-      try {
-        listener();
-      } catch (e) {
-        console.error('Atık kutusu dinleyicisi tetiklenirken hata:', e);
-      }
-    });
-  }
-}
+};
 
 export default DatabaseService;

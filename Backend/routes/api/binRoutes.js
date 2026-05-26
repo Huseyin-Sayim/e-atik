@@ -2,30 +2,61 @@ const express = require('express');
 const validate = require('../../middleware/authValidate');
 const validateSchema = require('../../validations/validateSchema');
 const isAuth = require('../../middleware/authentication');
-const hasRole = require('../../middleware/authorization');
+const { PrismaClient } = require('@prisma/client');
 const {
   getBins,
   getBinById,
   createBin,
   updateBin,
   deleteBin,
-  seedDefaultBins,
+  updateBinFullness
 } = require('../../controllers/api/binController');
 
 const router = express.Router();
+const prisma = new PrismaClient();
 
-const adminBoss = [isAuth, hasRole('ADMIN', 'BOSS')];
+// Kurumsal (profileType === 'kurumsal') kullanıcılar ve yetkili personel (role: ADMIN, BOSS, EMPLOYEE)
+// akıllı atık kutularını oluşturma, güncelleme ve silme yetkisine sahiptir.
+const isCorporateOrStaff = async (req, res, next) => {
+  if (!req.user || !req.user.userId) {
+    return res.status(401).json({ message: 'Giriş yapınız!' });
+  }
 
-router.post('/seed', seedDefaultBins);
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { role: true, profileType: true }
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: 'Kullanıcı bulunamadı.' });
+    }
+
+    const isStaff = ['ADMIN', 'BOSS', 'EMPLOYEE'].includes(user.role);
+    const isCorporate = user.profileType === 'kurumsal' || user.profileType === 'CORPORATE';
+
+    if (!isStaff && !isCorporate) {
+      return res.status(403).json({ message: 'Yetkisiz erişim! Bu işlem için kurumsal hesaba veya yetkili personel rolüne sahip olmanız gerekir.' });
+    }
+
+    next();
+  } catch (err) {
+    console.error('Yetkilendirme hatası:', err);
+    return res.status(500).json({ error: 'Sunucu yetkilendirme hatası.' });
+  }
+};
+
+const authGuard = [isAuth, isCorporateOrStaff];
 
 router.get('/', getBins);
 router.get('/:id', getBinById);
 
-router.post('/', ...adminBoss, validate(validateSchema.binCreate), createBin);
-router.post('/create', ...adminBoss, validate(validateSchema.binCreate), createBin);
+router.post('/', ...authGuard, validate(validateSchema.binCreate), createBin);
+router.post('/create', ...authGuard, validate(validateSchema.binCreate), createBin);
 
-router.patch('/:id', ...adminBoss, validate(validateSchema.binUpdate), updateBin);
-router.put('/:id', ...adminBoss, validate(validateSchema.binUpdate), updateBin);
-router.delete('/:id', ...adminBoss, deleteBin);
+router.patch('/:id/fullness', isAuth, updateBinFullness);
+router.patch('/:id', ...authGuard, validate(validateSchema.binUpdate), updateBin);
+router.put('/:id', ...authGuard, validate(validateSchema.binUpdate), updateBin);
+router.delete('/:id', ...authGuard, deleteBin);
 
 module.exports = router;
