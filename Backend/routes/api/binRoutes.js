@@ -9,7 +9,8 @@ const {
   createBin,
   updateBin,
   deleteBin,
-  updateBinFullness
+  updateBinFullness,
+  collectBin
 } = require('../../controllers/api/binController');
 
 const router = express.Router();
@@ -46,6 +47,7 @@ const isCorporateOrStaff = async (req, res, next) => {
   }
 };
 
+const collectorRoles = [isAuth, isCorporateOrStaff];
 const authGuard = [isAuth, isCorporateOrStaff];
 
 router.get('/', getBins);

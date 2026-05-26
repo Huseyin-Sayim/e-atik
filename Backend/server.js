@@ -64,10 +64,10 @@ app.get('/api/users/staff-locations', (req, res) => {
   });
 });
 
-const http = require('http');
+//const http = require('http');
 const { WebSocketServer } = require('ws');
 
-const server = http.createServer(app);
+//const server = http.createServer(app);
 
 // WebSocket Server Kurulumu
 const wss = new WebSocketServer({ noServer: true });

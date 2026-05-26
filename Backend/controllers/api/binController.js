@@ -301,6 +301,22 @@ const updateBin = async (req, res) => {
   }
 };
 
+// Atık toplama rotası için eklenen fonksiyon
+const collectBin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const bin = await prisma.bin.update({
+      where: { id },
+      data: { predictedFullness: 0 },
+      include: { region: true }
+    });
+    broadcastBinEvent('binUpdated', bin);
+    res.status(200).json({ message: 'Atık başarıyla toplandı.', data: bin });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 const deleteBin = async (req, res) => {
   try {
     const { id } = req.params;
@@ -421,6 +437,7 @@ module.exports = {
   deletePartnerStore,
   // Custom Actions
   emptyBin,
+  collectBin,
   updateBinFullness
 };
 
