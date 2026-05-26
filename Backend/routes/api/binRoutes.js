@@ -49,6 +49,7 @@ const isCorporateOrStaff = async (req, res, next) => {
 const authGuard = [isAuth, isCorporateOrStaff];
 
 router.get('/', getBins);
+router.post('/:id/collect', ...collectorRoles, collectBin);
 router.get('/:id', getBinById);
 
 router.post('/', ...authGuard, validate(validateSchema.binCreate), createBin);

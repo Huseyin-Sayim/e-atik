@@ -33,6 +33,10 @@
   <script src="/assets/js/vendors/choice.js"></script>
   <script src="/libs/swiper/swiper-bundle.min.js"></script>
   <script src="/assets/js/vendors/swiper.js"></script>
+  <% if (typeof user !== 'undefined' && user && user.role === 'EMPLOYEE') { %>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/assets/js/employeeLocationReporter.js"></script>
+  <% } %>
 </body>
 
 </html>

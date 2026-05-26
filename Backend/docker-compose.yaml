@@ -1,29 +1,32 @@
 services:
   backend:
     build: .
+    env_file: .env
     ports:
       - "2001:2001"
     volumes:
       - .:/home/node/eAtik
-#      - node_modules_data:/home/node/eAtik/node_modules
-      - /home/node/eAtik/node_modules
+      - node_modules_data:/home/node/eAtik/node_modules
     environment:
       - NODE_ENV=development
       - SEED_DEMO_USERS=true
-      - PORT=${PORT}
-      - DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      - PORT=${PORT:-2001}
+      - DATABASE_URL=postgres://${DB_USER:-postgres}:${DB_PASSWORD:-password}@db:5432/${DB_NAME:-eatik}
+      - ACCESS_SECRET_KEY=${ACCESS_SECRET_KEY:-dev-access-secret-change-me}
+      - REFRESH_SECRET_KEY=${REFRESH_SECRET_KEY:-dev-refresh-secret-change-me}
     depends_on:
       db:
         condition: service_healthy
 
   db:
     image: postgres:15-alpine
+    env_file: .env
     environment:
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-password}
+      - POSTGRES_DB=${DB_NAME:-eatik}
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}" ]
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -31,6 +34,7 @@ services:
       - "5434:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+
 volumes:
   node_modules_data:
   postgres-data:

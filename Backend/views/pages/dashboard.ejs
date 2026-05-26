@@ -1,4 +1,5 @@
 <%- include('../layout/header') %>
+<% const isUserDashboard = user && user.role === 'USER'; %>
 <div class="row mb-3 mt-6 g-6">
   <div class="col-xl-8 col-lg-6">
     <div class="bg-gradient-mixed p-8 py-10 rounded-3 p-lg-7">
@@ -10,120 +11,59 @@
     </div>
   </div>
 </div>
-  <div class="row row-cols-1 row-cols-xl-3 row-cols-md-3 mb-6 mt-3 g-6">
+<%- include('../partials/employeeRegionAlerts') %>
+<div class="row mb-2 mt-3">
+  <div class="col-12">
+    <h2 class="fs-5 mb-0">Geri dönüşüm özeti</h2>
+    <p class="text-secondary small mb-0">Kampüste toplanan atık hacmi (litre)</p>
+  </div>
+</div>
+
+<div class="row row-cols-3 mb-6 g-4">
+  <% const statAccents = ['bg-warning-darker', 'bg-info-darker', 'bg-success-darker', 'bg-primary-darker', 'bg-danger-darker', 'bg-secondary']; %>
+  <% (typeof recyclingStats !== 'undefined' ? recyclingStats : []).forEach(function(stat, index) { %>
   <div class="col">
-    
-    <!-- card -->
-    <div class="card card-lg">
-      <!-- card body -->
-      <div class="card-body d-flex flex-column gap-8">
+    <div class="card card-lg h-100">
+      <div class="card-body d-flex flex-column gap-4">
         <div class="d-flex align-items-center gap-3">
-          <div class="icon-shape icon-lg rounded-circle bg-warning-darker text-warning-lighter">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-                 class="icon icon-tabler icons-tabler-outline icon-tabler-shopping-cart">
-              <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-              <path d="M6 19m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
-              <path d="M17 19m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
-              <path d="M17 17h-11v-14h-2" />
-              <path d="M6 5l14 1l-1 7h-13" />
-            </svg>
+          <div class="icon-shape icon-lg rounded-circle <%= statAccents[index % statAccents.length] %> d-flex align-items-center justify-content-center p-2">
+            <img src="<%= stat.iconUrl %>" alt="" width="28" height="28" class="recycling-stat-icon">
           </div>
-          <div>Orders</div>
+          <div class="small fw-semibold"><%= stat.label %></div>
         </div>
-        <div class="d-flex justify-content-between align-items-center lh-1">
-          <div class="fs-3 fw-bold">5,312</div>
-          <div class="text-success small">
-            <span>2.29%</span>
-            <span>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                           stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-                           class="icon icon-tabler icons-tabler-outline icon-tabler-trending-up">
-                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                        <path d="M3 17l6 -6l4 4l8 -8" />
-                        <path d="M14 7l7 0l0 7" />
-                      </svg>
-                    </span>
-          </div>
+        <div>
+          <div class="fs-3 fw-bold mb-0"><%= stat.formatted %></div>
+          <p class="text-secondary small mb-0">Geri dönüştürülen toplam</p>
         </div>
       </div>
     </div>
   </div>
-  <div class="col">
-    <!-- card -->
-    <div class="card card-lg">
-      <!-- card body -->
-      <div class="card-body d-flex flex-column gap-8">
-        <div class="d-flex align-items-center gap-3">
-          <div class="icon-shape icon-lg rounded-circle bg-success-darker text-success-lighter">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-                 class="icon icon-tabler icons-tabler-outline icon-tabler-coin">
-              <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-              <path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" />
-              <path d="M14.8 9a2 2 0 0 0 -1.8 -1h-2a2 2 0 1 0 0 4h2a2 2 0 1 1 0 4h-2a2 2 0 0 1 -1.8 -1" />
-              <path d="M12 7v10" />
-            </svg>
-          </div>
-          <div>Revenue</div>
+  <% }); %>
+</div>
+
+<style>
+  .recycling-stat-icon {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+  }
+</style>
+
+<% if (isUserDashboard) { %>
+<div class="row mb-6">
+  <div class="col-12 col-lg-6">
+    <div class="card card-lg bg-gradient-mixed border-0">
+      <div class="card-body p-6 d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-4">
+        <div>
+          <h3 class="fs-5 mb-2">Kişisel geri dönüşümünüz</h3>
+          <p class="text-secondary small mb-0">Geri dönüştürdüğünüz atık miktarını kategori bazında takip edin.</p>
         </div>
-        <div class="d-flex justify-content-between align-items-center lh-1">
-          <div class="fs-3 fw-bold">$120,000</div>
-          <div class="text-warning small">
-            <span>2.19%</span>
-            <span>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                           stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-                           class="icon icon-tabler icons-tabler-outline icon-tabler-trending-up">
-                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                        <path d="M3 17l6 -6l4 4l8 -8" />
-                        <path d="M14 7l7 0l0 7" />
-                      </svg>
-                    </span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="col">
-    <!-- card -->
-    <div class="card card-lg">
-      <!-- card body -->
-      <div class="card-body d-flex flex-column gap-8">
-        <div class="d-flex align-items-center gap-3">
-          <div class="icon-shape icon-lg rounded-circle bg-info-darker text-info-lighter">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-                 class="icon icon-tabler icons-tabler-outline icon-tabler-user-circle">
-              <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-              <path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" />
-              <path d="M12 10m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" />
-              <path d="M6.168 18.849a4 4 0 0 1 3.832 -2.849h4a4 4 0 0 1 3.834 2.855" />
-            </svg>
-          </div>
-          <div>Conversion Rate</div>
-        </div>
-        <div class="d-flex justify-content-between align-items-center lh-1">
-          <div class="fs-3 fw-bold">3.5%</div>
-          <div class="text-danger small">
-            <span>3.19%</span>
-            <span>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-                   class="icon icon-tabler icons-tabler-outline icon-tabler-trending-down">
-                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                <path d="M3 7l6 6l4 -4l8 8" />
-                <path d="M21 10l0 7l-7 0" />
-              </svg>
-            </span>
-          </div>
-        </div>
+        <a href="/user/my-recycling" class="btn btn-primary flex-shrink-0">Geri dönüşümümü gör</a>
       </div>
     </div>
   </div>
 </div>
-
-
+<% } %>
 
 <div class="map-container col-md-8 d-flex flex-column justify-content-between align-items-center">
   <div class="map-info col-md-3 d-flex flex-column gap-3 align-items-start">
@@ -136,16 +76,25 @@
 
     </select>
   </div>
-  <div class="col-md-12" id="map">
+  <div class="col-md-12" id="map"></div>
 
-  </div>
+  <div class="map-bin-legend d-flex flex-wrap gap-3 align-items-center mt-2 mb-3" id="map-bin-legend"></div>
 </div>
 
+<style>
+  .map-bin-legend { font-size: 0.875rem; }
+  .map-bin-legend__group { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+  .map-bin-legend__item { display: inline-flex; align-items: center; gap: 0.35rem; }
+  .map-bin-legend__item img { width: 20px; height: 20px; object-fit: contain; }
+  .leaflet-marker-icon { image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; }
+</style>
+
+<link rel="stylesheet" href="/assets/css/map-pin-marker.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="/assets/js/map/binMapIcons.js"></script>
 <script src="https://unpkg.com/@mapbox/leaflet-pip@latest/leaflet-pip.js"></script>
 
 <script>
-  // 1. HARİTA VE TEMEL DEĞİŞKENLER
   const map = L.map('map').setView([38.459, 27.228], 15);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap'
@@ -156,25 +105,18 @@
   let binLayerGroup = L.layerGroup().addTo(map);
   let campusGeoJson = null;
 
-  // Zoom ölçeklendirme için baz değerler
-  const baseZoom = 15;
-  const baseSize = 35;
+  const MAP_ICON_OPTS = { baseZoom: 15, baseSize: 22 };
 
-  // 2. DİNAMİK İKON HESAPLAMA
-  function getDynamicIcon(zoom) {
-    // Zoom seviyesine göre boyutu oranla (Min 15px, Max 60px sınırlamasıyla)
-    let size = (zoom / baseZoom) * baseSize;
-    size = Math.min(Math.max(size, 15), 60);
-
-    return L.icon({
-      iconUrl: '/assets/images/trash.jpg',
-      iconSize: [size, size],
-      iconAnchor: [size / 2, size],
-      popupAnchor: [0, -size]
-    });
+  function renderMapLegend() {
+    const el = document.getElementById('map-bin-legend');
+    if (!el) return;
+    el.innerHTML = renderMapLegendHtml();
   }
 
-  // 3. MEVCUT KOVALARI YÜKLEME (HARİTA AÇILIŞINDA)
+  function markerIconOptions(bin) {
+    return { ...MAP_ICON_OPTS, wasteCategory: bin.wasteCategory };
+  }
+
   async function loadExistingBins() {
     try {
       // 3a. Atık Kutularını (Bins) Yükle
@@ -184,15 +126,20 @@
 
       binLayerGroup.clearLayers();
 
-      bins.forEach(bin => {
+      bins.forEach((bin) => {
         const marker = L.marker([bin.latitude, bin.longitude], {
-          icon: getDynamicIcon(currentZoom)
+          icon: getBinIcon(bin.type, currentZoom, markerIconOptions(bin)),
         });
+
+        marker.binId = bin.id;
+        marker.binType = bin.type;
+        marker.binWasteCategory = bin.wasteCategory;
+        marker.binRecord = bin;
 
         marker.bindPopup(`
           <div class="text-center">
-            <h6 class="mb-1">${bin.type}</h6>
-            <p class="small mb-1">${bin.wasteCategory}</p>
+            <h6 class="mb-1">${getBinTypeLabel(bin.type, bin.wasteCategory)}</h6>
+            <p class="small mb-1">${bin.type === 'WASTE_POINT' ? getWasteCategoryLabel(bin.wasteCategory) : bin.wasteCategory}</p>
             <div class="progress" style="height: 8px;">
               <div class="progress-bar ${bin.predictedFullness > 0.8 ? 'bg-danger' : 'bg-success'}"
                    style="width: ${bin.predictedFullness * 100}%"></div>
@@ -324,14 +271,16 @@
       .catch((err) => console.error('Bölge yüklenemedi:', err));
   }
 
-  // 5. ZOOM DEĞİŞTİĞİNDE İKONLARI YENİDEN BOYUTLANDIR
-  map.on('zoomend', function() {
+  map.on('zoomend', function () {
     const currentZoom = map.getZoom();
-    const updatedIcon = getDynamicIcon(currentZoom);
-
-    binLayerGroup.eachLayer(layer => {
-      if (layer instanceof L.Marker) {
-        layer.setIcon(updatedIcon);
+    binLayerGroup.eachLayer((layer) => {
+      if (layer instanceof L.Marker && layer.binType) {
+        layer.setIcon(
+          getBinIcon(layer.binType, currentZoom, {
+            ...MAP_ICON_OPTS,
+            wasteCategory: layer.binWasteCategory,
+          })
+        );
       }
     });
   });
@@ -422,8 +371,12 @@
 
   // 8. BAŞLATICI
   window.onload = () => {
+    renderMapLegend();
     loadCampusAreas();
     loadExistingBins();
+    initFullnessSocket();
   };
 </script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/assets/js/socketClient.js"></script>
 <%- include('../layout/footer') %>

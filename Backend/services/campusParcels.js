@@ -46,10 +46,43 @@ function assertPointInParcel(lat, lng, parcelKey) {
   return { ok: true };
 }
 
+/**
+ * @param {number} lat
+ * @param {number} lng
+ * @returns {string|null} parcel key (feature id) or null
+ */
+function findParcelKeyForPoint(lat, lng) {
+  const coll = loadCollection();
+  const pt = point([lng, lat]);
+
+  for (const feature of coll.features) {
+    if (!feature.geometry) continue;
+    if (booleanPointInPolygon(pt, feature)) {
+      return featureParcelKey(feature);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * @param {number} lat
+ * @param {number} lng
+ */
+function assertPointInCampus(lat, lng) {
+  const parcelKey = findParcelKeyForPoint(lat, lng);
+  if (!parcelKey) {
+    return { ok: false, message: 'Konum kampüs sınırları dışında.' };
+  }
+  return { ok: true, parcelKey };
+}
+
 module.exports = {
   loadCollection,
   getParcelFeature,
   listParcelKeys,
   assertPointInParcel,
+  assertPointInCampus,
+  findParcelKeyForPoint,
   featureParcelKey,
 };

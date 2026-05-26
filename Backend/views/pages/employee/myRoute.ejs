@@ -1,0 +1,192 @@
+<%- include('../../layout/header') %>
+
+<div class="row mb-3 mt-3">
+  <div class="col-12">
+    <h1 class="fs-3 mb-2"><%= user.employeeType === 'WASTE_COLLECTOR' ? 'Atık toplama rotası' : 'Benim Rotam' %></h1>
+    <p class="text-secondary mb-0">
+      <% if (user.employeeType === 'WASTE_COLLECTOR') { %>
+        Evden atık talepleri mesafe ve bekleme süresine göre sıralanır. Haritada yalnızca <strong>şu anki adımın</strong> yol tarifi gösterilir.
+      <% } else { %>
+        Durak sırası doluluk ve yakınlığa göre belirlenir. Haritada yalnızca <strong>şu anki adımın</strong> yol tarifi
+        gösterilir; bir durağı topladıktan sonra sonraki durağa geçersiniz.
+      <% } %>
+    </p>
+  </div>
+</div>
+
+<div id="route-region-alert" class="row mb-3 d-none">
+  <div class="col-12">
+    <div class="alert alert-warning d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-3 mb-0">
+      <div>
+        <strong>Çalışma bölgenizi seçin</strong>
+        <p class="mb-0 small">Rota hesaplamak için önce görev bölgenizi tanımlamanız gerekir.</p>
+      </div>
+      <a href="/employee/work-region" class="btn btn-warning btn-sm flex-shrink-0">Bölge seç</a>
+    </div>
+  </div>
+</div>
+
+<div id="route-content" class="d-none">
+  <div class="row mb-3">
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-4">
+          <div class="d-flex flex-wrap justify-content-between gap-3">
+            <div>
+              <p class="text-secondary small mb-1">Bölge</p>
+              <p class="fw-semibold mb-0" id="route-region-name">—</p>
+            </div>
+            <div>
+              <p class="text-secondary small mb-1">Başlangıç (demo)</p>
+              <p class="fw-semibold mb-0 small" id="route-start-coords">—</p>
+            </div>
+            <div>
+              <p class="text-secondary small mb-1">İlerleme</p>
+              <p class="fw-semibold mb-0" id="route-progress-text">—</p>
+            </div>
+            <div>
+              <p class="text-secondary small mb-1">Toplam durak</p>
+              <p class="fw-semibold mb-0" id="route-stop-count">0</p>
+            </div>
+            <div>
+              <p class="text-secondary small mb-1">Yol mesafesi</p>
+              <p class="fw-semibold mb-0" id="route-total-km">0 km</p>
+            </div>
+            <div id="route-drive-time-wrap" class="d-none">
+              <p class="text-secondary small mb-1">Tahmini sürüş</p>
+              <p class="fw-semibold mb-0" id="route-drive-min">—</p>
+            </div>
+            <div>
+              <p class="text-secondary small mb-1" id="route-avg-label">Ort. doluluk</p>
+              <p class="fw-semibold mb-0" id="route-avg-fullness">0%</p>
+            </div>
+          </div>
+          <p id="route-road-warning" class="text-warning small mb-0 mt-3 d-none"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-3">
+          <div id="route-step-banner" class="route-step-banner alert alert-primary mb-3 d-none" role="status"></div>
+          <div id="route-leg-loading" class="text-secondary small mb-2 d-none">Yol tarifi hesaplanıyor…</div>
+          <div id="route-map" class="route-map"></div>
+          <p class="text-secondary small mt-2 mb-1">
+            Kırmızı çizgi: şu anki durağa giden yol. Mavi pin başlangıç; hedef durak numaralı ve doluluğa göre renklidir.
+          </p>
+          <div class="route-fullness-legend" aria-hidden="true">
+            <span class="route-fullness-legend__label">Düşük</span>
+            <span class="route-fullness-legend__bar"></span>
+            <span class="route-fullness-legend__label">Yüksek</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-transparent border-0 pb-0">
+          <h2 class="fs-6 fw-semibold mb-0">Adımlar</h2>
+          <p class="text-secondary small mb-0 mt-1">Aktif durakta topladıktan sonra sonrakine geçin.</p>
+        </div>
+        <div class="card-body pt-2">
+          <ol id="route-stop-list" class="route-stop-list mb-0 ps-3"></ol>
+          <p id="route-empty-list" class="text-secondary small mb-0 d-none">
+            Bu bölgede rota için kova bulunamadı.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="route-loading" class="text-center text-secondary py-8">
+  <p class="mb-0">Rota hesaplanıyor…</p>
+</div>
+
+<style>
+  .route-map {
+    height: 420px;
+    border-radius: 0.5rem;
+    z-index: 0;
+  }
+  .route-stop-list li {
+    margin-bottom: 0.75rem;
+    list-style: none;
+    margin-left: -1rem;
+  }
+  .route-stop-list li:last-child {
+    margin-bottom: 0;
+  }
+  .route-stop-item--pending {
+    opacity: 0.55;
+  }
+  .route-stop-item--active {
+    opacity: 1;
+    background: rgba(13, 110, 253, 0.06);
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.5rem 0.5rem 0;
+    margin-left: -0.5rem;
+  }
+  .route-stop-item--completed {
+    opacity: 0.7;
+  }
+  .route-stop-item--completed strong {
+    text-decoration: line-through;
+    font-weight: 500 !important;
+  }
+  .route-stop-item__row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+  .route-stop-item__body {
+    flex: 1;
+    min-width: 0;
+  }
+  .route-step-banner {
+    margin-bottom: 0.75rem;
+  }
+  .route-order-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    padding: 0 0.35rem;
+    border-radius: 999px;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-right: 0.35rem;
+  }
+  .route-fullness-legend {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    max-width: 220px;
+  }
+  .route-fullness-legend__bar {
+    flex: 1;
+    height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(to right, #0d6efd, #dc3545);
+  }
+  .route-fullness-legend__label {
+    font-size: 0.7rem;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+  }
+</style>
+
+<link rel="stylesheet" href="/assets/css/map-pin-marker.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/assets/js/map/binMapIcons.js"></script>
+<script src="/assets/js/socketClient.js"></script>
+<script src="/assets/js/map/employeeRouteMap.js"></script>
+
+<%- include('../../layout/footer') %>

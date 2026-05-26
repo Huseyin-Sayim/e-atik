@@ -1,0 +1,179 @@
+<%- include('../layout/landing-header') %>
+
+<nav class="landing-nav py-3">
+  <div class="container">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+      <a href="/" class="d-flex align-items-center gap-2 text-decoration-none text-body">
+        <img src="/assets/images/brand/logo/logo-icon.svg" alt="E-Atık" width="32" height="32" />
+        <span class="fw-bold fs-5">E-Atık</span>
+      </a>
+      <ul class="nav align-items-center gap-1 gap-lg-2 mb-0">
+        <li class="nav-item"><a class="nav-link px-2" href="#hakkimizda">Hakkımızda</a></li>
+        <li class="nav-item"><a class="nav-link px-2" href="#ozellikler">Özellikler</a></li>
+        <li class="nav-item"><a class="nav-link px-2" href="#harita-onizleme">Harita</a></li>
+        <li class="nav-item"><a class="nav-link px-2" href="#vizyon">Vizyon</a></li>
+        <li class="nav-item"><a class="nav-link px-2" href="#misyon">Misyon</a></li>
+      </ul>
+      <div class="d-flex align-items-center gap-2">
+        <% if (typeof showDashboardLink !== 'undefined' && showDashboardLink) { %>
+        <a href="/dashboard" class="btn btn-outline-primary btn-sm">Panele Git</a>
+        <% } %>
+        <a href="/login" class="btn btn-outline-secondary btn-sm">Giriş Yap</a>
+        <a href="/register" class="btn btn-primary btn-sm">Kayıt Ol</a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<section class="landing-hero">
+  <div class="container">
+    <div class="row align-items-center g-5">
+      <div class="col-lg-7">
+        <div class="bg-gradient-mixed rounded-4 p-5 p-lg-6">
+          <p class="text-uppercase small fw-semibold text-secondary mb-2">Akıllı Kova</p>
+          <h1 class="display-5 fw-bold mb-3">Kampüs atık yönetimini akıllı ve sürdürülebilir kılın</h1>
+          <p class="lead mb-4 text-secondary">
+            E-Atık ile kova doluluklarını takip edin, geri dönüşüm verilerini görün ve saha ekiplerinizi
+            veriye dayalı yönetin — hepsi tek bir kampüs haritası üzerinde.
+          </p>
+          <div class="d-flex flex-wrap gap-2">
+            <a href="/login" class="btn btn-primary btn-lg">Giriş Yap</a>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-5" id="harita-onizleme">
+        <div class="card border-0 shadow-sm overflow-hidden landing-map-card h-100">
+          <div class="card-body p-3 d-flex flex-column">
+            <p class="small text-secondary mb-2 mb-md-3">
+              <i class="ti ti-map-pin me-1"></i>
+              Canlı kampüs önizlemesi — kovalara tıklayarak doluluk durumunu görün
+            </p>
+            <div id="landing-map" class="landing-map flex-grow-1"></div>
+            <div id="landing-map-legend" class="landing-map-legend mt-2"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="hakkimizda" class="landing-section">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-8 text-center">
+        <h2 class="fw-bold mb-3">Hakkımızda</h2>
+        <p class="text-secondary fs-5 mb-0">
+          E-Atık (Akıllı Kova), üniversite kampüslerinde atık toplama süreçlerini dijitalleştirmek için
+          geliştirilmiş bir yönetim platformudur. Kova konumları, doluluk tahminleri, geri dönüşüm
+          istatistikleri ve saha operasyonları tek panelde bir araya gelir; böylece hem yönetim hem de
+          kampüs sakinleri sürdürülebilirlik hedeflerine şeffaf biçimde katkı sunar.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="ozellikler" class="landing-section landing-section-alt">
+  <div class="container">
+    <div class="text-center mb-5">
+      <h2 class="fw-bold mb-2">Neler yapıyoruz?</h2>
+      <p class="text-secondary mb-0">Platformun sunduğu temel yetenekler</p>
+    </div>
+    <div class="row g-4">
+      <div class="col-md-6 col-lg-4">
+        <div class="card feature-card border-0 shadow-sm">
+          <div class="card-body p-4">
+            <div class="feature-icon mb-3"><i class="ti ti-map-2"></i></div>
+            <h3 class="h5 fw-semibold">Kampüs haritası ve kova yönetimi</h3>
+            <p class="text-secondary small mb-0">Kovaları harita üzerinde görün, ekleyin ve bölge bazlı yönetin.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="card feature-card border-0 shadow-sm">
+          <div class="card-body p-4">
+            <div class="feature-icon mb-3"><i class="ti ti-alert-triangle"></i></div>
+            <h3 class="h5 fw-semibold">Doluluk tahmini ve uyarılar</h3>
+            <p class="text-secondary small mb-0">%80 ve üzeri dolulukta çalışanlara bölge bazlı kritik uyarılar.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="card feature-card border-0 shadow-sm">
+          <div class="card-body p-4">
+            <div class="feature-icon mb-3"><i class="ti ti-recycle"></i></div>
+            <h3 class="h5 fw-semibold">Geri dönüşüm özeti</h3>
+            <p class="text-secondary small mb-0">Kampüs genelinde toplanan atık hacmini kategori bazında izleyin.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="card feature-card border-0 shadow-sm">
+          <div class="card-body p-4">
+            <div class="feature-icon mb-3"><i class="ti ti-route"></i></div>
+            <h3 class="h5 fw-semibold">Çalışan bölge ve rota</h3>
+            <p class="text-secondary small mb-0">Çalışma bölgesi seçimi ve rota planlama altyapısı.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="card feature-card border-0 shadow-sm">
+          <div class="card-body p-4">
+            <div class="feature-icon mb-3"><i class="ti ti-message-report"></i></div>
+            <h3 class="h5 fw-semibold">Kullanıcı atık talepleri</h3>
+            <p class="text-secondary small mb-0">Kampüs sakinleri konumlarından atık bildirimi oluşturabilir.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="card feature-card border-0 shadow-sm">
+          <div class="card-body p-4">
+            <div class="feature-icon mb-3"><i class="ti ti-current-location"></i></div>
+            <h3 class="h5 fw-semibold">Canlı konum takibi</h3>
+            <p class="text-secondary small mb-0">Yöneticiler saha çalışanlarının anlık konumunu haritada izler.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="vizyon" class="landing-section">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <div class="card vision-mission-card shadow-sm h-100 p-4 p-lg-5">
+          <h2 class="fw-bold mb-3">Vizyonumuz</h2>
+          <p class="text-secondary mb-0">
+            Veri odaklı, sürdürülebilir ve yaşanabilir kampüsler inşa etmek; atık yönetimini reaktif
+            müdahaleden öngörülebilir, şeffaf ve toplulukla uyumlu bir modele dönüştürmek.
+          </p>
+        </div>
+      </div>
+      <div id="misyon" class="col-lg-6">
+        <div class="card vision-mission-card shadow-sm h-100 p-4 p-lg-5">
+          <h2 class="fw-bold mb-3">Misyonumuz</h2>
+          <p class="text-secondary mb-0">
+            Kampüs atık akışını uçtan uca dijitalleştirerek hızlı müdahale, doğru kaynak kullanımı ve
+            geri dönüşüm bilincini artırmak; yöneticiler, çalışanlar ve kullanıcılar için ortak bir
+            sürdürülebilirlik platformu sunmak.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="landing-cta-band py-5">
+  <div class="container text-center">
+    <h2 class="fw-bold mb-2">Yönetim paneline hazır mısınız?</h2>
+    <p class="text-secondary mb-4">Hesabınızla giriş yaparak harita, istatistikler ve operasyon araçlarına erişin.</p>
+    <a href="/login" class="btn btn-primary btn-lg">Panele giriş yapın</a>
+  </div>
+</section>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="/assets/js/map/binMapIcons.js"></script>
+<script src="/assets/js/map/landingMap.js"></script>
+<%- include('../layout/landing-footer') %>

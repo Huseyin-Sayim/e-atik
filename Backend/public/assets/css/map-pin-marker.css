@@ -1,0 +1,44 @@
+.leaflet-div-icon.map-pin-marker-host {
+  background: transparent;
+  border: none;
+}
+
+.map-pin-marker {
+  position: relative;
+  display: block;
+  line-height: 0;
+}
+
+.map-pin-marker__shell {
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+
+.map-pin-marker__glyph {
+  position: absolute;
+  left: 50%;
+  top: 28%;
+  transform: translate(-50%, -50%);
+  width: 48%;
+  height: 48%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.map-bin-legend__pin {
+  display: inline-flex;
+  align-items: flex-end;
+  vertical-align: middle;
+}
+
+.map-bin-legend__pin .map-pin-marker {
+  width: 16px;
+  height: 26px;
+}
+
+.map-bin-legend__item img {
+  width: 20px;
+  height: 20px;
+}
