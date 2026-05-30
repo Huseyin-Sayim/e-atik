@@ -10,6 +10,7 @@ const {
   updateBin,
   deleteBin,
   seedDefaultBins,
+  collectBin,
 } = require('../../controllers/api/binController');
 
 const router = express.Router();

@@ -138,6 +138,7 @@
 <script src="https://unpkg.com/@mapbox/leaflet-pip@latest/leaflet-pip.js"></script>
 
 <script>
+  const DASHBOARD_USER_ROLE = '<%= user.role %>';
   const map = L.map('map').setView([38.459, 27.228], 15);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap'
@@ -158,6 +159,28 @@
 
   function markerIconOptions(bin) {
     return { ...MAP_ICON_OPTS, wasteCategory: bin.wasteCategory };
+  }
+
+  function formatWasteTypeLabel(req) {
+    if (!req.wasteType) return 'Evsel Atık';
+    if (typeof req.wasteType === 'string') {
+      if (req.wasteType === 'DOMESTIC') return 'Organik Atık';
+      if (req.wasteType === 'ELECTRONIC') return 'Elektronik Atık';
+      if (req.wasteType === 'PLASTIC') return 'Ambalaj Atığı';
+      return req.wasteType;
+    }
+    const parent = req.wasteType.parent ? req.wasteType.parent.name + ' — ' : '';
+    return parent + (req.wasteType.name || 'Evsel Atık');
+  }
+
+  function binFullnessRatio(bin) {
+    const v = Number(bin?.predictedFullness ?? 0);
+    if (!Number.isFinite(v) || v <= 0) return 0;
+    return v > 1 ? Math.min(1, v / 100) : Math.min(1, v);
+  }
+
+  function binFullnessPercent(bin) {
+    return Math.round(binFullnessRatio(bin) * 100);
   }
 
   async function loadExistingBins() {
@@ -184,28 +207,27 @@
             <h6 class="mb-1">${getBinTypeLabel(bin.type, bin.wasteCategory)}</h6>
             <p class="small mb-1">${bin.type === 'WASTE_POINT' ? getWasteCategoryLabel(bin.wasteCategory) : bin.wasteCategory}</p>
             <div class="progress" style="height: 8px;">
-              <div class="progress-bar ${bin.predictedFullness > 0.8 ? 'bg-danger' : 'bg-success'}"
-                   style="width: ${bin.predictedFullness * 100}%"></div>
+              <div class="progress-bar ${binFullnessRatio(bin) > 0.8 ? 'bg-danger' : 'bg-success'}"
+                   style="width: ${binFullnessPercent(bin)}%"></div>
             </div>
-            <small>%${(bin.predictedFullness * 100).toFixed(0)} Dolu</small>
+            <small>%${binFullnessPercent(bin)} Dolu</small>
           </div>
         `);
         marker.addTo(binLayerGroup);
       });
 
       // 3b. Evsel Atık Taleplerini (Waste Requests) Yükle
-      try {
-        const reqResponse = await fetch('/api/waste-requests');
-        const reqResult = await reqResponse.json();
-        const requests = reqResult.data || [];
+      if (['ADMIN', 'BOSS', 'EMPLOYEE'].includes(DASHBOARD_USER_ROLE)) {
+        try {
+          const reqResponse = await fetch('/api/waste-requests', { credentials: 'same-origin' });
+          if (reqResponse.ok) {
+            const reqResult = await reqResponse.json();
+            const requests = Array.isArray(reqResult) ? reqResult : (reqResult.data || []);
 
-        const activeRequests = requests.filter(r => r.status === 'PENDING' || r.status === 'ON_ROUTE');
+            const activeRequests = requests.filter(r => r.status === 'PENDING' || r.status === 'ON_ROUTE');
 
-        activeRequests.forEach(req => {
-          let catName = 'Evsel Atık';
-          if (req.wasteType === 'DOMESTIC') catName = 'Organik Atık';
-          else if (req.wasteType === 'ELECTRONIC') catName = 'Elektronik Atık';
-          else if (req.wasteType === 'PLASTIC') catName = 'Ambalaj Atığı';
+            activeRequests.forEach(req => {
+              const catName = formatWasteTypeLabel(req);
 
           const requestHtml = `
             <div class="custom-request-pin" style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 36px; height: 36px; background-color: #2563eb; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 2px 8px rgba(37, 99, 235, 0.5); color: #fff;">
@@ -241,9 +263,11 @@
             </div>
           `);
           marker.addTo(binLayerGroup);
-        });
-      } catch (reqErr) {
-        console.error("Evsel atık talepleri yüklenemedi:", reqErr);
+            });
+          }
+        } catch (reqErr) {
+          console.error("Evsel atık talepleri yüklenemedi:", reqErr);
+        }
       }
 
     } catch (err) {
@@ -369,8 +393,9 @@
   async function completeRequestFromWeb(requestId) {
     if (!confirm("Bu evsel atık talebini toplandı olarak işaretlemek istediğinize emin misiniz?")) return;
     try {
-      const res = await fetch(`/api/waste-requests/${requestId}/status`, {
-        method: 'PUT',
+      const res = await fetch(`/api/waste-requests/${requestId}`, {
+        method: 'PATCH',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'COLLECTED' })
       });

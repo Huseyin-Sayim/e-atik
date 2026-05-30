@@ -4,6 +4,7 @@ const {
   calculatePredictedFullness,
   enrichBinWithFullness,
   getLastEmptiedAt,
+  normalizeFullnessRatio,
 } = require('../../services/binFullness');
 const { findLatestEmptiedAtByBinIds } = require('../../services/binFullnessRepository');
 const { emitBinFullnessUpdated } = require('../../services/binFullnessBroadcast');
@@ -67,19 +68,6 @@ async function attachFullnessAndSync(bins) {
 const getBins = async (req, res) => {
   try {
     const { regionId } = req.query;
-    const backupPath = path.join(__dirname, '../../data-backups/bins-backup.json');
-    if (fs.existsSync(backupPath)) {
-      const raw = fs.readFileSync(backupPath, 'utf-8');
-      let bins = JSON.parse(raw);
-      console.log('📖 [OKUMA] Çöp kutuları doğrudan bins-backup.json dosyasından okundu.');
-      if (regionId && typeof regionId === 'string') {
-        bins = bins.filter(b => b.regionId === regionId || (b.region && b.region.region_id === regionId));
-      }
-      return res.status(200).json(bins);
-    }
-
-    // Eğer yedek dosyası yoksa veritabanından çek ve yedek dosyasını sıfırdan oluştur
-    console.log('⚠️ [OKUMA] bins-backup.json bulunamadı. Veritabanından okunuyor...');
     const where = {};
     if (regionId && typeof regionId === 'string') {
       where.regionId = regionId;
@@ -89,14 +77,8 @@ const getBins = async (req, res) => {
       include: { region: regionSelect },
       orderBy: { createdAt: 'desc' },
     });
-
-    const backupDir = path.dirname(backupPath);
-    if (!fs.existsSync(backupDir)) {
-      fs.mkdirSync(backupDir, { recursive: true });
-    }
-    fs.writeFileSync(backupPath, JSON.stringify(bins, null, 2), 'utf-8');
-
-    res.status(200).json(bins);
+    const enriched = await attachFullnessAndSync(bins);
+    res.status(200).json(enriched);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -271,7 +253,7 @@ const seedDefaultBins = async (req, res) => {
             wasteCategory: bin.wasteCategory || 'GENERAL',
             type: bin.type || 'WASTE_POINT',
             capacityVolume: parseFloat(bin.capacityVolume || 100),
-            predictedFullness: parseFloat(bin.predictedFullness || 0)
+            predictedFullness: normalizeFullnessRatio(bin.predictedFullness || 0),
           }));
           sourceMessage = 'yerel JSON yedek dosyası (bins-backup.json)';
         }
@@ -296,7 +278,7 @@ const seedDefaultBins = async (req, res) => {
           wasteCategory: wasteCat,
           type: 'WASTE_POINT',
           capacityVolume: 100,
-          predictedFullness: bin.fillPercentage || 0,
+          predictedFullness: normalizeFullnessRatio(bin.fillPercentage || 0),
         };
       });
     }
@@ -318,6 +300,62 @@ const seedDefaultBins = async (req, res) => {
   }
 };
 
+const collectBin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const employeeId = req.user?.userId;
+
+    if (!employeeId) {
+      return res.status(401).json({ message: 'Giriş yapınız.' });
+    }
+
+    const bin = await prisma.bin.findUnique({
+      where: { id },
+      include: { region: regionSelect },
+    });
+
+    if (!bin) {
+      return res.status(404).json({ message: 'Çöp kutusu bulunamadı.' });
+    }
+
+    const latestMap = await findLatestEmptiedAtByBinIds([id]);
+    const lastEmptiedAt = getLastEmptiedAt(bin, latestMap.get(id));
+    const actualFullness = calculatePredictedFullness(bin, lastEmptiedAt);
+
+    const [log, updatedBin] = await prisma.$transaction([
+      prisma.collectionLog.create({
+        data: {
+          binId: id,
+          employeeId,
+          actualFullness,
+        },
+      }),
+      prisma.bin.update({
+        where: { id },
+        data: { predictedFullness: 0 },
+        include: { region: regionSelect },
+      }),
+    ]);
+
+    const enriched = enrichBinWithFullness(updatedBin, log.emptiedAt);
+
+    emitBinFullnessUpdated(id).catch((err) => {
+      console.error('[collectBin] fullness broadcast', err);
+    });
+
+    res.status(201).json({
+      message: 'Kova boşaltma kaydı oluşturuldu.',
+      data: {
+        collectionLog: log,
+        bin: enriched,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 module.exports = {
   getBins,
   getBinById,
@@ -325,4 +363,5 @@ module.exports = {
   updateBin,
   deleteBin,
   seedDefaultBins,
+  collectBin,
 };

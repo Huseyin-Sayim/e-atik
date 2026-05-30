@@ -10,6 +10,25 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+/** 0–1 oran; eski kayıtlarda 0–100 yüzde olarak saklanmış olabilir. */
+function normalizeFullnessRatio(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) {
+    return 0;
+  }
+  if (n <= 1) {
+    return clamp(n, 0, 1);
+  }
+  if (n <= 100) {
+    return n / 100;
+  }
+  return 1;
+}
+
+function toFullnessPercent(ratio) {
+  return Math.round(normalizeFullnessRatio(ratio) * 100);
+}
+
 function getBaseHoursFor100L(binType) {
   return BASE_HOURS_PER_100L[binType] ?? BASE_HOURS_PER_100L.CONTAINER_SMALL;
 }
@@ -59,7 +78,7 @@ function enrichBinWithFullness(bin, latestLogEmptiedAt, now = new Date()) {
 
   return {
     ...bin,
-    predictedFullness,
+    predictedFullness: clamp(predictedFullness, 0, 1),
     lastEmptiedAt: lastEmptiedAt.toISOString(),
     hoursToFull,
   };
@@ -72,4 +91,7 @@ module.exports = {
   getLastEmptiedAt,
   calculatePredictedFullness,
   enrichBinWithFullness,
+  normalizeFullnessRatio,
+  toFullnessPercent,
+  clamp,
 };

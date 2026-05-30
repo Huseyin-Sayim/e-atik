@@ -5,6 +5,10 @@ const {
   calculateEarnedCoins,
 } = require('../../services/wasteTypes');
 const { creditCoins } = require('../../services/coinLedger');
+const {
+  broadcastWasteRequestCreated,
+  broadcastWasteRequestStatusChanged,
+} = require('../../services/wasteRequestBroadcast');
 
 const prisma = new PrismaClient();
 
@@ -63,6 +67,8 @@ const createWasteRequest = async (req, res) => {
       include: wasteRequestInclude,
     });
 
+    broadcastWasteRequestCreated(request);
+
     res.status(201).json({
       message: 'Atık talebi oluşturuldu.',
       data: request,
@@ -120,6 +126,8 @@ const updateWasteRequest = async (req, res) => {
       data,
       include: wasteRequestInclude,
     });
+
+    broadcastWasteRequestStatusChanged(updated);
 
     res.status(200).json({
       message: 'Talep güncellendi.',
@@ -196,6 +204,8 @@ const collectWasteRequest = async (req, res) => {
 
       return reqUpdated;
     });
+
+    broadcastWasteRequestStatusChanged(updated);
 
     res.status(200).json({
       message:

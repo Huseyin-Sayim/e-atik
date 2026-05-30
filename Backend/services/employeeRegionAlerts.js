@@ -1,5 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
-const { enrichBinWithFullness } = require('./binFullness');
+const { enrichBinWithFullness, toFullnessPercent } = require('./binFullness');
 const { findLatestEmptiedAtByBinIds } = require('./binFullnessRepository');
 
 const prisma = new PrismaClient();
@@ -31,7 +31,7 @@ function buildBinLabel(type, wasteCategory) {
 }
 
 function mapBinToAlert(bin) {
-  const fullnessPercent = Math.round((bin.predictedFullness || 0) * 100);
+  const fullnessPercent = toFullnessPercent(bin.predictedFullness);
   return {
     id: bin.id,
     type: bin.type,

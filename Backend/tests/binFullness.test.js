@@ -5,6 +5,8 @@ const {
   calculatePredictedFullness,
   getLastEmptiedAt,
   enrichBinWithFullness,
+  normalizeFullnessRatio,
+  toFullnessPercent,
 } = require('../services/binFullness');
 
 const baseBin = {
@@ -58,5 +60,20 @@ describe('binFullness', () => {
     assert.equal(enriched.hoursToFull, 24);
     assert.equal(enriched.predictedFullness, 0.5);
     assert.ok(enriched.lastEmptiedAt);
+  });
+
+  it('normalizeFullnessRatio converts legacy percent values', () => {
+    assert.equal(normalizeFullnessRatio(65), 0.65);
+    assert.equal(normalizeFullnessRatio(0.65), 0.65);
+    assert.equal(normalizeFullnessRatio(150), 1);
+    assert.equal(normalizeFullnessRatio(6500), 1);
+    assert.equal(normalizeFullnessRatio(0), 0);
+  });
+
+  it('toFullnessPercent caps at 100', () => {
+    assert.equal(toFullnessPercent(0.65), 65);
+    assert.equal(toFullnessPercent(65), 65);
+    assert.equal(toFullnessPercent(150), 100);
+    assert.equal(toFullnessPercent(6500), 100);
   });
 });

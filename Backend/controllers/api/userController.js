@@ -1,21 +1,90 @@
-const {PrismaClient} = require("@prisma/client");
+const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
-const getUsers =  async (req, res) => {
+const userListSelect = {
+  id: true,
+  name: true,
+  surname: true,
+  email: true,
+  phoneNumber: true,
+  role: true,
+  employeeType: true,
+  city: true,
+  district: true,
+  regionId: true,
+  isVerified: true,
+  createdAt: true,
+};
+
+const getUsers = async (req, res) => {
   try {
-    const users = await prisma.user.findMany();
+    const users = await prisma.user.findMany({
+      select: userListSelect,
+      orderBy: { createdAt: 'desc' },
+    });
     res.status(200).json({
-      message: "success",
-      data: users
-    })
+      message: 'success',
+      data: users,
+    });
   } catch (err) {
     res.status(500).json({
-      message: "Kullanıcılar getirilemedi.",
-      error: err.message
-    })
+      message: 'Kullanıcılar getirilemedi.',
+      error: err.message,
+    });
   }
-}
+};
+
+const updateUserRole = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role, employeeType } = req.body;
+    const actorId = req.user.userId;
+
+    const target = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, role: true },
+    });
+
+    if (!target) {
+      return res.status(404).json({ message: 'Kullanıcı bulunamadı.' });
+    }
+
+    const supervisorRoles = ['ADMIN', 'BOSS'];
+    const demotedRoles = ['USER', 'EMPLOYEE'];
+
+    if (
+      id === actorId &&
+      supervisorRoles.includes(target.role) &&
+      demotedRoles.includes(role)
+    ) {
+      return res.status(400).json({
+        message: 'Kendi yönetici yetkinizi kaldıramazsınız.',
+      });
+    }
+
+    const data = {
+      role,
+      employeeType: role === 'EMPLOYEE' ? employeeType : null,
+    };
+
+    const user = await prisma.user.update({
+      where: { id },
+      data,
+      select: userListSelect,
+    });
+
+    return res.status(200).json({
+      message: 'Kullanıcı yetkileri güncellendi.',
+      data: user,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      message: 'Kullanıcı güncellenemedi.',
+      error: err.message,
+    });
+  }
+};
 
 const updateWorkRegion = async (req, res) => {
   try {
@@ -253,10 +322,11 @@ const getUserTransactions = async (req, res) => {
 
 module.exports = {
   getUsers,
+  updateUserRole,
   updateWorkRegion,
   deleteUser,
   updateProfile,
   getUserProfile,
   scanQrCode,
-  getUserTransactions
+  getUserTransactions,
 };

@@ -1,12 +1,20 @@
 const http = require('http');
-const express = require("express");
-const userRoutes = require("./routes/api/userRoutes");
-const authRoutes = require("./routes/api/authRoutes");
-const regionRoutes = require("./routes/api/regionRoutes");
+const { WebSocketServer } = require('ws');
+const express = require('express');
+const userRoutes = require('./routes/api/userRoutes');
+const authRoutes = require('./routes/api/authRoutes');
+const regionRoutes = require('./routes/api/regionRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const binRoutes = require('./routes/api/binRoutes');
+const statsRoutes = require('./routes/api/statsRoutes');
+const trackingRoutes = require('./routes/api/trackingRoutes');
+const wasteRequestRoutes = require('./routes/api/wasteRequestRoutes');
+const wasteTypeRoutes = require('./routes/api/wasteTypeRoutes');
+const walletRoutes = require('./routes/api/walletRoutes');
+const employeeRouteRoutes = require('./routes/api/employeeRouteRoutes');
 const wasteRoutes = require('./routes/api/wasteRoutes');
 const partnerStoreRoutes = require('./routes/api/partnerStoreRoutes');
+const { initSocket } = require('./socket');
 const cookieParser = require('cookie-parser');
 const path = require('path');
 
@@ -35,99 +43,102 @@ app.use((req, res, next) => {
 
 app.get('/api-health', async (req, res) => {
   res.json({
-    message: "api is running",
-    status: "success",
-    statusCode: 200
-  })
-})
+    message: 'api is running',
+    status: 'success',
+    statusCode: 200,
+  });
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/regions', regionRoutes);
 app.use('/api/bins', binRoutes);
-app.use('/api/waste-requests', wasteRoutes);
+app.use('/api/stats', statsRoutes);
+app.use('/api/tracking', trackingRoutes);
+app.use('/api/waste-requests', wasteRequestRoutes);
+app.use('/api/waste-requests-legacy', wasteRoutes);
+app.use('/api/waste-types', wasteTypeRoutes);
+app.use('/api/wallet', walletRoutes);
+app.use('/api/employee', employeeRouteRoutes);
 app.use('/api/partner-stores', partnerStoreRoutes);
 app.use('/', dashboardRoutes);
+
 const staffLocations = new Map();
 
 app.get('/api/users/staff-locations', (req, res) => {
   const locations = Array.from(staffLocations.entries()).map(([staffId, data]) => ({
     staffId,
-    ...data
+    ...data,
   }));
   res.json({
-    status: "success",
-    data: locations
+    status: 'success',
+    data: locations,
   });
 });
 
-const http = require('http');
-const { WebSocketServer } = require('ws');
+initSocket(server);
 
-const server = http.createServer(app);
-
-// WebSocket Server Kurulumu
+// Ham WebSocket (dashboard harita gerçek zamanlı güncellemeleri)
 const wss = new WebSocketServer({ noServer: true });
 global.wss = wss;
 
 wss.on('connection', (ws) => {
-  console.log('⚡ WebSocket istemci bağlandı');
-  
+  console.log('WebSocket istemci bağlandı');
+
   ws.on('message', (message) => {
     try {
       const payload = JSON.parse(message);
-      console.log('📩 WebSocket Alındı:', payload);
-      
-      // Personel konumu ve hedef bilgisini bellekte sakla
+      console.log('WebSocket alındı:', payload);
+
       if (payload.type === 'locationUpdate' && payload.staffId) {
         staffLocations.set(payload.staffId, {
           latitude: payload.latitude,
           longitude: payload.longitude,
           target: payload.target || null,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
       }
-      
-      // Tüm bağlı istemcilere konum verisini broadcast et
-      wss.clients.forEach(client => {
-        if (client.readyState === 1) { // 1 = OPEN
+
+      wss.clients.forEach((client) => {
+        if (client.readyState === 1) {
           client.send(JSON.stringify(payload));
         }
       });
     } catch (err) {
-      console.error('❌ WebSocket yayın hatası:', err);
+      console.error('WebSocket yayın hatası:', err);
     }
   });
 
   ws.on('close', () => {
-    console.log('🔌 WebSocket istemci bağlantısı koptu');
+    console.log('WebSocket istemci bağlantısı koptu');
   });
 });
 
-// HTTP'den WebSocket'e yükseltme
 server.on('upgrade', (request, socket, head) => {
+  if (request.url?.startsWith('/socket.io')) {
+    return;
+  }
   wss.handleUpgrade(request, socket, head, (ws) => {
     wss.emit('connection', ws, request);
   });
 });
 
 server.listen(port, async () => {
-  console.log(`Server running on port ${port} (WebSocket Aktif!) 🚀`);
-  
-  // TEST YARDIMCISI: Veritabanındaki toplanmış (COLLECTED) talepleri test için otomatik olarak PENDING (Beklemede) yapar.
+  console.log(`Server running on port ${port} (WebSocket + Socket.io aktif)`);
+
   try {
     const { PrismaClient } = require('@prisma/client');
     const prisma = new PrismaClient();
     const updated = await prisma.wasteRequest.updateMany({
       where: {
-        status: 'COLLECTED'
+        status: 'COLLECTED',
       },
       data: {
-        status: 'PENDING'
-      }
+        status: 'PENDING',
+      },
     });
     if (updated.count > 0) {
-      console.log(`⚡ [TEST] ${updated.count} adet 'COLLECTED' evsel atık talebi otomatik olarak 'PENDING' (Beklemede) yapıldı!`);
+      console.log(`[TEST] ${updated.count} adet COLLECTED talep PENDING yapıldı.`);
     }
   } catch (err) {
     console.error('Test yardımcısı hatası:', err);
