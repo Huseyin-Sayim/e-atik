@@ -6,18 +6,6 @@
   <component name="ChangeListManager">
     <list default="true" id="891b3278-7a2e-4be4-a4f8-2b784f7fd9f8" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/controllers/api/binController.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/controllers/api/binController.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/middleware/authentication.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/middleware/authentication.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/public/data/geojson/bornova.geojson" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/public/data/geojson/mahalleler.geojson" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/routes/api/binRoutes.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/routes/api/binRoutes.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/routes/dashboardRoutes.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/routes/dashboardRoutes.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/validations/validateSchema.js" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/validations/validateSchema.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/views/layout/header.ejs" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/views/layout/header.ejs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/views/pages/bin/createBin.ejs" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/views/pages/bin/createBin.ejs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -61,32 +49,32 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.MCP Project settings loaded": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "codeWithMe.voiceChat.enabledByDefault": "false",
-    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
-    "git-widget-placeholder": "main",
-    "ignore.virus.scanning.warn.message": "true",
-    "javascript.preferred.runtime.type.id": "node",
-    "junie.onboarding.icon.badge.shown": "true",
-    "last_opened_file_path": "C:/project/e-atik",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "terminal",
-    "to.speed.mode.migration.done": "true",
-    "ts.external.directory.path": "C:\\Program Files\\JetBrains\\WebStorm 2026.1.1\\plugins\\javascript-plugin\\jsLanguageServicesImpl\\external",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;javascript.preferred.runtime.type.id&quot;: &quot;node&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/project/e-atik&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;terminal&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;C:\\project\\e-atik\\Mobile\\node_modules\\typescript\\lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="ReactDesignerToolWindowState">
     <option name="myId2Visible">
       <map>
@@ -140,6 +128,8 @@
       <workItem from="1778570244329" duration="105000" />
       <workItem from="1778570377833" duration="1595000" />
       <workItem from="1778858554093" duration="1146000" />
+      <workItem from="1779230095681" duration="1273000" />
+      <workItem from="1779402562248" duration="11000" />
     </task>
     <servers />
   </component>

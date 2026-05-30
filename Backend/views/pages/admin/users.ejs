@@ -1,0 +1,244 @@
+<%- include('../../layout/header') %>
+
+<div class="row mb-3 mt-3">
+  <div class="col-12">
+    <h1 class="fs-3 mb-2">Kullanıcı yönetimi</h1>
+    <p class="text-secondary mb-0">Kullanıcı rollerini ve çalışan tiplerini düzenleyin.</p>
+  </div>
+</div>
+
+<div id="admin-users-alert" class="alert d-none" role="alert"></div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Ad Soyad</th>
+            <th>E-posta</th>
+            <th>Telefon</th>
+            <th>Rol</th>
+            <th>Çalışan tipi</th>
+            <th class="text-end">İşlem</th>
+          </tr>
+        </thead>
+        <tbody id="admin-users-body">
+          <tr>
+            <td colspan="6" class="text-secondary text-center py-4">Yükleniyor…</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const ROLE_OPTIONS = [
+      { value: 'USER', label: 'Kullanıcı' },
+      { value: 'EMPLOYEE', label: 'Çalışan' },
+      { value: 'ADMIN', label: 'Yönetici' },
+      { value: 'BOSS', label: 'Patron' },
+    ];
+
+    const EMPLOYEE_TYPE_OPTIONS = [
+      { value: 'TRASH_COLLECTOR', label: 'Çöp toplayıcı' },
+      { value: 'WASTE_COLLECTOR', label: 'Atık toplayıcı' },
+    ];
+
+    const alertEl = document.getElementById('admin-users-alert');
+
+    function showAlert(message, type) {
+      alertEl.textContent = message;
+      alertEl.className = 'alert alert-' + type;
+      alertEl.classList.remove('d-none');
+      window.setTimeout(function () {
+        alertEl.classList.add('d-none');
+      }, 4000);
+    }
+
+    function escapeHtml(str) {
+      if (str == null) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function roleSelectHtml(userId, currentRole) {
+      return (
+        '<select class="form-select form-select-sm user-role-select" data-user-id="' +
+        escapeHtml(userId) +
+        '">' +
+        ROLE_OPTIONS.map(function (opt) {
+          return (
+            '<option value="' +
+            opt.value +
+            '"' +
+            (opt.value === currentRole ? ' selected' : '') +
+            '>' +
+            escapeHtml(opt.label) +
+            '</option>'
+          );
+        }).join('') +
+        '</select>'
+      );
+    }
+
+    function employeeTypeSelectHtml(userId, currentRole, currentType) {
+      const disabled = currentRole !== 'EMPLOYEE';
+      return (
+        '<select class="form-select form-select-sm user-employee-type-select" data-user-id="' +
+        escapeHtml(userId) +
+        '"' +
+        (disabled ? ' disabled' : '') +
+        '>' +
+        EMPLOYEE_TYPE_OPTIONS.map(function (opt) {
+          return (
+            '<option value="' +
+            opt.value +
+            '"' +
+            (opt.value === currentType ? ' selected' : '') +
+            '>' +
+            escapeHtml(opt.label) +
+            '</option>'
+          );
+        }).join('') +
+        '</select>'
+      );
+    }
+
+    function onRoleChange(selectEl) {
+      const row = selectEl.closest('tr');
+      if (!row) return;
+      const typeSelect = row.querySelector('.user-employee-type-select');
+      if (!typeSelect) return;
+      const isEmployee = selectEl.value === 'EMPLOYEE';
+      typeSelect.disabled = !isEmployee;
+      if (!isEmployee) {
+        typeSelect.selectedIndex = 0;
+      }
+    }
+
+    async function saveUser(userId, btn) {
+      const row = btn.closest('tr');
+      const roleSelect = row.querySelector('.user-role-select');
+      const typeSelect = row.querySelector('.user-employee-type-select');
+      const role = roleSelect.value;
+      const body = { role: role };
+      if (role === 'EMPLOYEE') {
+        body.employeeType = typeSelect.value;
+      } else {
+        body.employeeType = null;
+      }
+
+      btn.disabled = true;
+      const prevText = btn.textContent;
+      btn.textContent = 'Kaydediliyor…';
+
+      try {
+        const res = await fetch('/api/users/' + encodeURIComponent(userId), {
+          method: 'PATCH',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const payload = await res.json().catch(function () {
+          return {};
+        });
+        if (!res.ok) {
+          throw new Error(payload.message || 'Kayıt güncellenemedi');
+        }
+        showAlert(payload.message || 'Kaydedildi.', 'success');
+        if (payload.data) {
+          roleSelect.value = payload.data.role;
+          if (payload.data.employeeType) {
+            typeSelect.value = payload.data.employeeType;
+          }
+          onRoleChange(roleSelect);
+        }
+      } catch (err) {
+        showAlert(err.message || 'Hata', 'danger');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = prevText;
+      }
+    }
+
+    function bindRowEvents(tbody) {
+      tbody.querySelectorAll('.user-role-select').forEach(function (el) {
+        el.addEventListener('change', function () {
+          onRoleChange(el);
+        });
+      });
+      tbody.querySelectorAll('.user-save-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          saveUser(btn.getAttribute('data-user-id'), btn);
+        });
+      });
+    }
+
+    async function load() {
+      const tbody = document.getElementById('admin-users-body');
+      try {
+        const res = await fetch('/api/users', { credentials: 'same-origin' });
+        const payload = await res.json().catch(function () {
+          return {};
+        });
+        if (!res.ok) {
+          throw new Error(payload.message || 'Liste alınamadı');
+        }
+        const users = payload.data || [];
+        if (!users.length) {
+          tbody.innerHTML =
+            '<tr><td colspan="6" class="text-secondary text-center py-4">Kayıt yok</td></tr>';
+          return;
+        }
+        tbody.innerHTML = users
+          .map(function (u) {
+            const fullName =
+              [u.name, u.surname].filter(Boolean).join(' ') || '—';
+            return (
+              '<tr data-user-id="' +
+              escapeHtml(u.id) +
+              '">' +
+              '<td>' +
+              escapeHtml(fullName) +
+              '</td>' +
+              '<td class="small">' +
+              escapeHtml(u.email) +
+              '</td>' +
+              '<td class="small">' +
+              escapeHtml(u.phoneNumber) +
+              '</td>' +
+              '<td style="min-width: 140px;">' +
+              roleSelectHtml(u.id, u.role) +
+              '</td>' +
+              '<td style="min-width: 160px;">' +
+              employeeTypeSelectHtml(u.id, u.role, u.employeeType) +
+              '</td>' +
+              '<td class="text-end">' +
+              '<button type="button" class="btn btn-sm btn-primary user-save-btn" data-user-id="' +
+              escapeHtml(u.id) +
+              '">Kaydet</button>' +
+              '</td>' +
+              '</tr>'
+            );
+          })
+          .join('');
+        bindRowEvents(tbody);
+      } catch (err) {
+        tbody.innerHTML =
+          '<tr><td colspan="6" class="text-danger text-center py-4">' +
+          escapeHtml(err.message || 'Hata') +
+          '</td></tr>';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', load);
+  })();
+</script>
+
+<%- include('../../layout/footer') %>

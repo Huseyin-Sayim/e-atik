@@ -66,7 +66,9 @@ const binManagerRoles = requirePageRole('ADMIN', 'BOSS');
 router.get('/dashboard', isAuth, loadCurrentUser, async (req, res) => {
   const tasks = [
     prisma.region.findMany(),
-    getRecyclingStatsForDashboard(),
+    getRecyclingStatsForDashboard(prisma, {
+      userId: res.locals.user?.role === 'USER' ? req.user.userId : null,
+    }),
   ];
 
   if (res.locals.user?.role === 'EMPLOYEE') {
@@ -125,6 +127,18 @@ router.get('/admin/employee-status', isAuth, loadCurrentUser, supervisorRoles, (
 
 router.get('/admin/waste-requests', isAuth, loadCurrentUser, supervisorRoles, (req, res) => {
   res.render('pages/admin/wasteRequests', {
+    user: res.locals.user,
+  });
+});
+
+router.get('/admin/users', isAuth, loadCurrentUser, supervisorRoles, (req, res) => {
+  res.render('pages/admin/users', {
+    user: res.locals.user,
+  });
+});
+
+router.get('/admin/waste-types', isAuth, loadCurrentUser, supervisorRoles, (req, res) => {
+  res.render('pages/admin/wasteTypes', {
     user: res.locals.user,
   });
 });

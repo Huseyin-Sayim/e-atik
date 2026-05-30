@@ -1,0 +1,251 @@
+<%- include('../../layout/header') %>
+
+<div class="row mb-3 mt-3">
+  <div class="col-12">
+    <h1 class="fs-3 mb-2">Atık türleri ve coin ödülleri</h1>
+    <p class="text-secondary mb-0">
+      Ana kategorilerin altına yeni atık çeşitleri ekleyin; geri dönüşümde kazanılacak coin değerini belirleyin.
+    </p>
+  </div>
+</div>
+
+<div id="waste-types-alert" class="alert d-none" role="alert"></div>
+
+<div class="row g-4 mb-4">
+  <div class="col-lg-5">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-transparent border-0">
+        <h2 class="fs-6 fw-semibold mb-0">Yeni atık çeşidi</h2>
+      </div>
+      <div class="card-body pt-0">
+        <form id="waste-type-create-form">
+          <div class="mb-3">
+            <label class="form-label" for="create-parentId">Ana kategori</label>
+            <select id="create-parentId" class="form-select" required>
+              <option value="">Yükleniyor…</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="create-name">Atık çeşidi adı</label>
+            <input type="text" id="create-name" class="form-control" maxlength="120" required
+              placeholder="Örn. Atık yağ" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="create-coinRewardMode">Coin hesaplama</label>
+            <select id="create-coinRewardMode" class="form-select">
+              <option value="FLAT">Sabit (toplama başına)</option>
+              <option value="PER_KG">Kilogram başına</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="create-coinRewardValue">Coin değeri</label>
+            <input type="number" id="create-coinRewardValue" class="form-control" min="0" max="100000" value="10" required />
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Ekle</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Ana kategori</th>
+                <th>Atık çeşidi</th>
+                <th>Coin</th>
+                <th>Durum</th>
+                <th class="text-end">İşlem</th>
+              </tr>
+            </thead>
+            <tbody id="waste-types-body">
+              <tr>
+                <td colspan="5" class="text-secondary text-center py-4">Yükleniyor…</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const alertEl = document.getElementById('waste-types-alert');
+    let tree = [];
+
+    function showAlert(message, type) {
+      alertEl.textContent = message;
+      alertEl.className = 'alert alert-' + (type || 'info');
+      alertEl.classList.remove('d-none');
+      window.setTimeout(function () {
+        alertEl.classList.add('d-none');
+      }, 4000);
+    }
+
+    function coinLabel(item) {
+      if (item.coinRewardMode === 'PER_KG') {
+        return item.coinRewardValue + ' coin / kg';
+      }
+      return item.coinRewardValue + ' coin';
+    }
+
+    function escapeHtml(str) {
+      if (str == null) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function fillParentSelect() {
+      const sel = document.getElementById('create-parentId');
+      sel.innerHTML = tree
+        .map(function (p) {
+          return (
+            '<option value="' + escapeHtml(p.id) + '">' + escapeHtml(p.name) + '</option>'
+          );
+        })
+        .join('');
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('waste-types-body');
+      const rows = [];
+      tree.forEach(function (parent) {
+        (parent.children || []).forEach(function (child) {
+          rows.push(
+            '<tr data-id="' +
+              escapeHtml(child.id) +
+              '">' +
+              '<td class="text-secondary">' +
+              escapeHtml(parent.name) +
+              '</td>' +
+              '<td><input type="text" class="form-control form-control-sm wt-name" value="' +
+              escapeHtml(child.name) +
+              '"></td>' +
+              '<td><div class="d-flex gap-1 flex-wrap">' +
+              '<select class="form-select form-select-sm wt-mode" style="min-width:110px">' +
+              '<option value="FLAT"' +
+              (child.coinRewardMode === 'FLAT' ? ' selected' : '') +
+              '>Sabit</option>' +
+              '<option value="PER_KG"' +
+              (child.coinRewardMode === 'PER_KG' ? ' selected' : '') +
+              '>kg başına</option>' +
+              '</select>' +
+              '<input type="number" class="form-control form-control-sm wt-coins" style="width:80px" min="0" value="' +
+              child.coinRewardValue +
+              '">' +
+              '</div></td>' +
+              '<td><select class="form-select form-select-sm wt-active">' +
+              '<option value="true"' +
+              (child.isActive ? ' selected' : '') +
+              '>Aktif</option>' +
+              '<option value="false"' +
+              (!child.isActive ? ' selected' : '') +
+              '>Pasif</option>' +
+              '</select></td>' +
+              '<td class="text-end"><button type="button" class="btn btn-sm btn-primary wt-save">Kaydet</button></td>' +
+              '</tr>'
+          );
+        });
+      });
+      if (!rows.length) {
+        tbody.innerHTML =
+          '<tr><td colspan="5" class="text-secondary text-center py-4">Alt tür yok</td></tr>';
+        return;
+      }
+      tbody.innerHTML = rows.join('');
+      tbody.querySelectorAll('.wt-save').forEach(function (btn) {
+        btn.addEventListener('click', onSaveRow);
+      });
+    }
+
+    async function load() {
+      try {
+        const res = await fetch('/api/waste-types/admin', { credentials: 'same-origin' });
+        const payload = await res.json().catch(function () {
+          return {};
+        });
+        if (!res.ok) throw new Error(payload.message || 'Liste alınamadı');
+        tree = payload.data || [];
+        fillParentSelect();
+        renderTable();
+      } catch (err) {
+        document.getElementById('waste-types-body').innerHTML =
+          '<tr><td colspan="5" class="text-danger text-center py-4">' +
+          escapeHtml(err.message) +
+          '</td></tr>';
+      }
+    }
+
+    async function onCreate(ev) {
+      ev.preventDefault();
+      const body = {
+        parentId: document.getElementById('create-parentId').value,
+        name: document.getElementById('create-name').value.trim(),
+        coinRewardMode: document.getElementById('create-coinRewardMode').value,
+        coinRewardValue: Number(document.getElementById('create-coinRewardValue').value),
+      };
+      try {
+        const res = await fetch('/api/waste-types', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const payload = await res.json().catch(function () {
+          return {};
+        });
+        if (!res.ok) throw new Error(payload.message || 'Eklenemedi');
+        showAlert(payload.message || 'Eklendi.', 'success');
+        document.getElementById('create-name').value = '';
+        await load();
+      } catch (err) {
+        showAlert(err.message || 'Hata', 'danger');
+      }
+    }
+
+    async function onSaveRow(ev) {
+      const row = ev.target.closest('tr');
+      const id = row.getAttribute('data-id');
+      const body = {
+        name: row.querySelector('.wt-name').value.trim(),
+        coinRewardMode: row.querySelector('.wt-mode').value,
+        coinRewardValue: Number(row.querySelector('.wt-coins').value),
+        isActive: row.querySelector('.wt-active').value === 'true',
+      };
+      const btn = ev.target;
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/waste-types/' + encodeURIComponent(id), {
+          method: 'PATCH',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const payload = await res.json().catch(function () {
+          return {};
+        });
+        if (!res.ok) throw new Error(payload.message || 'Güncellenemedi');
+        showAlert(payload.message || 'Kaydedildi.', 'success');
+        await load();
+      } catch (err) {
+        showAlert(err.message || 'Hata', 'danger');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      load();
+      document.getElementById('waste-type-create-form').addEventListener('submit', onCreate);
+    });
+  })();
+</script>
+
+<%- include('../../layout/footer') %>

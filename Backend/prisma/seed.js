@@ -115,9 +115,133 @@ async function assignDemoEmployeeWorkRegion() {
   });
 }
 
+const wasteTypeSeed = [
+  {
+    id: 'wt-parent-domestic',
+    slug: 'evsel-atik',
+    name: 'Evsel atık',
+    legacyEnum: 'DOMESTIC',
+    sortOrder: 1,
+    children: [
+      { id: 'wt-dom-waste-oil', slug: 'evsel-atik-yag', name: 'Atık yağ', coinRewardMode: 'FLAT', coinRewardValue: 50, sortOrder: 1 },
+      { id: 'wt-dom-food', slug: 'evsel-atik-gida', name: 'Gıda atığı', coinRewardMode: 'PER_KG', coinRewardValue: 8, sortOrder: 2 },
+      { id: 'wt-dom-general', slug: 'evsel-atik-genel', name: 'Genel evsel', coinRewardMode: 'FLAT', coinRewardValue: 15, sortOrder: 3 },
+    ],
+  },
+  {
+    id: 'wt-parent-electronic',
+    slug: 'elektronik',
+    name: 'Elektronik',
+    legacyEnum: 'ELECTRONIC',
+    sortOrder: 2,
+    children: [
+      { id: 'wt-elec-device', slug: 'elektronik-cihaz', name: 'Elektronik cihaz', coinRewardMode: 'FLAT', coinRewardValue: 80, sortOrder: 1 },
+      { id: 'wt-elec-battery', slug: 'elektronik-pil', name: 'Pil / akü', coinRewardMode: 'FLAT', coinRewardValue: 40, sortOrder: 2 },
+    ],
+  },
+  {
+    id: 'wt-parent-plastic',
+    slug: 'plastik',
+    name: 'Plastik',
+    legacyEnum: 'PLASTIC',
+    sortOrder: 3,
+    children: [
+      { id: 'wt-plas-pet', slug: 'plastik-pet', name: 'PET şişe', coinRewardMode: 'PER_KG', coinRewardValue: 12, sortOrder: 1 },
+      { id: 'wt-plas-bag', slug: 'plastik-poset', name: 'Plastik poşet', coinRewardMode: 'FLAT', coinRewardValue: 5, sortOrder: 2 },
+    ],
+  },
+  {
+    id: 'wt-parent-glass',
+    slug: 'cam',
+    name: 'Cam',
+    legacyEnum: 'GLASS',
+    sortOrder: 4,
+    children: [
+      { id: 'wt-glass-bottle', slug: 'cam-sise', name: 'Cam şişe', coinRewardMode: 'PER_KG', coinRewardValue: 10, sortOrder: 1 },
+    ],
+  },
+  {
+    id: 'wt-parent-paper',
+    slug: 'kagit',
+    name: 'Kağıt',
+    legacyEnum: 'PAPER',
+    sortOrder: 5,
+    children: [
+      { id: 'wt-paper-cardboard', slug: 'kagit-karton', name: 'Karton', coinRewardMode: 'PER_KG', coinRewardValue: 6, sortOrder: 1 },
+      { id: 'wt-paper-newspaper', slug: 'kagit-gazete', name: 'Gazete / kağıt', coinRewardMode: 'PER_KG', coinRewardValue: 5, sortOrder: 2 },
+    ],
+  },
+  {
+    id: 'wt-parent-general',
+    slug: 'genel',
+    name: 'Genel',
+    legacyEnum: 'GENERAL',
+    sortOrder: 6,
+    children: [
+      { id: 'wt-gen-mixed', slug: 'genel-karisik', name: 'Karışık atık', coinRewardMode: 'FLAT', coinRewardValue: 10, sortOrder: 1 },
+    ],
+  },
+];
+
+async function seedWasteTypes() {
+  for (const parent of wasteTypeSeed) {
+    const { children, ...parentData } = parent;
+    await prisma.wasteType.upsert({
+      where: { slug: parentData.slug },
+      update: {
+        name: parentData.name,
+        sortOrder: parentData.sortOrder,
+        legacyEnum: parentData.legacyEnum,
+        isActive: true,
+      },
+      create: {
+        id: parentData.id,
+        slug: parentData.slug,
+        name: parentData.name,
+        legacyEnum: parentData.legacyEnum,
+        sortOrder: parentData.sortOrder,
+        coinRewardMode: 'FLAT',
+        coinRewardValue: 0,
+        isActive: true,
+      },
+    });
+
+    const parentRow = await prisma.wasteType.findUnique({
+      where: { slug: parentData.slug },
+    });
+
+    for (const child of children) {
+      await prisma.wasteType.upsert({
+        where: { slug: child.slug },
+        update: {
+          name: child.name,
+          parentId: parentRow.id,
+          coinRewardMode: child.coinRewardMode,
+          coinRewardValue: child.coinRewardValue,
+          sortOrder: child.sortOrder,
+          isActive: true,
+        },
+        create: {
+          id: child.id,
+          slug: child.slug,
+          name: child.name,
+          parentId: parentRow.id,
+          coinRewardMode: child.coinRewardMode,
+          coinRewardValue: child.coinRewardValue,
+          sortOrder: child.sortOrder,
+          isActive: true,
+        },
+      });
+    }
+  }
+}
+
 async function main() {
   await seedRegions();
   console.log('Seed: kampüs bölgeleri upsert edildi.');
+
+  await seedWasteTypes();
+  console.log('Seed: atık türleri (ana + alt) upsert edildi.');
 
   await seedUsers();
   if (shouldSeedDemoUsers()) {

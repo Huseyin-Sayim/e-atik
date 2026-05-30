@@ -156,6 +156,38 @@
             <span class="text">Evden atık talepleri</span>
           </a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/admin/users">
+            <span class="nav-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                class="icon icon-tabler icons-tabler-outline icon-tabler-users">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                <path d="M9 7m-1 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+                <path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                <path d="M21 21v-2a4 4 0 0 0 -3 -3.85" />
+              </svg>
+            </span>
+            <span class="text">Kullanıcı yönetimi</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/admin/waste-types">
+            <span class="nav-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                class="icon icon-tabler icons-tabler-outline icon-tabler-coins">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                <path d="M9 14c0 1.657 2.686 3 6 3s6 -1.343 6 -3s-2.686 -3 -6 -3s-6 1.343 -6 3z" />
+                <path d="M9 14v4c0 1.657 2.686 3 6 3s6 -1.343 6 -3v-4" />
+                <path d="M3 8c0 1.657 2.686 3 6 3s6 -1.343 6 -3s-2.686 -3 -6 -3s-6 1.343 -6 3z" />
+                <path d="M3 8v4c0 1.657 2.686 3 6 3s6 -1.343 6 -3v-4" />
+              </svg>
+            </span>
+            <span class="text">Atık türleri / coin</span>
+          </a>
+        </li>
         <% } %>
         <% if (typeof user !== 'undefined' && user && user.role === 'EMPLOYEE') { %>
         <li class="nav-item">
@@ -284,6 +316,38 @@
                 </svg>
               </span>
               <span class="text">Çalışan Durumları</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/admin/users">
+              <span class="nav-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                  class="icon icon-tabler icons-tabler-outline icon-tabler-users">
+                  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                  <path d="M9 7m-1 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+                  <path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                  <path d="M21 21v-2a4 4 0 0 0 -3 -3.85" />
+                </svg>
+              </span>
+              <span class="text">Kullanıcı yönetimi</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/admin/waste-types">
+              <span class="nav-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                  class="icon icon-tabler icons-tabler-outline icon-tabler-coins">
+                  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                  <path d="M9 14c0 1.657 2.686 3 6 3s6 -1.343 6 -3s-2.686 -3 -6 -3s-6 1.343 -6 3z" />
+                  <path d="M9 14v4c0 1.657 2.686 3 6 3s6 -1.343 6 -3v-4" />
+                  <path d="M3 8c0 1.657 2.686 3 6 3s6 -1.343 6 -3s-2.686 -3 -6 -3s-6 1.343 -6 3z" />
+                  <path d="M3 8v4c0 1.657 2.686 3 6 3s6 -1.343 6 -3v-4" />
+                </svg>
+              </span>
+              <span class="text">Atık türleri / coin</span>
             </a>
           </li>
           <% } %>

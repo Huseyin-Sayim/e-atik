@@ -15,26 +15,69 @@
 <div class="row mb-2 mt-3">
   <div class="col-12">
     <h2 class="fs-5 mb-0">Geri dönüşüm özeti</h2>
-    <p class="text-secondary small mb-0">Kampüste toplanan atık hacmi (litre)</p>
+    <p class="text-secondary small mb-0">
+      <% if (isUserDashboard) { %>
+        Kategori bazında kişisel toplama kayıtlarınız ve kampüs kovası hacimleri
+      <% } else { %>
+        Ana kategori ve alt atık çeşitlerine göre toplama özeti
+      <% } %>
+    </p>
   </div>
 </div>
 
-<div class="row row-cols-3 mb-6 g-4">
+<div class="row mb-6 g-4">
   <% const statAccents = ['bg-warning-darker', 'bg-info-darker', 'bg-success-darker', 'bg-primary-darker', 'bg-danger-darker', 'bg-secondary']; %>
-  <% (typeof recyclingStats !== 'undefined' ? recyclingStats : []).forEach(function(stat, index) { %>
-  <div class="col">
-    <div class="card card-lg h-100">
-      <div class="card-body d-flex flex-column gap-4">
-        <div class="d-flex align-items-center gap-3">
-          <div class="icon-shape icon-lg rounded-circle <%= statAccents[index % statAccents.length] %> d-flex align-items-center justify-content-center p-2">
-            <img src="<%= stat.iconUrl %>" alt="" width="28" height="28" class="recycling-stat-icon">
+  <% const statsList = typeof recyclingStats !== 'undefined' ? recyclingStats : []; %>
+  <% if (!statsList.length) { %>
+  <div class="col-12">
+    <p class="text-secondary mb-0">Henüz kategori verisi yok.</p>
+  </div>
+  <% } %>
+  <% statsList.forEach(function(parent, index) { %>
+  <div class="col-12">
+    <div class="card card-lg border-0 shadow-sm">
+      <div class="card-body">
+        <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
+          <div class="d-flex align-items-center gap-3">
+            <div class="icon-shape icon-lg rounded-circle <%= statAccents[index % statAccents.length] %> d-flex align-items-center justify-content-center p-2">
+              <img src="<%= parent.iconUrl %>" alt="" width="28" height="28" class="recycling-stat-icon">
+            </div>
+            <div>
+              <h3 class="fs-6 fw-semibold mb-1"><%= parent.label %></h3>
+              <p class="text-secondary small mb-0">Kampüs kovası: <strong><%= parent.formatted %></strong></p>
+            </div>
           </div>
-          <div class="small fw-semibold"><%= stat.label %></div>
+          <% if (parent.collectionCount > 0) { %>
+          <div class="text-end">
+            <div class="small text-secondary">Evden atık talebi</div>
+            <div class="fw-semibold"><%= parent.formattedWeight %> · <%= parent.totalCoins %> coin</div>
+            <div class="small text-secondary"><%= parent.collectionCount %> toplama</div>
+          </div>
+          <% } %>
         </div>
-        <div>
-          <div class="fs-3 fw-bold mb-0"><%= stat.formatted %></div>
-          <p class="text-secondary small mb-0">Geri dönüştürülen toplam</p>
+        <% if (parent.children && parent.children.length) { %>
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-3">
+          <% parent.children.forEach(function(child) { %>
+          <div class="col">
+            <div class="border rounded-3 p-3 h-100 <%= child.collectionCount > 0 ? '' : 'opacity-75' %>">
+              <div class="fw-semibold small mb-2"><%= child.name %></div>
+              <% if (child.collectionCount > 0) { %>
+              <div class="fs-5 fw-bold mb-1"><%= child.formattedWeight %></div>
+              <div class="small text-secondary mb-1"><%= child.totalCoins %> coin kazanıldı</div>
+              <div class="small text-secondary"><%= child.collectionCount %> toplama</div>
+              <% } else { %>
+              <div class="small text-secondary mb-0">Henüz toplama yok</div>
+              <% if (child.coinRewardMode === 'PER_KG') { %>
+              <div class="badge bg-light text-dark mt-2"><%= child.coinRewardValue %> coin / kg</div>
+              <% } else if (child.coinRewardValue > 0) { %>
+              <div class="badge bg-light text-dark mt-2"><%= child.coinRewardValue %> coin / toplama</div>
+              <% } %>
+              <% } %>
+            </div>
+          </div>
+          <% }); %>
         </div>
+        <% } %>
       </div>
     </div>
   </div>

@@ -128,7 +128,7 @@ function mapWasteRequestToStop(request, order, distanceFromPrevKm) {
     stopType: 'waste_request',
     requestId: request.id,
     label: buildWasteRequestLabel(request.wasteType),
-    wasteType: request.wasteType,
+    wasteType: request.wasteType?.name || request.wasteType,
     addressLine: request.addressLine,
     city: request.city,
     district: request.district,
@@ -291,6 +291,11 @@ async function planWasteCollectorRoute(userId, options = {}) {
       OR: [{ assignedEmployeeId: null }, { assignedEmployeeId: userId }],
     },
     orderBy: { createdAt: 'asc' },
+    include: {
+      wasteType: {
+        include: { parent: { select: { name: true } } },
+      },
+    },
   });
 
   const candidates = openRequests.filter((r) =>

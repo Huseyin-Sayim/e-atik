@@ -1,9 +1,28 @@
 const { PrismaClient } = require('@prisma/client');
 const { assertPointInCampus, assertPointInParcel } = require('../../services/campusParcels');
+const {
+  validateLeafWasteTypeId,
+  calculateEarnedCoins,
+} = require('../../services/wasteTypes');
+const { creditCoins } = require('../../services/coinLedger');
 
 const prisma = new PrismaClient();
 
-const { buildWasteRequestLabel } = require('../../services/wasteRequestLabels');
+const wasteRequestInclude = {
+  wasteType: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      coinRewardMode: true,
+      coinRewardValue: true,
+      parent: { select: { id: true, name: true } },
+    },
+  },
+  user: {
+    select: { id: true, name: true, email: true, phoneNumber: true },
+  },
+};
 
 const createWasteRequest = async (req, res) => {
   try {
@@ -12,10 +31,15 @@ const createWasteRequest = async (req, res) => {
       return res.status(401).json({ message: 'Giriş yapınız.' });
     }
 
-    const { wasteType, latitude, longitude, addressLine, city, district, note } = req.body;
+    const { wasteTypeId, latitude, longitude, addressLine, city, district, note } = req.body;
     const campus = assertPointInCampus(latitude, longitude);
     if (!campus.ok) {
       return res.status(400).json({ message: campus.message });
+    }
+
+    const typeCheck = await validateLeafWasteTypeId(wasteTypeId);
+    if (!typeCheck.ok) {
+      return res.status(400).json({ message: typeCheck.message });
     }
 
     const user = await prisma.user.findUnique({
@@ -26,7 +50,7 @@ const createWasteRequest = async (req, res) => {
     const request = await prisma.wasteRequest.create({
       data: {
         userId,
-        wasteType,
+        wasteTypeId,
         latitude,
         longitude,
         addressLine: addressLine.trim(),
@@ -36,6 +60,7 @@ const createWasteRequest = async (req, res) => {
         note: note || null,
         status: 'PENDING',
       },
+      include: wasteRequestInclude,
     });
 
     res.status(201).json({
@@ -54,6 +79,7 @@ const getMyWasteRequests = async (req, res) => {
     const requests = await prisma.wasteRequest.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
+      include: wasteRequestInclude,
     });
     res.status(200).json(requests);
   } catch (err) {
@@ -65,11 +91,7 @@ const getAllWasteRequests = async (req, res) => {
   try {
     const requests = await prisma.wasteRequest.findMany({
       orderBy: { createdAt: 'desc' },
-      include: {
-        user: {
-          select: { id: true, name: true, email: true, phoneNumber: true },
-        },
-      },
+      include: wasteRequestInclude,
     });
     res.status(200).json(requests);
   } catch (err) {
@@ -96,6 +118,7 @@ const updateWasteRequest = async (req, res) => {
     const updated = await prisma.wasteRequest.update({
       where: { id },
       data,
+      include: wasteRequestInclude,
     });
 
     res.status(200).json({
@@ -118,7 +141,13 @@ const collectWasteRequest = async (req, res) => {
       return res.status(401).json({ message: 'Giriş yapınız.' });
     }
 
-    const existing = await prisma.wasteRequest.findUnique({ where: { id } });
+    const existing = await prisma.wasteRequest.findUnique({
+      where: { id },
+      include: {
+        wasteType: true,
+      },
+    });
+
     if (!existing) {
       return res.status(404).json({ message: 'Talep bulunamadı.' });
     }
@@ -143,17 +172,36 @@ const collectWasteRequest = async (req, res) => {
       }
     }
 
-    const updated = await prisma.wasteRequest.update({
-      where: { id },
-      data: {
-        status: 'COLLECTED',
-        assignedEmployeeId: existing.assignedEmployeeId || employeeId,
-        weight: weight != null ? weight : existing.weight,
-      },
+    const finalWeight = weight != null ? weight : existing.weight;
+    const earnedCoins = calculateEarnedCoins(existing.wasteType, finalWeight);
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const reqUpdated = await tx.wasteRequest.update({
+        where: { id },
+        data: {
+          status: 'COLLECTED',
+          assignedEmployeeId: existing.assignedEmployeeId || employeeId,
+          weight: finalWeight,
+          earnedCoins,
+        },
+        include: wasteRequestInclude,
+      });
+
+      if (earnedCoins > 0) {
+        await creditCoins(existing.userId, earnedCoins, {
+          description: `Atık talebi: ${existing.wasteType.name}`,
+          tx,
+        });
+      }
+
+      return reqUpdated;
     });
 
     res.status(200).json({
-      message: 'Atık talebi toplandı olarak işaretlendi.',
+      message:
+        earnedCoins > 0
+          ? `Atık talebi toplandı. Kullanıcıya ${earnedCoins} coin aktarıldı.`
+          : 'Atık talebi toplandı olarak işaretlendi.',
       data: updated,
     });
   } catch (err) {
