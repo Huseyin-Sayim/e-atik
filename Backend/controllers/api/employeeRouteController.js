@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const { planEmployeeRoute, planRouteLeg } = require('../../services/routePlanner');
 const { enrichBinsReadOnly, getRegionFullnessAlerts } = require('../../services/employeeRegionAlerts');
+const { toFullnessPercent } = require('../../services/binFullness');
 const {
   setEmployeeRouteProgress,
   getEmployeeRouteProgress,
@@ -84,7 +85,7 @@ async function getRegionBins(req, res) {
       latitude: bin.latitude,
       longitude: bin.longitude,
       predictedFullness: bin.predictedFullness,
-      fullnessPercent: Math.round((bin.predictedFullness ?? 0) * 100),
+      fullnessPercent: toFullnessPercent(bin.predictedFullness),
       lastEmptiedAt: bin.lastEmptiedAt,
       hoursToFull: bin.hoursToFull,
     }));

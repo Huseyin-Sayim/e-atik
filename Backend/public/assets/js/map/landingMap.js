@@ -26,9 +26,16 @@
       return { ...MAP_ICON_OPTS, wasteCategory: bin.wasteCategory };
     }
 
+    function binFullnessRatio(value) {
+      const v = Number(value ?? 0);
+      if (!Number.isFinite(v) || v <= 0) return 0;
+      return v > 1 ? Math.min(1, v / 100) : Math.min(1, v);
+    }
+
     function bindBinPopup(marker, bin) {
-      const fullnessPct = (bin.predictedFullness * 100).toFixed(0);
-      const barClass = bin.predictedFullness > 0.8 ? 'bg-danger' : 'bg-success';
+      const ratio = binFullnessRatio(bin.predictedFullness);
+      const fullnessPct = Math.round(ratio * 100);
+      const barClass = ratio > 0.8 ? 'bg-danger' : 'bg-success';
       marker.bindPopup(
         '<div class="text-center" style="min-width: 140px;">' +
           '<h6 class="mb-1 fs-6">' +

@@ -1,5 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
-const { enrichBinWithFullness } = require('./binFullness');
+const { enrichBinWithFullness, toFullnessPercent } = require('./binFullness');
 const { findLatestEmptiedAtByBinIds } = require('./binFullnessRepository');
 const {
   buildBinLabel,
@@ -24,7 +24,8 @@ function regionRoom(regionId) {
 }
 
 function buildPayload(bin, predictedFullness, previousFullness = null) {
-  const fullnessPercent = Math.round(predictedFullness * 100);
+  const ratio = Math.min(1, Math.max(0, predictedFullness ?? 0));
+  const fullnessPercent = toFullnessPercent(ratio);
   return {
     binId: bin.id,
     regionId: bin.regionId,
@@ -32,7 +33,7 @@ function buildPayload(bin, predictedFullness, previousFullness = null) {
     wasteCategory: bin.wasteCategory,
     latitude: bin.latitude,
     longitude: bin.longitude,
-    predictedFullness,
+    predictedFullness: ratio,
     fullnessPercent,
     previousFullness,
     label: buildBinLabel(bin.type, bin.wasteCategory),

@@ -23,15 +23,11 @@
 <div class="card-body p-4">
 <form id="waste-request-form">
 <div class="mb-3">
-<label class="form-label" for="wasteType">Atık türü</label>
-<select id="wasteType" name="wasteType" class="form-select" required>
-  <option value="DOMESTIC">Evsel</option>
-  <option value="ELECTRONIC">Elektronik</option>
-  <option value="PLASTIC">Plastik</option>
-  <option value="GLASS">Cam</option>
-  <option value="PAPER">Kağıt</option>
-  <option value="GENERAL">Genel</option>
+<label class="form-label" for="wasteTypeId">Atık çeşidi</label>
+<select id="wasteTypeId" name="wasteTypeId" class="form-select" required disabled>
+  <option value="">Atık türleri yükleniyor…</option>
 </select>
+<p id="waste-coin-hint" class="text-secondary small mb-0 mt-1"></p>
 </div>
 <div class="mb-3">
 <label class="form-label" for="addressLine">Adres (bina / daire)</label>

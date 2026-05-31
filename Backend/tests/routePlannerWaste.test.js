@@ -81,7 +81,7 @@ describe('routePlanner waste requests', () => {
     const stop = mapWasteRequestToStop(
       {
         id: 'r1',
-        wasteType: 'PAPER',
+        wasteType: { name: 'Gazete / kağıt', parent: { name: 'Kağıt' } },
         latitude: 38.46,
         longitude: 27.22,
         addressLine: 'Blok 1',
@@ -95,5 +95,6 @@ describe('routePlanner waste requests', () => {
     assert.equal(stop.stopType, 'waste_request');
     assert.equal(stop.addressLine, 'Blok 1');
     assert.match(stop.label, /Kağıt/);
+    assert.equal(stop.wasteType, 'Gazete / kağıt');
   });
 });

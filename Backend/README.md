@@ -525,11 +525,11 @@ Base path: `/api/users`
 
 #### `GET /api/users/`
 
-Tüm kullanıcıları listeler.
+Tüm kullanıcıları listeler (şifre alanı hariç).
 
 | | |
 |---|---|
-| **Yetki** | Giriş gerekli |
+| **Yetki** | Giriş + rol `ADMIN` veya `BOSS` |
 
 **Başarı `200`:**
 
@@ -540,15 +540,63 @@ Tüm kullanıcıları listeler.
     {
       "id": "uuid",
       "name": "Demo User",
+      "surname": "Test",
       "email": "user@info.com",
       "role": "USER",
-      "phoneNumber": "5551000002"
+      "employeeType": null,
+      "phoneNumber": "5551000002",
+      "city": "İzmir",
+      "district": "Bornova",
+      "regionId": null,
+      "isVerified": true,
+      "createdAt": "2025-01-01T00:00:00.000Z"
     }
   ]
 }
 ```
 
-> **Uyarı:** Production'da tüm kullanıcı kayıtları (şifre hash dahil) dönebilir; erişimi kısıtlamayı değerlendirin.
+**Hatalar:** `403` yetkisiz.
+
+---
+
+#### `PATCH /api/users/:id`
+
+Bir kullanıcının rolünü ve (EMPLOYEE ise) çalışan tipini günceller.
+
+| | |
+|---|---|
+| **Yetki** | Giriş + rol `ADMIN` veya `BOSS` |
+
+**Body:**
+
+| Alan | Zorunlu | Açıklama |
+|------|---------|----------|
+| `role` | Evet | `USER`, `EMPLOYEE`, `ADMIN`, `BOSS` |
+| `employeeType` | EMPLOYEE ise evet | `TRASH_COLLECTOR`, `WASTE_COLLECTOR`; diğer rollerde `null` |
+
+**Örnek istek (çalışan):**
+
+```json
+{
+  "role": "EMPLOYEE",
+  "employeeType": "TRASH_COLLECTOR"
+}
+```
+
+**Başarı `200`:**
+
+```json
+{
+  "message": "Kullanıcı yetkileri güncellendi.",
+  "data": {
+    "id": "uuid",
+    "role": "EMPLOYEE",
+    "employeeType": "TRASH_COLLECTOR"
+  }
+}
+```
+
+**Hatalar:** `400` kendi yönetici yetkisini kaldırma denemesi veya validasyon; `404` kullanıcı yok; `403` yetkisiz.
 
 ---
 
@@ -1492,6 +1540,8 @@ HTML sayfaları (JSON API değildir). Yetkisiz erişim `requirePageRole` ile `/d
 | `/dashboard` | Tüm giriş yapmış | Rol bazlı dashboard + harita |
 | `/user/my-recycling` | `USER` | Kişisel geri dönüşüm (taslak) |
 | `/admin/employee-status` | `ADMIN`, `BOSS` | Çalışan Durumları (harita, liste, rota özeti) |
+| `/admin/users` | `ADMIN`, `BOSS` | Kullanıcı listesi; rol ve çalışan tipi düzenleme |
+| `/admin/waste-types` | `ADMIN`, `BOSS` | Atık çeşitleri, coin ödülleri (ekleme / güncelleme) |
 | `/admin/employee-tracking` | — | `/admin/employee-status` adresine yönlendirir |
 | `/bin/create` | `ADMIN`, `BOSS` | Çöp kovası harita yönetimi |
 | `/region/create` | `ADMIN`, `BOSS` | Bölge ekleme |

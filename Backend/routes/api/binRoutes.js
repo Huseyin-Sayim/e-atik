@@ -9,8 +9,8 @@ const {
   createBin,
   updateBin,
   deleteBin,
-  updateBinFullness,
-  collectBin
+  seedDefaultBins,
+  collectBin,
 } = require('../../controllers/api/binController');
 
 const router = express.Router();

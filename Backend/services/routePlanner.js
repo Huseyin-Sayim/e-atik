@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const { enrichBinsReadOnly, buildBinLabel, FULLNESS_ALERT_THRESHOLD } = require('./employeeRegionAlerts');
+const { toFullnessPercent } = require('./binFullness');
 const { fetchRoadRoute } = require('./roadRouting');
 const { assertPointInParcel } = require('./campusParcels');
 const { buildWasteRequestLabel } = require('./wasteRequestLabels');
@@ -128,7 +129,7 @@ function mapWasteRequestToStop(request, order, distanceFromPrevKm) {
     stopType: 'waste_request',
     requestId: request.id,
     label: buildWasteRequestLabel(request.wasteType),
-    wasteType: request.wasteType,
+    wasteType: request.wasteType?.name || request.wasteType,
     addressLine: request.addressLine,
     city: request.city,
     district: request.district,
@@ -171,8 +172,8 @@ function buildGreedyWasteRequestRoute({
 }
 
 function mapBinToStop(bin, order, distanceFromPrevKm) {
-  const fullness = bin.predictedFullness ?? 0;
-  const fullnessPercent = Math.round(fullness * 100);
+  const fullness = Math.min(1, Math.max(0, bin.predictedFullness ?? 0));
+  const fullnessPercent = toFullnessPercent(fullness);
   return {
     order,
     stopType: 'bin',
@@ -291,6 +292,11 @@ async function planWasteCollectorRoute(userId, options = {}) {
       OR: [{ assignedEmployeeId: null }, { assignedEmployeeId: userId }],
     },
     orderBy: { createdAt: 'asc' },
+    include: {
+      wasteType: {
+        include: { parent: { select: { name: true } } },
+      },
+    },
   });
 
   const candidates = openRequests.filter((r) =>

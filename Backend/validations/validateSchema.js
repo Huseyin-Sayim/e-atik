@@ -113,12 +113,42 @@ const schemas = {
     })
     .unknown(false),
 
+  wasteTypeCreate: joi
+    .object({
+      parentId: joi.string().uuid().required().messages({
+        'string.guid': 'Geçersiz ana kategori.',
+        'any.required': 'Ana kategori seçilmelidir.',
+      }),
+      name: joi.string().trim().min(2).max(120).required().messages({
+        'string.min': 'Ad en az 2 karakter olmalıdır.',
+        'any.required': 'Atık türü adı zorunludur.',
+      }),
+      coinRewardMode: joi.string().valid('FLAT', 'PER_KG').default('FLAT'),
+      coinRewardValue: joi.number().integer().min(0).max(100000).default(0),
+      sortOrder: joi.number().integer().min(0).max(9999).optional(),
+    })
+    .unknown(false),
+
+  wasteTypeUpdate: joi
+    .object({
+      name: joi.string().trim().min(2).max(120).optional(),
+      coinRewardMode: joi.string().valid('FLAT', 'PER_KG').optional(),
+      coinRewardValue: joi.number().integer().min(0).max(100000).optional(),
+      sortOrder: joi.number().integer().min(0).max(9999).optional(),
+      isActive: joi.boolean().optional(),
+    })
+    .min(1)
+    .messages({
+      'object.min': 'En az bir alan gönderilmelidir.',
+    })
+    .unknown(false),
+
   wasteRequestCreate: joi
     .object({
-      wasteType: joi
-        .string()
-        .valid('DOMESTIC', 'ELECTRONIC', 'PLASTIC', 'GLASS', 'PAPER', 'GENERAL')
-        .required(),
+      wasteTypeId: joi.string().uuid().required().messages({
+        'string.guid': 'Geçersiz atık türü.',
+        'any.required': 'Atık türü seçilmelidir.',
+      }),
       latitude: joi.number().min(-90).max(90).required(),
       longitude: joi.number().min(-180).max(180).required(),
       addressLine: joi.string().trim().min(3).max(300).required().messages({
@@ -148,6 +178,27 @@ const schemas = {
     .min(1)
     .messages({
       'object.min': 'En az bir alan gönderilmelidir.',
+    })
+    .unknown(false),
+
+  adminUserRoleUpdate: joi
+    .object({
+      role: joi.string().valid('USER', 'EMPLOYEE', 'ADMIN', 'BOSS').required().messages({
+        'any.only': 'Geçersiz rol seçimi.',
+        'string.empty': 'Rol zorunludur.',
+      }),
+      employeeType: joi.when('role', {
+        is: 'EMPLOYEE',
+        then: joi
+          .string()
+          .valid('TRASH_COLLECTOR', 'WASTE_COLLECTOR')
+          .required()
+          .messages({
+            'any.only': 'Geçersiz çalışan tipi.',
+            'any.required': 'Çalışan tipi zorunludur.',
+          }),
+        otherwise: joi.valid(null).optional(),
+      }),
     })
     .unknown(false),
 };

@@ -4,7 +4,7 @@
   <div class="col-12">
     <h1 class="fs-3 mb-2">Geri dönüşümüm</h1>
     <p class="text-secondary mb-0">
-      Geri dönüştürdüğünüz atık miktarı burada görünecek. Bu alan şimdilik hazırlanıyor; ileride talep ve toplama kayıtlarınızla doldurulacak.
+      Atık çeşitlerini geri dönüştürdüğünüzde kazanacağınız coin miktarları aşağıdadır.
     </p>
   </div>
 </div>
@@ -16,18 +16,15 @@
         <div class="icon-shape icon-xl rounded-circle bg-success-darker d-inline-flex align-items-center justify-content-center mb-4">
           <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-            class="icon icon-tabler icons-tabler-outline icon-tabler-recycle text-success-lighter">
+            class="icon icon-tabler icons-tabler-outline icon-tabler-coins text-success-lighter">
             <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-            <path d="M12 17l-2 2m2 -2l2 2m-2 -2v-5" />
-            <path d="M16.5 7.5l-2.5 -2.5l2.5 -2.5" />
-            <path d="M7.5 7.5l2.5 -2.5l-2.5 -2.5" />
-            <path d="M7 12a5 5 0 0 1 5 -5h3" />
-            <path d="M17 12a5 5 0 0 1 -5 5h-3" />
+            <path d="M9 14c0 1.657 2.686 3 6 3s6 -1.343 6 -3s-2.686 -3 -6 -3s-6 1.343 -6 3z" />
+            <path d="M9 14v4c0 1.657 2.686 3 6 3s6 -1.343 6 -3v-4" />
           </svg>
         </div>
-        <p class="text-secondary small mb-2">Toplam geri dönüştürülen</p>
-        <p class="fs-1 fw-bold mb-2">—</p>
-        <p class="text-secondary small mb-0">Henüz kayıt yok</p>
+        <p class="text-secondary small mb-2">Cüzdan bakiyeniz</p>
+        <p class="fs-1 fw-bold mb-2" id="my-wallet-balance">—</p>
+        <p class="text-secondary small mb-0" id="my-wallet-sub">Yükleniyor…</p>
       </div>
     </div>
   </div>
@@ -35,34 +32,91 @@
 
 <div class="row mb-2">
   <div class="col-12">
-    <h2 class="fs-5 mb-0">Kategori bazında</h2>
-    <p class="text-secondary small mb-0">Yakında: plastik, cam, kağıt ve diğer atık türleriniz</p>
+    <h2 class="fs-5 mb-0">Atık çeşitleri ve coin ödülleri</h2>
+    <p class="text-secondary small mb-0">Ana kategori altındaki her çeşit için kazanılacak coin</p>
   </div>
 </div>
 
-<div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-4 mb-6">
-  <% const categories = [
-    { label: 'Evsel atık', icon: '/assets/images/map/waste-domestic.svg' },
-    { label: 'Plastik', icon: '/assets/images/map/waste-plastic.svg' },
-    { label: 'Cam', icon: '/assets/images/map/waste-glass.svg' },
-    { label: 'Kağıt', icon: '/assets/images/map/waste-paper.svg' },
-    { label: 'Elektronik', icon: '/assets/images/map/waste-electronic.svg' },
-    { label: 'Genel', icon: '/assets/images/map/waste-general.svg' },
-  ]; %>
-  <% categories.forEach(function(cat) { %>
-  <div class="col">
-    <div class="card card-lg h-100 opacity-75">
-      <div class="card-body d-flex align-items-center gap-3">
-        <img src="<%= cat.icon %>" alt="" width="32" height="32" style="object-fit: contain;">
-        <div>
-          <div class="small fw-semibold"><%= cat.label %></div>
-          <div class="fs-5 fw-bold mb-0 text-secondary">0 L</div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <% }); %>
+<div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-4 mb-6" id="recycling-types-grid">
+  <div class="col-12 text-secondary text-center py-4">Yükleniyor…</div>
 </div>
+
+<script>
+  (function () {
+    function coinBadge(type) {
+      if (type.coinRewardMode === 'PER_KG') {
+        return type.coinRewardValue + ' coin / kg';
+      }
+      return type.coinRewardValue + ' coin';
+    }
+
+    async function loadWallet() {
+      const balanceEl = document.getElementById('my-wallet-balance');
+      const subEl = document.getElementById('my-wallet-sub');
+      try {
+        const res = await fetch('/api/wallet/me', { credentials: 'same-origin' });
+        const body = await res.json().catch(function () {
+          return {};
+        });
+        if (!res.ok) throw new Error();
+        balanceEl.textContent = (body.data?.balance ?? 0).toLocaleString('tr-TR');
+        subEl.textContent = 'Toplanan atıklardan kazanılan coinler';
+      } catch {
+        balanceEl.textContent = '0';
+        subEl.textContent = 'Bakiye alınamadı';
+      }
+    }
+
+    async function loadTypes() {
+      const grid = document.getElementById('recycling-types-grid');
+      try {
+        const res = await fetch('/api/waste-types');
+        const body = await res.json().catch(function () {
+          return {};
+        });
+        if (!res.ok) throw new Error(body.message || 'Liste alınamadı');
+        const tree = body.data || [];
+        const cards = [];
+        tree.forEach(function (parent) {
+          (parent.children || []).forEach(function (child) {
+            cards.push(
+              '<div class="col">' +
+              '<div class="card card-lg h-100">' +
+              '<div class="card-body">' +
+              '<div class="text-secondary small mb-1">' +
+              parent.name +
+              '</div>' +
+              '<div class="fw-semibold mb-2">' +
+              child.name +
+              '</div>' +
+              '<span class="badge bg-success">' +
+              coinBadge(child) +
+              '</span>' +
+              '<p class="text-secondary small mt-2 mb-0">' +
+              (child.coinRewardMode === 'PER_KG'
+                ? 'Toplama sonrası kilograma göre hesaplanır.'
+                : 'Talep toplandığında hesabınıza eklenir.') +
+              '</p>' +
+              '</div></div></div>'
+            );
+          });
+        });
+        grid.innerHTML = cards.length
+          ? cards.join('')
+          : '<div class="col-12 text-secondary text-center py-4">Henüz atık çeşidi tanımlı değil.</div>';
+      } catch (err) {
+        grid.innerHTML =
+          '<div class="col-12 text-danger text-center py-4">' +
+          (err.message || 'Hata') +
+          '</div>';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      loadWallet();
+      loadTypes();
+    });
+  })();
+</script>
 
 <%- include('../../layout/footer') %>
-

@@ -70,7 +70,11 @@
               (r.user?.name || r.user?.email || '—') +
               '</td>' +
               '<td>' +
-              r.wasteType +
+              (r.wasteType
+                ? (r.wasteType.parent
+                    ? r.wasteType.parent.name + ' — '
+                    : '') + r.wasteType.name
+                : '—') +
               '</td>' +
               '<td class="small">' +
               (r.addressLine || '—') +

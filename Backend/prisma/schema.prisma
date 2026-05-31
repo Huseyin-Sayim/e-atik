@@ -49,6 +49,11 @@ enum TransactionType {
   REFUNDED
 }
 
+enum CoinRewardMode {
+  FLAT
+  PER_KG
+}
+
 model User {
   id                String             @id @default(uuid())
   name              String
@@ -185,11 +190,31 @@ model CollectionLog {
   @@index([binId, emptiedAt(sort: Desc)])
 }
 
+model WasteType {
+  id              String         @id @default(uuid())
+  slug            String         @unique
+  name            String
+  parentId        String?
+  parent          WasteType?     @relation("WasteTypeTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children        WasteType[]    @relation("WasteTypeTree")
+  coinRewardMode  CoinRewardMode @default(FLAT)
+  coinRewardValue Int            @default(0)
+  isActive        Boolean        @default(true)
+  sortOrder       Int            @default(0)
+  legacyEnum      WasteCategory?
+  wasteRequests   WasteRequest[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([parentId, sortOrder])
+}
+
 model WasteRequest {
   id                 String        @id @default(uuid())
   userId             String
   user               User          @relation(fields: [userId], references: [id])
-  wasteType          WasteCategory
+  wasteTypeId        String
+  wasteType          WasteType     @relation(fields: [wasteTypeId], references: [id])
   note               String?
   addressLine        String?
   city               String?

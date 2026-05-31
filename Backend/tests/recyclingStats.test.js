@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const {
   emptyTotals,
   formatLiters,
+  formatKg,
   aggregateFromCollectionLogs,
   WASTE_CATEGORIES,
 } = require('../services/recyclingStats');
@@ -33,6 +34,11 @@ describe('recyclingStats', () => {
     assert.equal(formatLiters(-1), '0 L');
     assert.equal(formatLiters(1250), '1.250 L');
     assert.equal(formatLiters(50.5), '50,5 L');
+  });
+
+  it('formatKg uses Turkish locale', () => {
+    assert.equal(formatKg(0), '0 kg');
+    assert.equal(formatKg(12.3), '12,3 kg');
   });
 
   it('emptyTotals initializes all categories', () => {

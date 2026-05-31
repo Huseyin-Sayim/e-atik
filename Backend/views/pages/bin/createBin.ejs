@@ -185,7 +185,9 @@
         m.binRecord = bin;
         m.binType = bin.type;
         m.binWasteCategory = bin.wasteCategory;
-        const fullnessPct = Math.round((bin.predictedFullness || 0) * 100);
+        const rawFullness = bin.predictedFullness || 0;
+        const ratio = rawFullness > 1 ? Math.min(1, rawFullness / 100) : Math.min(1, rawFullness);
+        const fullnessPct = Math.round(ratio * 100);
         m.bindPopup(
           '<strong>' + (bin.region && bin.region.name ? bin.region.name : 'Bölge') + '</strong><br>' +
           getBinTypeLabel(bin.type, bin.wasteCategory) + '<br>' +
