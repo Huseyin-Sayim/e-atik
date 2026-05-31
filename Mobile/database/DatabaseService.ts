@@ -6,6 +6,10 @@ import partnerStoresData from '../assets/partnerStores.json';
 import Constants from 'expo-constants';
 
 const getBaseApiUrl = () => {
+  // Canlı sunucu adresi
+  return 'http://31.57.156.61:2001/api';
+
+  /* Yerel geliştirme için eski kod:
   if (Platform.OS === 'web') {
     const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
     return `http://${hostname}:2001/api`;
@@ -30,6 +34,7 @@ const getBaseApiUrl = () => {
   console.log('🌐 [DATABASE_SERVICE] API Hedef Adresi:', url);
   console.log('📱 [DATABASE_SERVICE] Platform:', Platform.OS);
   return url;
+  */
 };
 
 const BASE_API_URL = getBaseApiUrl();
@@ -38,6 +43,10 @@ const USER_API_URL = `${BASE_API_URL}/users`;
 
 const DatabaseService = {
   getWsUrl(): string {
+    // Canlı sunucu WebSocket adresi
+    return 'ws://31.57.156.61:2001';
+
+    /* Yerel geliştirme için eski kod:
     if (Platform.OS === 'web') {
       const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
       return `ws://${hostname}:2001`;
@@ -46,6 +55,7 @@ const DatabaseService = {
     const localhost = debuggerHost?.split(':').shift();
     if (!localhost) return 'ws://10.0.2.2:2001';
     return `ws://${localhost}:2001`;
+    */
   },
 
   handleError(error: any): never {

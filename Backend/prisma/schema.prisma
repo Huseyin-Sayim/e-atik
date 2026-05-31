@@ -213,8 +213,8 @@ model WasteRequest {
   id                 String        @id @default(uuid())
   userId             String
   user               User          @relation(fields: [userId], references: [id])
-  wasteTypeId        String
-  wasteType          WasteType     @relation(fields: [wasteTypeId], references: [id])
+  wasteTypeId        String?
+  wasteType          WasteType?    @relation(fields: [wasteTypeId], references: [id])
   note               String?
   addressLine        String?
   city               String?
