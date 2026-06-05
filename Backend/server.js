@@ -14,6 +14,7 @@ const walletRoutes = require('./routes/api/walletRoutes');
 const employeeRouteRoutes = require('./routes/api/employeeRouteRoutes');
 const wasteRoutes = require('./routes/api/wasteRoutes');
 const partnerStoreRoutes = require('./routes/api/partnerStoreRoutes');
+const wasteItemRoutes = require('./routes/api/wasteItemRoutes');
 const { initSocket } = require('./socket');
 const cookieParser = require('cookie-parser');
 const path = require('path');

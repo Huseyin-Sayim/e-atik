@@ -279,8 +279,8 @@ const updateBin = async (req, res) => {
   }
 };
 
-// Atık toplama rotası için eklenen fonksiyon
-const collectBin = async (req, res) => {
+// Kutu Boşaltma (Fullness sıfırlama)
+const emptyBin = async (req, res) => {
   try {
     const { id } = req.params;
     const bin = await prisma.bin.update({
@@ -289,7 +289,7 @@ const collectBin = async (req, res) => {
       include: { region: true }
     });
     broadcastBinEvent('binUpdated', bin);
-    res.status(200).json({ message: 'Atık başarıyla toplandı.', data: bin });
+    res.status(200).json({ message: 'Kutu boşaltıldı.', data: bin });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -318,7 +318,7 @@ const deleteBin = async (req, res) => {
 // ============================================================
 // YARDIMCI: Anlaşmalı Mağazalar (Partner Stores) Handlers
 // ============================================================
-const getPartnerStores = async (req, res) => {
+const seedDefaultBins = async (req, res) => {
   try {
     // Önceki kutuları temizle
     await prisma.bin.deleteMany({});
@@ -382,6 +382,36 @@ const getPartnerStores = async (req, res) => {
       success: true, 
       message: `Harika! Veritabanına ${sourceMessage} üzerinden başarıyla ${count} kutu enjekte edildi.` 
     });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+const updateBinFullness = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { predictedFullness } = req.body;
+
+    if (predictedFullness === undefined) {
+      return res.status(400).json({ message: 'Doluluk oranı belirtilmelidir.' });
+    }
+
+    const existing = await prisma.bin.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ message: 'Çöp kutusu bulunamadı.' });
+    }
+
+    const bin = await prisma.bin.update({
+      where: { id },
+      data: { predictedFullness: Number(predictedFullness) },
+      include: { region: { select: { id: true, name: true, region_id: true } } },
+    });
+
+    broadcastBinEvent('binUpdated', bin);
+    await backupBins();
+
+    res.status(200).json({ message: 'Doluluk oranı güncellendi.', data: bin });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
@@ -456,4 +486,6 @@ module.exports = {
   deleteBin,
   seedDefaultBins,
   collectBin,
+  emptyBin,
+  updateBinFullness,
 };

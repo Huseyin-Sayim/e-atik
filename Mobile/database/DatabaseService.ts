@@ -61,15 +61,15 @@ const DatabaseService = {
   handleError(error: any): never {
     // Failed to fetch durumunda detaylı bilgi bas
     if (error.message === 'Network request failed') {
-      console.error('❌ [DATABASE_SERVICE_ERROR]: Sunucuya fiziksel erişim sağlanamadı!');
-      console.error(`📍 Hedef URL: ${BASE_API_URL}`);
-      console.error('🛠️  Çözüm Adımları:');
-      console.error('1- Backend terminaline bak; "app crashed" yazıyorsa TypeError düzeltilmemiştir.');
-      console.error('2- Telefon ve PC aynı Wi-Fi ağında mı? Kontrol et.');
-      console.error('3- PC IP adresin değişmiş olabilir. Terminalde "ipconfig" yazıp logdaki IP ile karşılaştır.');
+      console.warn('❌ [DATABASE_SERVICE_ERROR]: Sunucuya fiziksel erişim sağlanamadı!');
+      console.warn(`📍 Hedef URL: ${BASE_API_URL}`);
+      console.warn('🛠️  Çözüm Adımları:');
+      console.warn('1- Backend terminaline bak; "app crashed" yazıyorsa TypeError düzeltilmemiştir.');
+      console.warn('2- Telefon ve PC aynı Wi-Fi ağında mı? Kontrol et.');
+      console.warn('3- PC IP adresin değişmiş olabilir. Terminalde "ipconfig" yazıp logdaki IP ile karşılaştır.');
       throw new Error('Sunucuya bağlanılamadı. Lütfen ağ ayarlarını ve backend loglarını kontrol edin.');
     } else {
-      console.error('[DATABASE_SERVICE_ERROR]:', error);
+      console.warn('[DATABASE_SERVICE_ERROR]:', error);
     }
     throw error;
   },
@@ -278,6 +278,9 @@ const DatabaseService = {
       });
       if (!response.ok) {
         const json = await this.safeParseJson(response);
+        if (json.error) {
+          console.warn('❌ [DATABASE_SERVICE_ERROR] Backend Detaylı Hata:', json.error);
+        }
         throw new Error(json.message || 'Kayıt sırasında hata oluştu.');
       }
     } catch (error) {
@@ -296,7 +299,12 @@ const DatabaseService = {
         body: JSON.stringify({ email, password })
       });
       const json = await this.safeParseJson(response);
-      if (!response.ok) throw new Error(json.message || 'E-posta veya şifre hatalı.');
+      if (!response.ok) {
+        if (json.error) {
+          console.warn('❌ [DATABASE_SERVICE_ERROR] Backend Detaylı Hata:', json.error);
+        }
+        throw new Error(json.message || 'E-posta veya şifre hatalı.');
+      }
 
       if (json.accessToken) await AsyncStorage.setItem('accessToken', json.accessToken);
       if (json.refreshToken) await AsyncStorage.setItem('refreshToken', json.refreshToken);
