@@ -1,42 +1,127 @@
 [
   {
-    "id": "0741e774-94db-4868-b9d9-8512e234187b",
-    "name": "Ege Üniversitesi Siber Güvenlik Meslek Yüksekokulu",
-    "type": "WASTE_POINT",
+    "id": "ffbf08e7-5ba4-4ebc-9338-51a332c07a9c",
+    "name": null,
+    "type": "CONTAINER_LARGE",
     "wasteCategory": "GENERAL",
-    "latitude": 38.451843,
-    "longitude": 27.2293,
+    "latitude": 38.45332,
+    "longitude": 27.221353,
     "capacityVolume": 100,
+<<<<<<< Updated upstream
     "predictedFullness": 40,
     "qrCode": "QR-BIN-ILT6TY-MPL8SLKM",
     "barCode": "9787620594091",
     "regionId": null,
     "createdAt": "2026-05-19T16:38:05.404Z",
     "region": null
+=======
+    "predictedFullness": 0,
+    "regionId": "f8c81370-06cd-49a4-be58-6e5348be0adb",
+    "createdAt": "2026-05-30T08:31:28.702Z"
+>>>>>>> Stashed changes
   },
   {
-    "id": "04b60a24-d8d6-477b-b87e-4eebf855330d",
-    "name": "Ege Üniversitesi Tülay Aktaş Onkoloji Hastanesi",
+    "id": "5d4caada-db26-4f6f-b39c-98d959bc34bd",
+    "name": null,
     "type": "WASTE_POINT",
+    "wasteCategory": "PAPER",
+    "latitude": 38.451505,
+    "longitude": 27.230365,
+    "capacityVolume": 20,
+    "predictedFullness": 0.0001206018518518518,
+    "regionId": "f8c81370-06cd-49a4-be58-6e5348be0adb",
+    "createdAt": "2026-05-30T08:28:56.740Z"
+  },
+  {
+    "id": "0ffbc2d6-9c1e-427f-be4f-bf5e1101100e",
+    "name": null,
+    "type": "WASTE_POINT",
+    "wasteCategory": "GLASS",
+    "latitude": 38.451404,
+    "longitude": 27.230215,
+    "capacityVolume": 20,
+    "predictedFullness": 0.0004195891203703703,
+    "regionId": "f8c81370-06cd-49a4-be58-6e5348be0adb",
+    "createdAt": "2026-05-30T08:28:46.407Z"
+  },
+  {
+    "id": "a13c3277-a68d-469b-9444-1341cccc35e3",
+    "name": null,
+    "type": "WASTE_POINT",
+    "wasteCategory": "PLASTIC",
+    "latitude": 38.451513,
+    "longitude": 27.230312,
+    "capacityVolume": 20,
+    "predictedFullness": 0.0009230902777777777,
+    "regionId": "f8c81370-06cd-49a4-be58-6e5348be0adb",
+    "createdAt": "2026-05-30T08:28:29.006Z"
+  },
+  {
+    "id": "0c95ba83-74fe-4632-b056-6e428b26fbfd",
+    "name": null,
+    "type": "WASTE_POINT",
+    "wasteCategory": "ELECTRONIC",
+    "latitude": 38.451329,
+    "longitude": 27.230333,
+    "capacityVolume": 20,
+    "predictedFullness": 0.001232262731481481,
+    "regionId": "f8c81370-06cd-49a4-be58-6e5348be0adb",
+    "createdAt": "2026-05-30T08:28:18.321Z"
+  },
+  {
+    "id": "685822c7-1428-4153-aee1-6c306cce1b1e",
+    "name": null,
+    "type": "CONTAINER_SMALL",
     "wasteCategory": "GENERAL",
-    "latitude": 38.4536,
-    "longitude": 27.2089,
+    "latitude": 38.453742,
+    "longitude": 27.228466,
+    "capacityVolume": 20,
+    "predictedFullness": 0.006524826388888888,
+    "regionId": "f8c81370-06cd-49a4-be58-6e5348be0adb",
+    "createdAt": "2026-05-30T08:27:08.159Z"
+  },
+  {
+    "id": "66bc6231-497d-4cc0-815d-0e4ff70c5cf7",
+    "name": null,
+    "type": "CONTAINER_LARGE",
+    "wasteCategory": "GENERAL",
+    "latitude": 38.456904,
+    "longitude": 27.228359,
     "capacityVolume": 100,
+<<<<<<< Updated upstream
     "predictedFullness": 82,
     "qrCode": "QR-BIN-0S6JFW-MPL8SLLU",
     "barCode": "9785706126941",
     "regionId": null,
     "createdAt": "2026-05-19T16:34:14.271Z",
     "region": null
+=======
+    "predictedFullness": 0.001461655092592593,
+    "regionId": "f8c81370-06cd-49a4-be58-6e5348be0adb",
+    "createdAt": "2026-05-30T08:26:54.621Z"
+>>>>>>> Stashed changes
   },
   {
-    "id": "ec4965ef-50ad-4aeb-ba4f-07487e6d394d",
-    "name": "Ege Üniversitesi Moda ve Tasarım Yüksekokulu",
-    "type": "WASTE_POINT",
+    "id": "c4e9f4e6-aa19-4da1-ab9d-a0969f49cc06",
+    "name": null,
+    "type": "CONTAINER_SMALL",
     "wasteCategory": "GENERAL",
-    "latitude": 38.453,
-    "longitude": 27.212,
+    "latitude": 38.460045,
+    "longitude": 27.234163,
+    "capacityVolume": 30,
+    "predictedFullness": 0.005562847222222222,
+    "regionId": "f8c81370-06cd-49a4-be58-6e5348be0adb",
+    "createdAt": "2026-05-30T08:26:36.719Z"
+  },
+  {
+    "id": "c4276e3b-d508-4255-8050-5ba8572455c6",
+    "name": null,
+    "type": "CONTAINER_LARGE",
+    "wasteCategory": "GENERAL",
+    "latitude": 38.459474,
+    "longitude": 27.235837,
     "capacityVolume": 100,
+<<<<<<< Updated upstream
     "predictedFullness": 45,
     "qrCode": "QR-BIN-18SERY-MPL8SLMB",
     "barCode": "9781066770428",
@@ -763,5 +848,10 @@
     "regionId": null,
     "createdAt": "2026-05-18T17:12:06.818Z",
     "region": null
+=======
+    "predictedFullness": 0.001817222222222222,
+    "regionId": "f8c81370-06cd-49a4-be58-6e5348be0adb",
+    "createdAt": "2026-05-30T08:26:23.900Z"
+>>>>>>> Stashed changes
   }
 ]
