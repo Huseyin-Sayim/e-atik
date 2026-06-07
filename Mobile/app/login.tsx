@@ -91,7 +91,7 @@ export default function LoginScreen() {
         if (err.message?.toLowerCase().includes('bulunamadı')) {
           setErrorMessage('Böyle bir hesap bulunamadı. Lütfen önce hesap oluşturun.');
         } else {
-          setErrorMessage(err.message || 'Sunucuya bağlanılamadı. Lütfen backend sunucusunun çalıştığından emin olun.');
+          setErrorMessage(err.message || 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.');
         }
         return;
       }

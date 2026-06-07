@@ -63,11 +63,7 @@ const DatabaseService = {
     if (error.message === 'Network request failed') {
       console.warn('❌ [DATABASE_SERVICE_ERROR]: Sunucuya fiziksel erişim sağlanamadı!');
       console.warn(`📍 Hedef URL: ${BASE_API_URL}`);
-      console.warn('🛠️  Çözüm Adımları:');
-      console.warn('1- Backend terminaline bak; "app crashed" yazıyorsa TypeError düzeltilmemiştir.');
-      console.warn('2- Telefon ve PC aynı Wi-Fi ağında mı? Kontrol et.');
-      console.warn('3- PC IP adresin değişmiş olabilir. Terminalde "ipconfig" yazıp logdaki IP ile karşılaştır.');
-      throw new Error('Sunucuya bağlanılamadı. Lütfen ağ ayarlarını ve backend loglarını kontrol edin.');
+      throw new Error('Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.');
     } else {
       console.warn('[DATABASE_SERVICE_ERROR]:', error);
     }
