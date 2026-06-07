@@ -6,6 +6,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { MapView, Marker, Geojson } from '../../components/MapComponent';
 import DatabaseService from '../../database/DatabaseService';
+import { useBinFullnessLive } from '../../hooks/useBinFullnessLive';
+import { toFillPercentage } from '../../utils/fullness';
 import campusParcels from '../../assets/kampusParsel.json';
 
 const DEFAULT_AVATAR = require('../../assets/images/default-avatar.png');
@@ -67,6 +69,15 @@ export default function KurumsalIndexScreen() {
   const [categoryDetailVisible, setCategoryDetailVisible] = useState(false);
   const [selectedCategoryDetail, setSelectedCategoryDetail] = useState<any>(null);
   const [wasteItems, setWasteItems] = useState<any[]>([]);
+
+  useBinFullnessLive(topBins, setTopBins, {
+    selectedBin: selectedItem,
+    onSelectedBinChange: setSelectedItem,
+  });
+
+  useEffect(() => {
+    topBinsRef.current = topBins;
+  }, [topBins]);
 
   // Calculate statistics when transactions change
   useEffect(() => {
@@ -517,7 +528,7 @@ export default function KurumsalIndexScreen() {
       const mappedBins = fetchedBins.map(b => ({
         id: b.id.toString(),
         name: b.name || 'İsimsiz Kutu',
-        fillPercentage: b.predictedFullness || 0,
+        fillPercentage: toFillPercentage(b.predictedFullness),
         latitude: parseFloat(b.latitude),
         longitude: parseFloat(b.longitude),
       }));

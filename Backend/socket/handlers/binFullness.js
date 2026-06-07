@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const {
   ADMIN_ROOM,
+  PUBLIC_FULLNESS_ROOM,
   regionRoom,
   getRegionSnapshot,
 } = require('../../services/binFullnessBroadcast');
@@ -9,6 +10,8 @@ const prisma = new PrismaClient();
 
 async function joinFullnessRooms(socket) {
   const { userId, role } = socket.user;
+
+  socket.join(PUBLIC_FULLNESS_ROOM);
 
   if (role === 'ADMIN') {
     socket.join(ADMIN_ROOM);

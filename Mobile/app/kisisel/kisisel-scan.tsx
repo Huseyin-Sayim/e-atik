@@ -17,6 +17,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import DatabaseService from '../../database/DatabaseService';
+import { useBinFullnessLive } from '../../hooks/useBinFullnessLive';
+import { toFillPercentage } from '../../utils/fullness';
 
 interface TrashBin {
   id: string;
@@ -61,6 +63,11 @@ export default function KisiselScanScreen() {
     message: ''
   });
 
+  useBinFullnessLive(bins, setBins, {
+    selectedBin,
+    onSelectedBinChange: setSelectedBin,
+  });
+
   useEffect(() => {
     loadBins();
     const unsubscribe = DatabaseService.subscribeToBins(() => {
@@ -78,7 +85,7 @@ export default function KisiselScanScreen() {
         name: b.name || 'İsimsiz Kutu',
         latitude: parseFloat(b.latitude),
         longitude: parseFloat(b.longitude),
-        fillPercentage: b.predictedFullness || 0,
+        fillPercentage: toFillPercentage(b.predictedFullness),
         type: b.wasteCategory === 'PLASTIC' ? 'plastik' : b.wasteCategory === 'GLASS' ? 'cam' : b.wasteCategory === 'PAPER' ? 'kagit' : 'genel',
         capacity: (b.wasteCategory === 'PLASTIC' || b.wasteCategory === 'PAPER') ? 50 : 100,
         qrCode: b.qrCode,

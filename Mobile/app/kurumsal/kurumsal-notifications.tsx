@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, SafeAreaView, ScrollView, Platform, StatusBar, 
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import DatabaseService from '../../database/DatabaseService';
+import { useBinFullnessLive } from '../../hooks/useBinFullnessLive';
+import { toFillPercentage } from '../../utils/fullness';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import campusParcels from '../../assets/kampusParsel.json';
 
@@ -41,6 +43,8 @@ export default function KurumsalNotificationsScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [showRegionPrompt, setShowRegionPrompt] = useState(false);
+
+  useBinFullnessLive(notifications, setNotifications);
 
   useEffect(() => {
     loadNotifications();
@@ -87,7 +91,7 @@ export default function KurumsalNotificationsScreen() {
       const mappedBins = fetchedBins.map(b => ({
         id: b.id.toString(),
         name: b.name || 'İsimsiz Kutu',
-        fillPercentage: b.predictedFullness || 0,
+        fillPercentage: toFillPercentage(b.predictedFullness),
         latitude: parseFloat(b.latitude),
         longitude: parseFloat(b.longitude),
         isRequest: false,

@@ -58,6 +58,21 @@ const DatabaseService = {
     */
   },
 
+  getSocketUrl(): string {
+    return 'http://31.57.156.61:2001';
+
+    /* Yerel geliştirme için eski kod:
+    if (Platform.OS === 'web') {
+      const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+      return `http://${hostname}:2001`;
+    }
+    const debuggerHost = Constants.expoConfig?.hostUri || Constants.manifest2?.extra?.expoGo?.debuggerHost;
+    const localhost = debuggerHost?.split(':').shift();
+    if (!localhost) return 'http://10.0.2.2:2001';
+    return `http://${localhost}:2001`;
+    */
+  },
+
   handleError(error: any): never {
     // Failed to fetch durumunda detaylı bilgi bas
     if (error.message === 'Network request failed') {

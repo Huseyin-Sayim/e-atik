@@ -14,6 +14,7 @@ import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import DatabaseService from '../database/DatabaseService';
+import fullnessSocketService from '../services/fullnessSocket';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -97,6 +98,8 @@ export default function LoginScreen() {
       }
 
       setSuccessMessage('Giriş başarılı! Yönlendiriliyorsunuz...');
+
+      fullnessSocketService.connect().catch(() => {});
       
       if (rememberMe) {
         const thirtyDaysInMillis = 30 * 24 * 60 * 60 * 1000;

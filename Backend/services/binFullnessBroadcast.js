@@ -15,6 +15,7 @@ const POLL_INTERVAL_MS = parseInt(
 const EMIT_DELTA = parseFloat(process.env.FULLNESS_EMIT_DELTA || '0.01');
 
 const ADMIN_ROOM = 'role:admin';
+const PUBLIC_FULLNESS_ROOM = 'fullness:public';
 const cache = new Map();
 let pollTimer = null;
 let ioRef = null;
@@ -55,6 +56,7 @@ function emitToRooms(io, regionId, event, payload) {
     io.to(regionRoom(regionId)).emit(event, payload);
   }
   io.to(ADMIN_ROOM).emit(event, payload);
+  io.to(PUBLIC_FULLNESS_ROOM).emit(event, payload);
 }
 
 async function loadAllBinsEnriched() {
@@ -181,9 +183,11 @@ function stopFullnessBroadcast() {
 
 module.exports = {
   ADMIN_ROOM,
+  PUBLIC_FULLNESS_ROOM,
   regionRoom,
   buildPayload,
   shouldEmitIncrease,
+  emitToRooms,
   pollAndEmit,
   emitBinFullnessUpdated,
   getRegionSnapshot,

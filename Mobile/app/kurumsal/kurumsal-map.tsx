@@ -23,6 +23,8 @@ import { MapView, Marker, PROVIDER_DEFAULT, Geojson } from '../../components/Map
 import * as Location from 'expo-location';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import DatabaseService from '../../database/DatabaseService';
+import { useBinFullnessLive } from '../../hooks/useBinFullnessLive';
+import { toFillPercentage } from '../../utils/fullness';
 import { useRouter } from 'expo-router';
 
 // GeoJSON verisini import ediyoruz
@@ -270,6 +272,11 @@ export default function KurumsalMapScreen() {
   const [qrModalBin, setQrModalBin] = useState<TrashBin | null>(null);
   const [qrType, setQrType] = useState<'qr' | 'barkod' | null>(null);
 
+  useBinFullnessLive(bins, setBins, {
+    selectedBin,
+    onSelectedBinChange: setSelectedBin,
+  });
+
   useEffect(() => {
     const initApp = async () => {
       await loadBins();
@@ -316,36 +323,6 @@ export default function KurumsalMapScreen() {
     };
   }, []);
 
-  // ==========================================
-  // CANLI SİMÜLASYON YARDIMCI METODLARI
-  // ==========================================
-  const formatCountdown = (seconds: number | undefined) => {
-    const total = seconds !== undefined ? seconds : 90;
-    if (total <= 0) return '00:00';
-    const mins = Math.floor(total / 60);
-    const secs = total % 60;
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  };
-
-  const formatTotalTimeRemaining = (bin: TrashBin) => {
-    if (bin.fillPercentage >= 100) return 'Tamamen Dolu';
-    
-    const stepsRemaining = 100 - bin.fillPercentage - 1;
-    const secondsPerStep = bin.capacity === 50 ? 90 : 180;
-    const currentStepSeconds = bin.countdown !== undefined ? bin.countdown : secondsPerStep;
-    
-    const totalSeconds = (stepsRemaining * secondsPerStep) + currentStepSeconds;
-    
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    
-    if (hours > 0) {
-      return `${hours}sa ${minutes}dk ${seconds}sn`;
-    }
-    return `${minutes}dk ${seconds}sn`;
-  };
-
   const getBinCapacityLabel = (bin: TrashBin) => {
     const cap = bin.capacity || 100;
     const sizeStr = cap === 50 ? 'Küçük Boy' : 'Büyük Boy';
@@ -358,24 +335,20 @@ export default function KurumsalMapScreen() {
 
   const handleEmptyBin = async (binId: string) => {
     try {
-      // 1. Yerel state'i güncelle (Sıfırla ve sayacı hacmine göre yenile)
       setBins(prevBins => prevBins.map(bin => {
         if (bin.id === binId) {
-          const resetCountdown = bin.capacity === 50 ? 90 : 180;
-          const updated = { ...bin, fillPercentage: 0, countdown: resetCountdown };
+          const updated = { ...bin, fillPercentage: 0 };
           setSelectedBin(updated);
           return updated;
         }
         return bin;
       }));
 
-      // 2. Database update (arkada sessizce eşitle)
       await DatabaseService.updateBinFullness(binId, 0);
 
-      // 3. 28px kavisli başarı uyarısı
       Alert.alert(
         'İşlem Başarılı',
-        'Akıllı atık kutusu başarıyla boşaltıldı! Canlı dolum simülasyonu sıfırdan yeniden başladı.',
+        'Akıllı atık kutusu başarıyla boşaltıldı.',
         [{ text: 'Harika', style: 'default' }]
       );
     } catch (err) {
@@ -383,63 +356,6 @@ export default function KurumsalMapScreen() {
       Alert.alert('Hata', 'Kutu boşaltılırken veri tabanında bir sorun oluştu.');
     }
   };
-
-  // ==========================================
-  // CANLI GERİ SAYIM VE DOLUM SİMÜLASYONU
-  // ==========================================
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setBins(prevBins => {
-        if (prevBins.length === 0) return prevBins;
-        
-        let updatedSelectedBin: TrashBin | null = null;
-        
-        const nextBins = prevBins.map(bin => {
-          if (bin.fillPercentage >= 100) {
-            const updatedBin = { ...bin, countdown: 0 };
-            if (selectedBin && selectedBin.id === bin.id) {
-              updatedSelectedBin = updatedBin;
-            }
-            return updatedBin;
-          }
-
-          const nextCountdown = (bin.countdown !== undefined ? bin.countdown : (bin.capacity === 50 ? 90 : 180)) - 1;
-          
-          if (nextCountdown <= 0) {
-            const nextFill = Math.min(100, bin.fillPercentage + 1);
-            const resetCountdown = bin.capacity === 50 ? 90 : 180;
-            const updatedBin = {
-              ...bin,
-              fillPercentage: nextFill,
-              countdown: nextFill >= 100 ? 0 : resetCountdown
-            };
-            if (selectedBin && selectedBin.id === bin.id) {
-              updatedSelectedBin = updatedBin;
-            }
-            return updatedBin;
-          } else {
-            const updatedBin = { ...bin, countdown: nextCountdown };
-            if (selectedBin && selectedBin.id === bin.id) {
-              updatedSelectedBin = updatedBin;
-            }
-            return updatedBin;
-          }
-        });
-
-        // Sync selected bin live so card updates instantly!
-        if (updatedSelectedBin) {
-          setSelectedBin(updatedSelectedBin);
-        } else if (selectedBin) {
-          const matching = nextBins.find(b => b.id === selectedBin.id);
-          if (matching) setSelectedBin(matching);
-        }
-
-        return nextBins;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [selectedBin]);
 
   const setupLocation = async () => {
     try {
@@ -529,16 +445,14 @@ export default function KurumsalMapScreen() {
       const mappedBins = fetchedBins.map(b => {
         const type = b.wasteCategory === 'PLASTIC' ? 'plastik' : b.wasteCategory === 'GLASS' ? 'cam' : b.wasteCategory === 'PAPER' ? 'kagit' : 'genel';
         const capacity = b.capacityVolume || 100;
-        const defaultCountdown = capacity === 50 ? 90 : 180;
         return {
           id: b.id.toString(),
           name: b.name || 'İsimsiz Kutu',
           latitude: parseFloat(b.latitude),
           longitude: parseFloat(b.longitude),
-          fillPercentage: b.predictedFullness || 0,
+          fillPercentage: toFillPercentage(b.predictedFullness),
           type,
           capacity,
-          countdown: defaultCountdown,
           lastUpdated: 'Şimdi',
           qrCode: b.qrCode || undefined,
           barCode: b.barCode || undefined,
@@ -971,9 +885,9 @@ export default function KurumsalMapScreen() {
                 <View style={[styles.countdownBox, currentTheme === 'dark' && { backgroundColor: '#334155', borderColor: '#475569' }]}>
                   {selectedBin.fillPercentage < 100 ? (
                     <View style={styles.countdownRow}>
-                      <Ionicons name="time-outline" size={18} color="#2e7d32" style={{ marginRight: 6 }} />
+                      <Ionicons name="pulse-outline" size={18} color="#2e7d32" style={{ marginRight: 6 }} />
                       <Text style={[styles.countdownText, currentTheme === 'dark' && { color: '#94a3b8' }]}>
-                        %100 Doluluğa Kalan Süre: <Text style={[styles.countdownValue, currentTheme === 'dark' && { color: '#fff' }]}>{formatTotalTimeRemaining(selectedBin)}</Text>
+                        Anlık doluluk: <Text style={[styles.countdownValue, currentTheme === 'dark' && { color: '#fff' }]}>%{selectedBin.fillPercentage}</Text>
                       </Text>
                     </View>
                   ) : (

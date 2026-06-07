@@ -3,7 +3,10 @@ const assert = require('node:assert/strict');
 const {
   shouldEmitIncrease,
   buildPayload,
+  emitToRooms,
   EMIT_DELTA,
+  PUBLIC_FULLNESS_ROOM,
+  ADMIN_ROOM,
 } = require('../services/binFullnessBroadcast');
 const { FULLNESS_ALERT_THRESHOLD } = require('../services/employeeRegionAlerts');
 
@@ -42,5 +45,26 @@ describe('binFullnessBroadcast', () => {
     assert.equal(payload.isCritical, true);
     assert.equal(payload.previousFullness, 0.7);
     assert.ok(payload.label);
+  });
+
+  it('emitToRooms emits to region, admin and public rooms', () => {
+    const emitted = [];
+    const io = {
+      to(room) {
+        return {
+          emit(event, payload) {
+            emitted.push({ room, event, payload });
+          },
+        };
+      },
+    };
+
+    emitToRooms(io, 'reg-1', 'bin:fullness:updated', { binId: 'bin-1' });
+
+    assert.equal(emitted.length, 3);
+    assert.deepEqual(
+      emitted.map((entry) => entry.room),
+      ['region:reg-1', ADMIN_ROOM, PUBLIC_FULLNESS_ROOM]
+    );
   });
 });

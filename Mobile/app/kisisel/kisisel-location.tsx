@@ -21,6 +21,8 @@ import { MapView, Marker, PROVIDER_DEFAULT, Geojson } from '../../components/Map
 import * as Location from 'expo-location';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import DatabaseService from '../../database/DatabaseService';
+import { useBinFullnessLive } from '../../hooks/useBinFullnessLive';
+import { toFillPercentage } from '../../utils/fullness';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -87,6 +89,10 @@ export default function KisiselLocationScreen() {
   const [routeCoordinates, setRouteCoordinates] = useState<any[]>([]);
   const [isInspectMode, setIsInspectMode] = useState(false);
 
+  useBinFullnessLive(bins, setBins, {
+    selectedBin,
+    onSelectedBinChange: setSelectedBin,
+  });
 
   useEffect(() => {
     const unsubscribe = DatabaseService.subscribeToTheme((theme) => {
@@ -167,7 +173,7 @@ export default function KisiselLocationScreen() {
         name: b.name || 'İsimsiz Kutu',
         latitude: parseFloat(b.latitude),
         longitude: parseFloat(b.longitude),
-        fillPercentage: b.predictedFullness || 0,
+        fillPercentage: toFillPercentage(b.predictedFullness),
         type: b.wasteCategory === 'PLASTIC' ? 'plastik' : b.wasteCategory === 'GLASS' ? 'cam' : b.wasteCategory === 'PAPER' ? 'kagit' : 'genel',
         capacity: (b.wasteCategory === 'PLASTIC' || b.wasteCategory === 'PAPER') ? 50 : 100,
         lastUpdated: 'Şimdi',

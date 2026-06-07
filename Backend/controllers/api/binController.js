@@ -461,6 +461,8 @@ const collectBin = async (req, res) => {
       console.error('[collectBin] fullness broadcast', err);
     });
 
+    broadcastBinEvent('binUpdated', enriched);
+
     res.status(201).json({
       message: 'Kova boşaltma kaydı oluşturuldu.',
       data: {
