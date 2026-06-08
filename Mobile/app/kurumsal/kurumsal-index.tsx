@@ -1733,6 +1733,7 @@ const styles = StyleSheet.create({
   fullModalSafeArea: {
     flex: 1,
     backgroundColor: '#f8fafc',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   fullModalHeader: {
     flexDirection: 'row',
