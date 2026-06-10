@@ -400,6 +400,10 @@ const logout = async (req, res) => {
       path: '/'
     });
 
+    if (req.accepts(['json', 'html']) === 'html') {
+      return res.redirect('/login');
+    }
+
     return res.status(200).json({ message: "Başarıyla çıkış yapıldı ve oturumlar sonlandırıldı." });
   } catch (err) {
     console.error("Logout hatası:", err);
