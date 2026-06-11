@@ -893,7 +893,7 @@ Nokta seçilen parsel poligonu içinde olmalı; aksi halde `400`.
 
 | | |
 |---|---|
-| **Yetki** | Giriş + rol `ADMIN` veya `BOSS` |
+| **Yetki** | Giriş + `ADMIN`, `BOSS`, `EMPLOYEE` veya kurumsal profil |
 
 **Başarı `200`:**
 

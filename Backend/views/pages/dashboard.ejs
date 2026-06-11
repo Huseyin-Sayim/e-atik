@@ -136,9 +136,17 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="/assets/js/map/binMapIcons.js"></script>
 <script src="https://unpkg.com/@mapbox/leaflet-pip@latest/leaflet-pip.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/assets/js/socketClient.js"></script>
 
 <script>
   const DASHBOARD_USER_ROLE = '<%= user.role %>';
+  const DASHBOARD_EMPLOYEE_TYPE = '<%= user.employeeType || "" %>';
+
+  function canCollectWasteRequests() {
+    if (['ADMIN', 'BOSS'].includes(DASHBOARD_USER_ROLE)) return true;
+    return DASHBOARD_USER_ROLE === 'EMPLOYEE' && DASHBOARD_EMPLOYEE_TYPE === 'WASTE_COLLECTOR';
+  }
   const map = L.map('map').setView([38.459, 27.228], 15);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap'
@@ -258,7 +266,7 @@
               <p class="small mb-2"><b>Açıklama:</b> ${req.note || 'Yok'}</p>
               <div class="d-flex justify-content-between align-items-center mt-2">
                 <span class="badge ${req.status === 'PENDING' ? 'bg-warning text-dark' : 'bg-info text-white'}">${req.status === 'PENDING' ? 'Beklemede' : 'Yolda'}</span>
-                <button class="btn btn-xs btn-success py-1 px-2 text-white" style="font-size: 11px;" onclick="completeRequestFromWeb('${req.id}')">Topla</button>
+                ${canCollectWasteRequests() ? `<button class="btn btn-xs btn-success py-1 px-2 text-white" style="font-size: 11px;" onclick="completeRequestFromWeb('${req.id}')">Topla</button>` : ''}
               </div>
             </div>
           `);
@@ -393,11 +401,11 @@
   async function completeRequestFromWeb(requestId) {
     if (!confirm("Bu evsel atık talebini toplandı olarak işaretlemek istediğinize emin misiniz?")) return;
     try {
-      const res = await fetch(`/api/waste-requests/${requestId}`, {
-        method: 'PATCH',
+      const res = await fetch(`/api/waste-requests/${requestId}/collect`, {
+        method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'COLLECTED' })
+        body: '{}'
       });
       if (res.ok) {
         alert("Talep başarıyla tamamlandı!");
@@ -437,14 +445,18 @@
   };
   ws.onerror = (e) => console.warn('WebSocket Hatası (Web Dashboard):', e);
 
+  function initDashboardFullnessSocket() {
+    if (!globalThis.EAtikSocket) return;
+    EAtikSocket.onFullnessUpdated(() => loadExistingBins());
+    EAtikSocket.onFullnessIncreased(() => loadExistingBins());
+  }
+
   // 8. BAŞLATICI
   window.onload = () => {
     renderMapLegend();
     loadCampusAreas();
     loadExistingBins();
-    initFullnessSocket();
+    initDashboardFullnessSocket();
   };
 </script>
-<script src="/socket.io/socket.io.js"></script>
-<script src="/assets/js/socketClient.js"></script>
 <%- include('../layout/footer') %>

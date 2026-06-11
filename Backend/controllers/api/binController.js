@@ -298,10 +298,6 @@ const emptyBin = async (req, res) => {
 
 const deleteBin = async (req, res) => {
   try {
-    if (req.user?.role === 'EMPLOYEE') {
-      return res.status(403).json({ message: 'Silme yetkisi yalnızca yöneticiler içindir.' });
-    }
-
     const { id } = req.params;
     const existing = await prisma.bin.findUnique({ where: { id } });
     if (!existing) {

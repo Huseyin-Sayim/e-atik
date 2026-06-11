@@ -383,6 +383,72 @@ const DatabaseService = {
     }
   },
 
+  async getWasteTypes(): Promise<any[]> {
+    try {
+      const response = await fetch(`${BASE_API_URL}/waste-types?t=${new Date().getTime()}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      });
+      const json = await this.safeParseJson(response);
+      if (!response.ok) throw new Error(json.message || 'Atık türleri getirilemedi.');
+      return Array.isArray(json.data) ? json.data : [];
+    } catch (error: any) {
+      console.error('getWasteTypes hatası:', error);
+      throw error;
+    }
+  },
+
+  async createWasteRequest(payload: {
+    wasteTypeId: string;
+    addressLine: string;
+    latitude: number;
+    longitude: number;
+    city?: string | null;
+    district?: string | null;
+    note?: string | null;
+  }): Promise<any> {
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      const response = await fetch(`${BASE_API_URL}/waste-requests`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+      const json = await this.safeParseJson(response);
+      if (!response.ok) throw new Error(json.message || json.error || 'Talep oluşturulamadı.');
+      return json.data || json;
+    } catch (error: any) {
+      this.handleError(error);
+    }
+  },
+
+  async getMyWasteRequests(): Promise<any[]> {
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      const response = await fetch(`${BASE_API_URL}/waste-requests/mine?t=${new Date().getTime()}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '',
+          'Accept': 'application/json',
+        },
+      });
+      const json = await this.safeParseJson(response);
+      if (!response.ok) throw new Error(json.message || 'Talepler getirilemedi.');
+      return Array.isArray(json) ? json : (json.data || []);
+    } catch (error) {
+      console.error('getMyWasteRequests hatası:', error);
+      return [];
+    }
+  },
+
   async getWasteRequests(): Promise<any[]> {
     try {
       const token = await AsyncStorage.getItem('accessToken');

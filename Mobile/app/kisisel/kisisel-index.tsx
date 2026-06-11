@@ -141,15 +141,52 @@ const WASTE_CATEGORIES = [
   { name: 'Diğer', icon: 'trash-outline', color: '#94a3b8' },
 ];
 
-// Evsel Atık Bildirimi için sabit kategoriler (marketten bağımsız)
-const EVSEL_WASTE_TYPES = [
-  { id: 'GENERAL',    name: 'Genel Evsel Atık',         icon: 'trash-outline',           color: '#64748b', wasteType: 'DOMESTIC',   coins: 50  },
-  { id: 'PACKAGING',  name: 'Ambalaj (Kağıt/Plastik)', icon: 'cube-outline',            color: '#22d3ee', wasteType: 'PLASTIC',    coins: 30  },
-  { id: 'ORGANIC',    name: 'Organik Atık',             icon: 'leaf-outline',            color: '#84cc16', wasteType: 'DOMESTIC',   coins: 50  },
-  { id: 'ELECTRONIC', name: 'Elektronik Atık',          icon: 'hardware-chip-outline',   color: '#6366f1', wasteType: 'ELECTRONIC', coins: 100 },
-  { id: 'BULKY',      name: 'Büyük Eşya / Mobilya',    icon: 'bed-outline',             color: '#a855f7', wasteType: 'DOMESTIC',   coins: 50  },
-  { id: 'HAZARDOUS',  name: 'Tehlikeli Atık (Pil/İlaç)',icon: 'warning-outline',         color: '#ef4444', wasteType: 'DOMESTIC',   coins: 50  },
-];
+type WasteTypeOption = {
+  id: string;
+  name: string;
+  parentName: string;
+  parentSlug: string;
+  coinRewardMode: 'FLAT' | 'PER_KG';
+  coinRewardValue: number;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+};
+
+const PARENT_SLUG_VISUALS: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
+  'evsel-atik': { icon: 'leaf-outline', color: '#84cc16' },
+  'elektronik': { icon: 'hardware-chip-outline', color: '#6366f1' },
+  'plastik': { icon: 'cube-outline', color: '#22d3ee' },
+  'cam': { icon: 'wine-outline', color: '#10b981' },
+  'kagit': { icon: 'document-text-outline', color: '#facc15' },
+  'genel': { icon: 'trash-outline', color: '#64748b' },
+};
+
+function flattenWasteTypeTree(tree: any[]): WasteTypeOption[] {
+  const options: WasteTypeOption[] = [];
+  tree.forEach((parent) => {
+    const visuals = PARENT_SLUG_VISUALS[parent.slug] || { icon: 'trash-outline' as const, color: '#64748b' };
+    (parent.children || []).forEach((child: any) => {
+      options.push({
+        id: child.id,
+        name: child.name,
+        parentName: parent.name,
+        parentSlug: parent.slug,
+        coinRewardMode: child.coinRewardMode || 'FLAT',
+        coinRewardValue: child.coinRewardValue ?? 0,
+        icon: visuals.icon,
+        color: visuals.color,
+      });
+    });
+  });
+  return options;
+}
+
+function formatCoinLabel(option: WasteTypeOption): string {
+  if (option.coinRewardMode === 'PER_KG') {
+    return `${option.coinRewardValue} coin/kg`;
+  }
+  return `${option.coinRewardValue} coin`;
+}
 
 export default function KisiselIndexScreen() {
   const [userName, setUserName] = useState('...');
@@ -311,6 +348,9 @@ export default function KisiselIndexScreen() {
     }
   };
   const [selectedWasteType, setSelectedWasteType] = useState<string | null>(null);
+  const [wasteTypeOptions, setWasteTypeOptions] = useState<WasteTypeOption[]>([]);
+  const [wasteTypesLoading, setWasteTypesLoading] = useState(false);
+  const [wasteTypesError, setWasteTypesError] = useState<string | null>(null);
   const [detailedAddress, setDetailedAddress] = useState('');
   const [userCity, setUserCity] = useState('');
   const [userDistrict, setUserDistrict] = useState('');
@@ -345,6 +385,26 @@ export default function KisiselIndexScreen() {
       loadData();
     }, [])
   );
+
+  const loadWasteTypes = async () => {
+    setWasteTypesLoading(true);
+    setWasteTypesError(null);
+    try {
+      const tree = await DatabaseService.getWasteTypes();
+      setWasteTypeOptions(flattenWasteTypeTree(tree));
+    } catch (err: any) {
+      setWasteTypeOptions([]);
+      setWasteTypesError(err.message || 'Atık türleri yüklenemedi.');
+    } finally {
+      setWasteTypesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (wasteModalVisible) {
+      loadWasteTypes();
+    }
+  }, [wasteModalVisible]);
 
   const loadData = async () => {
     try {
@@ -459,8 +519,8 @@ export default function KisiselIndexScreen() {
         }
 
         // Fetch unread collected waste requests
-        const allRequests = await DatabaseService.getWasteRequests();
-        const userCollected = allRequests.filter((r: any) => r.userId === userId && r.status === 'COLLECTED');
+        const allRequests = await DatabaseService.getMyWasteRequests();
+        const userCollected = allRequests.filter((r: any) => r.status === 'COLLECTED');
         const readIdsStr = await AsyncStorage.getItem(`readCollectedRequests_${userId}`);
         const readIds = readIdsStr ? JSON.parse(readIdsStr) : [];
         const unreads = userCollected.filter((r: any) => !readIds.includes(r.id));
@@ -475,7 +535,7 @@ export default function KisiselIndexScreen() {
     if (unreadRequests.length > 0) {
       const userId = await AsyncStorage.getItem('currentUserId');
       
-      const unreadsInfo = unreadRequests.map(r => `• Konum: ${r.note || 'Belirtilmedi'}\n  Talep No: ${r.id.substring(0,6)}...`).join('\n\n');
+      const unreadsInfo = unreadRequests.map(r => `• Konum: ${r.addressLine || r.note || 'Belirtilmedi'}\n  Talep No: ${r.id.substring(0,6)}...`).join('\n\n');
       
       Alert.alert(
         'Talebiniz Tamamlandı! 🎉',
@@ -508,6 +568,10 @@ export default function KisiselIndexScreen() {
       showWasteToast('error', 'Eksik Bilgi', 'Lütfen açık adres bilginizi giriniz.');
       return;
     }
+    if (detailedAddress.trim().length < 3) {
+      showWasteToast('error', 'Eksik Bilgi', 'Adres en az 3 karakter olmalıdır.');
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -528,16 +592,21 @@ export default function KisiselIndexScreen() {
       const latitude = location.coords.latitude;
       const longitude = location.coords.longitude;
 
-      // 3. Atık türünü veritabanı enum değerlerine eşle
-      const evselItem = EVSEL_WASTE_TYPES.find(w => w.id === selectedWasteType);
-      const mappedCategory = evselItem ? evselItem.wasteType : 'DOMESTIC';
+      const selectedItem = wasteTypeOptions.find((w) => w.id === selectedWasteType);
+      if (!selectedItem) {
+        setIsSubmitting(false);
+        showWasteToast('error', 'Eksik Seçim', 'Geçerli bir atık türü seçiniz.');
+        return;
+      }
 
-      // 4. API'ye gönder
       await DatabaseService.createWasteRequest({
-        wasteType: mappedCategory,
-        note: detailedAddress,
+        wasteTypeId: selectedItem.id,
+        addressLine: detailedAddress.trim(),
         latitude,
-        longitude
+        longitude,
+        city: userCity || null,
+        district: userDistrict || null,
+        note: null,
       });
 
       setIsSubmitting(false);
@@ -1002,42 +1071,59 @@ export default function KisiselIndexScreen() {
               </Text>
             </View>
 
-            <Text style={[styles.inputLabel, currentTheme === 'dark' && { color: '#fff' }]}>Evsel Atık Türü Seçin</Text>
-            <View style={styles.wasteGrid}>
-              {EVSEL_WASTE_TYPES.map((type) => {
-                const isSelected = selectedWasteType === type.id;
-                const iconColor = type.color;
-                const bg = type.color + '20';
+            <Text style={[styles.inputLabel, currentTheme === 'dark' && { color: '#fff' }]}>Atık Türü Seçin</Text>
+            {wasteTypesLoading ? (
+              <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color="#16a34a" />
+                <Text style={{ marginTop: 8, color: '#94a3b8', fontSize: 13 }}>Atık türleri yükleniyor…</Text>
+              </View>
+            ) : wasteTypesError ? (
+              <View style={{ paddingVertical: 12 }}>
+                <Text style={{ color: '#ef4444', fontSize: 13, marginBottom: 8 }}>{wasteTypesError}</Text>
+                <TouchableOpacity onPress={loadWasteTypes} style={styles.submitButton}>
+                  <Text style={styles.submitButtonText}>Tekrar Dene</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.wasteGrid}>
+                {wasteTypeOptions.map((type) => {
+                  const isSelected = selectedWasteType === type.id;
+                  const iconColor = type.color;
+                  const bg = type.color + '20';
 
-                return (
-                  <TouchableOpacity
-                    key={type.id}
-                    style={[
-                      styles.wasteCard,
-                      { backgroundColor: currentTheme === 'dark' ? '#1e293b' : bg },
-                      currentTheme === 'dark' && { borderColor: '#334155' },
-                      isSelected && { borderColor: iconColor, borderWidth: 2 }
-                    ]}
-                    onPress={() => setSelectedWasteType(type.id)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.wasteCardIconContainer}>
-                      <Ionicons name={type.icon as any} size={26} color={isSelected ? iconColor : (currentTheme === 'dark' ? '#94a3b8' : '#64748b')} />
-                    </View>
-                    <Text style={[
-                      styles.wasteCardText, 
-                      currentTheme === 'dark' && { color: '#cbd5e1' },
-                      isSelected && { fontWeight: 'bold', color: iconColor }
-                    ]}>
-                      {type.name}
-                    </Text>
-                    <Text style={{ fontSize: 11, color: isSelected ? iconColor : '#94a3b8', marginTop: 2 }}>
-                      {type.coins} 🪙
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+                  return (
+                    <TouchableOpacity
+                      key={type.id}
+                      style={[
+                        styles.wasteCard,
+                        { backgroundColor: currentTheme === 'dark' ? '#1e293b' : bg },
+                        currentTheme === 'dark' && { borderColor: '#334155' },
+                        isSelected && { borderColor: iconColor, borderWidth: 2 }
+                      ]}
+                      onPress={() => setSelectedWasteType(type.id)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.wasteCardIconContainer}>
+                        <Ionicons name={type.icon} size={26} color={isSelected ? iconColor : (currentTheme === 'dark' ? '#94a3b8' : '#64748b')} />
+                      </View>
+                      <Text style={[
+                        styles.wasteCardText,
+                        currentTheme === 'dark' && { color: '#cbd5e1' },
+                        isSelected && { fontWeight: 'bold', color: iconColor }
+                      ]}>
+                        {type.name}
+                      </Text>
+                      <Text style={{ fontSize: 10, color: isSelected ? iconColor : '#94a3b8', marginTop: 2 }}>
+                        {type.parentName}
+                      </Text>
+                      <Text style={{ fontSize: 11, color: isSelected ? iconColor : '#94a3b8', marginTop: 2 }}>
+                        {formatCoinLabel(type)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
 
             <Text style={[styles.inputLabel, currentTheme === 'dark' && { color: '#fff' }]}>Açık Adresiniz</Text>
             <TextInput

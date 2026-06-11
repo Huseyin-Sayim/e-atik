@@ -18,7 +18,7 @@ const collectorRoles = [isAuth, hasRole('EMPLOYEE', 'ADMIN', 'BOSS')];
 
 router.post('/', isAuth, hasRole('USER'), validate(validateSchema.wasteRequestCreate), createWasteRequest);
 router.get('/mine', isAuth, hasRole('USER'), getMyWasteRequests);
-router.get('/', ...supervisorRoles, getAllWasteRequests);
+router.get('/', ...collectorRoles, getAllWasteRequests);
 router.post('/:id/collect', ...collectorRoles, validate(validateSchema.wasteRequestCollect), collectWasteRequest);
 router.patch('/:id', ...supervisorRoles, validate(validateSchema.wasteRequestUpdate), updateWasteRequest);
 

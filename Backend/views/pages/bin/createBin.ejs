@@ -74,7 +74,7 @@
 
 <script>
   const CURRENT_USER_ROLE = '<%= (typeof user !== "undefined" && user && user.role) ? user.role : "" %>';
-  const CAN_DELETE_BINS = ['ADMIN', 'BOSS'].includes(CURRENT_USER_ROLE);
+  const CAN_DELETE_BINS = ['ADMIN', 'BOSS', 'EMPLOYEE'].includes(CURRENT_USER_ROLE);
 
   const map = L.map('map').setView([38.459, 27.228], 15);
   const fetchOpts = { credentials: 'include' };
