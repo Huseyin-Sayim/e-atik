@@ -115,8 +115,8 @@ const schemas = {
 
   wasteTypeCreate: joi
     .object({
-      parentId: joi.string().uuid().required().messages({
-        'string.guid': 'Geçersiz ana kategori.',
+      parentId: joi.string().trim().min(1).max(64).required().messages({
+        'string.empty': 'Geçersiz ana kategori.',
         'any.required': 'Ana kategori seçilmelidir.',
       }),
       name: joi.string().trim().min(2).max(120).required().messages({
@@ -145,8 +145,8 @@ const schemas = {
 
   wasteRequestCreate: joi
     .object({
-      wasteTypeId: joi.string().uuid().required().messages({
-        'string.guid': 'Geçersiz atık türü.',
+      wasteTypeId: joi.string().trim().min(1).max(64).required().messages({
+        'string.empty': 'Geçersiz atık türü.',
         'any.required': 'Atık türü seçilmelidir.',
       }),
       latitude: joi.number().min(-90).max(90).required(),

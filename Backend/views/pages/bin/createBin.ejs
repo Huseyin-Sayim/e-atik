@@ -41,7 +41,13 @@
         <button type="button" id="btn-delete-bin" onclick="deleteSelectedBin()" class="btn btn-outline-danger btn-sm" style="display:none;">Sil</button>
         <button type="button" onclick="cancelPanel()" class="btn btn-secondary btn-sm">İptal</button>
     </div>
-    <p class="small text-muted mt-2 mb-0">Kayıt için <strong>ADMIN</strong> veya <strong>BOSS</strong> oturumu gerekir.</p>
+    <p class="small text-muted mt-2 mb-0" id="bin-panel-permission-hint">
+      <% if (typeof user !== 'undefined' && user && user.role === 'EMPLOYEE') { %>
+        Çalışan oturumu ile kova ekleyebilir ve düzenleyebilirsiniz. Silme yalnızca yöneticiler içindir.
+      <% } else { %>
+        Kayıt ve silme için <strong>ADMIN</strong> veya <strong>BOSS</strong> oturumu gerekir.
+      <% } %>
+    </p>
 </div>
 
 <div class="mb-2">
@@ -67,6 +73,9 @@
 <script src="https://unpkg.com/@mapbox/leaflet-pip@latest/leaflet-pip.js"></script>
 
 <script>
+  const CURRENT_USER_ROLE = '<%= (typeof user !== "undefined" && user && user.role) ? user.role : "" %>';
+  const CAN_DELETE_BINS = ['ADMIN', 'BOSS'].includes(CURRENT_USER_ROLE);
+
   const map = L.map('map').setView([38.459, 27.228], 15);
   const fetchOpts = { credentials: 'include' };
 
@@ -289,7 +298,7 @@
     panelMode = 'edit';
     editingBinId = bin.id;
     document.getElementById('panel-title').textContent = 'Çöp kovasını düzenle';
-    document.getElementById('btn-delete-bin').style.display = 'inline-block';
+    document.getElementById('btn-delete-bin').style.display = CAN_DELETE_BINS ? 'inline-block' : 'none';
     detectedParcelKey = bin.region ? bin.region.region_id : null;
     document.getElementById('region-display').value = bin.region ? bin.region.name : '';
     document.getElementById('lat-input').value = Number(bin.latitude).toFixed(6);

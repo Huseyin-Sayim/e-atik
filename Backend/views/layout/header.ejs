@@ -92,7 +92,7 @@
           </a>
         </li>
         <% } else { %>
-        <% if (typeof user !== 'undefined' && user && (user.role === 'ADMIN' || user.role === 'BOSS')) { %>
+        <% if (typeof user !== 'undefined' && user && (user.role === 'ADMIN' || user.role === 'BOSS' || user.role === 'EMPLOYEE')) { %>
         <li class="nav-item">
           <a class="nav-link" href="/bin/create">
             <span class="nav-icon">
@@ -269,7 +269,7 @@
             </a>
           </li>
           <% } else { %>
-          <% if (typeof user !== 'undefined' && user && (user.role === 'ADMIN' || user.role === 'BOSS')) { %>
+          <% if (typeof user !== 'undefined' && user && (user.role === 'ADMIN' || user.role === 'BOSS' || user.role === 'EMPLOYEE')) { %>
           <li class="nav-item">
             <a class="nav-link" href="/bin/create">
               <span class="nav-icon">

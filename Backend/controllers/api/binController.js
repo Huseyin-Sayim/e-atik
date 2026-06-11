@@ -262,9 +262,10 @@ const updateBin = async (req, res) => {
       return res.status(400).json({ message: 'Güncellenecek alan yok.' });
     }
 
-    await prisma.bin.update({
+    const bin = await prisma.bin.update({
       where: { id },
       data,
+      include: { region: regionSelect },
     });
 
     // Güncelleme sonrası tüm cihazlara anlık bildirim gönder
@@ -297,6 +298,10 @@ const emptyBin = async (req, res) => {
 
 const deleteBin = async (req, res) => {
   try {
+    if (req.user?.role === 'EMPLOYEE') {
+      return res.status(403).json({ message: 'Silme yetkisi yalnızca yöneticiler içindir.' });
+    }
+
     const { id } = req.params;
     const existing = await prisma.bin.findUnique({ where: { id } });
     if (!existing) {

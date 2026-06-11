@@ -61,7 +61,7 @@ router.get('/', (req, res) => {
 
 // DASHBOARD
 
-const binManagerRoles = requirePageRole('ADMIN', 'BOSS');
+const binManagerRoles = requirePageRole('ADMIN', 'BOSS', 'EMPLOYEE');
 
 router.get('/dashboard', isAuth, loadCurrentUser, async (req, res) => {
   const tasks = [
@@ -112,7 +112,7 @@ router.get('/region/create', isAuth, loadCurrentUser, binManagerRoles, (req, res
 // BİN
 
 router.get('/bin/create', isAuth, loadCurrentUser, binManagerRoles, (req, res) => {
-  res.render('pages/bin/createBin');
+  res.render('pages/bin/createBin', { user: res.locals.user });
 });
 
 // ADMIN / BOSS — ÇALIŞAN DURUMLARI
