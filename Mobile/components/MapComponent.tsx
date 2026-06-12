@@ -111,16 +111,15 @@ const htmlContent = `
                 ? 'width: 58px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left;' 
                 : 'width: 36px; text-align: center;';
               
-              wrapper.innerHTML = `
-                <div class="tooltip-container" style="background-color: \${color}; pointer-events: none;">
-                  <div class="tooltip-content">
-                    <i class="mdi \${iconClass}" style="color: #fff; font-size: 18px;"></i>
-                    <div class="divider"></div>
-                    <div class="tooltip-text" style="\${textStyle}">\${labelText}</div>
-                  </div>
-                </div>
-                <div class="tail-triangle" style="border-top-color: \${color};"></div>
-              `;
+              wrapper.innerHTML = 
+                '<div class="tooltip-container" style="background-color: ' + color + '; pointer-events: none;">' +
+                  '<div class="tooltip-content">' +
+                    '<i class="mdi ' + iconClass + '" style="color: #fff; font-size: 18px;"></i>' +
+                    '<div class="divider"></div>' +
+                    '<div class="tooltip-text" style="' + textStyle + '">' + labelText + '</div>' +
+                  '</div>' +
+                '</div>' +
+                '<div class="tail-triangle" style="border-top-color: ' + color + ';"></div>';
 
               // Tıklama olayını direkt fiziksel DIV nesnesine bağlıyoruz
               wrapper.onclick = function(e) {
@@ -149,24 +148,23 @@ const htmlContent = `
             if (window.staffMarker) {
               map.removeLayer(window.staffMarker);
             }
-            const staffPulseHtml = \`
-              <div style="
-                background-color: #3b82f6; 
-                width: 18px; 
-                height: 18px; 
-                border-radius: 9px; 
-                border: 3px solid #fff; 
-                box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
-                animation: pulse 1.5s infinite ease-in-out;
-              "></div>
-              <style>
-                @keyframes pulse {
-                  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
-                  70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
-                  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
-                }
-              </style>
-            \`;
+            const staffPulseHtml = 
+              '<div style="' +
+                'background-color: #3b82f6; ' +
+                'width: 18px; ' +
+                'height: 18px; ' +
+                'border-radius: 9px; ' +
+                'border: 3px solid #fff; ' +
+                'box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);' +
+                'animation: pulse 1.5s infinite ease-in-out;' +
+              '"></div>' +
+              '<style>' +
+                '@keyframes pulse {' +
+                  '0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }' +
+                  '70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }' +
+                  '100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }' +
+                '}' +
+              '</style>';
             const staffIcon = L.divIcon({
               html: staffPulseHtml,
               className: '',
