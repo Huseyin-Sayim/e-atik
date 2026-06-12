@@ -203,6 +203,53 @@ const createBin = async (req, res) => {
   }
 };
 
+// Doluluk oranı güncellendiğinde zaman bazlı simülasyonun yeni değerden devam etmesi için en son boşaltma kaydını ayarla
+async function adjustCollectionLogForFullness(binId, ratio, userId) {
+  try {
+    const bin = await prisma.bin.findUnique({ where: { id: binId } });
+    if (!bin) return;
+
+    const { getHoursToFull } = require('../../services/binFullness');
+    const hoursToFull = getHoursToFull(bin.type, bin.capacityVolume);
+    const MS_PER_HOUR = 60 * 60 * 1000;
+    const elapsedMs = ratio * hoursToFull * MS_PER_HOUR;
+    const mockLastEmptiedAt = new Date(Date.now() - elapsedMs);
+
+    // En son CollectionLog kaydını bul
+    const latestLog = await prisma.collectionLog.findFirst({
+      where: { binId },
+      orderBy: { emptiedAt: 'desc' },
+    });
+
+    if (latestLog) {
+      // Varsa onun zamanını ve doluluğunu güncelle
+      await prisma.collectionLog.update({
+        where: { id: latestLog.id },
+        data: { emptiedAt: mockLastEmptiedAt, actualFullness: ratio },
+      });
+    } else {
+      // Yoksa yeni bir tane oluştur
+      let employeeId = userId;
+      if (!employeeId) {
+        const firstUser = await prisma.user.findFirst();
+        employeeId = firstUser ? firstUser.id : undefined;
+      }
+      if (employeeId) {
+        await prisma.collectionLog.create({
+          data: {
+            binId,
+            employeeId,
+            emptiedAt: mockLastEmptiedAt,
+            actualFullness: ratio,
+          },
+        });
+      }
+    }
+  } catch (err) {
+    console.error('adjustCollectionLogForFullness hatası:', err);
+  }
+}
+
 const updateBin = async (req, res) => {
   try {
     const { id } = req.params;
@@ -258,7 +305,11 @@ const updateBin = async (req, res) => {
     if (wasteCategory !== undefined) data.wasteCategory = wasteCategory;
     if (type !== undefined) data.type = type;
     if (capacityVolume !== undefined) data.capacityVolume = capacityVolume;
-    if (predictedFullness !== undefined) data.predictedFullness = normalizeFullnessRatio(predictedFullness);
+    if (predictedFullness !== undefined) {
+      const ratio = normalizeFullnessRatio(predictedFullness);
+      data.predictedFullness = ratio;
+      await adjustCollectionLogForFullness(id, ratio, req.user?.userId);
+    }
     if (parcelKey !== undefined && parcelKey !== null && parcelKey !== '') {
       data.regionId = nextRegionId;
     }
@@ -308,6 +359,10 @@ const deleteBin = async (req, res) => {
     if (!existing) {
       return res.status(404).json({ message: 'Çöp kutusu bulunamadı.' });
     }
+
+    // Yabancı anahtar hatasını engellemek için önce boşaltma günlüklerini sil
+    await prisma.collectionLog.deleteMany({ where: { binId: id } });
+
     await prisma.bin.delete({ where: { id } });
 
     await backupBins();
@@ -408,9 +463,14 @@ const updateBinFullness = async (req, res) => {
       return res.status(404).json({ message: 'Çöp kutusu bulunamadı.' });
     }
 
+    const ratio = normalizeFullnessRatio(predictedFullness);
+
+    // Doluluk oranı kaydını ve zaman simülasyonunu güncelle
+    await adjustCollectionLogForFullness(id, ratio, req.user?.userId);
+
     const bin = await prisma.bin.update({
       where: { id },
-      data: { predictedFullness: Number(predictedFullness) },
+      data: { predictedFullness: ratio },
       include: { region: { select: { id: true, name: true, region_id: true } } },
     });
 
