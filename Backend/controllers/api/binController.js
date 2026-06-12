@@ -221,6 +221,7 @@ const updateBin = async (req, res) => {
       wasteCategory,
       type,
       capacityVolume,
+      predictedFullness,
       regionId: parcelKey,
     } = req.body;
 
@@ -242,9 +243,12 @@ const updateBin = async (req, res) => {
       parcelForCheck = region.region_id;
     }
 
-    const inside = assertPointInParcel(nextLat, nextLng, parcelForCheck);
-    if (!inside.ok) {
-      return res.status(400).json({ message: inside.message });
+    // Koordinat bölge kontrolü: parcelKey biliniyorsa kontrol et
+    if (parcelForCheck) {
+      const inside = assertPointInParcel(nextLat, nextLng, parcelForCheck);
+      if (!inside.ok) {
+        return res.status(400).json({ message: inside.message });
+      }
     }
 
     const data = {};
@@ -254,6 +258,7 @@ const updateBin = async (req, res) => {
     if (wasteCategory !== undefined) data.wasteCategory = wasteCategory;
     if (type !== undefined) data.type = type;
     if (capacityVolume !== undefined) data.capacityVolume = capacityVolume;
+    if (predictedFullness !== undefined) data.predictedFullness = normalizeFullnessRatio(predictedFullness);
     if (parcelKey !== undefined && parcelKey !== null && parcelKey !== '') {
       data.regionId = nextRegionId;
     }

@@ -955,7 +955,7 @@ export default function KurumsalMapScreen() {
       )}
 
       {/* LİSTE MODALI (Üst Üste Binen Kutular İçin) */}
-      <Modal visible={isListModalVisible} animationType="slide" transparent={true}>
+      <Modal visible={isListModalVisible} animationType="slide" transparent={true} onRequestClose={() => setIsListModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { maxHeight: '70%' }, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
             <View style={[styles.modalHeader, currentTheme === 'dark' && { borderBottomColor: '#334155' }]}>
@@ -1003,7 +1003,7 @@ export default function KurumsalMapScreen() {
       </Modal>
 
       {/* EVSEL ATIK TALEPLERİ LİSTE MODALI */}
-      <Modal visible={isRequestListModalVisible} animationType="slide" transparent={true}>
+      <Modal visible={isRequestListModalVisible} animationType="slide" transparent={true} onRequestClose={() => setIsRequestListModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { maxHeight: '70%' }, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
             <View style={[styles.modalHeader, currentTheme === 'dark' && { borderBottomColor: '#334155' }]}>
@@ -1064,7 +1064,12 @@ export default function KurumsalMapScreen() {
       </Modal>
 
       {/* YÖNETİM MODALI */}
-      <Modal visible={isModalVisible} animationType="slide" transparent={true}>
+      <Modal
+        visible={isModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setIsModalVisible(false)}
+      >
         <View style={styles.modalOverlay}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.modalContent, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
             <View style={[styles.modalHeader, currentTheme === 'dark' && { borderBottomColor: '#334155' }]}>
@@ -1168,7 +1173,7 @@ export default function KurumsalMapScreen() {
       </Modal>
 
       {/* QR & BARKOD POPUP MODAL */}
-      <Modal visible={isQrModalVisible} animationType="fade" transparent={true}>
+      <Modal visible={isQrModalVisible} animationType="fade" transparent={true} onRequestClose={() => setIsQrModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { alignItems: 'center', paddingBottom: 40 }, currentTheme === 'dark' && { backgroundColor: '#1e293b' }]}>
             <View style={styles.modalHeader}>

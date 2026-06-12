@@ -94,6 +94,7 @@ const schemas = {
         .optional(),
       type: joi.string().valid('CONTAINER_LARGE', 'CONTAINER_SMALL', 'WASTE_POINT').optional(),
       capacityVolume: joi.number().positive().optional(),
+      predictedFullness: joi.number().min(0).max(100).optional(),
       regionId: joi.string().trim().allow('', null).optional(),
     })
     .min(1)
