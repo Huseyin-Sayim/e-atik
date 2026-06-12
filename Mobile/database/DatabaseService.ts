@@ -6,7 +6,7 @@ import partnerStoresData from '../assets/partnerStores.json';
 import Constants from 'expo-constants';
 
 // true: Canlı sunucu (production), false: Yerel geliştirme ortamı (local)
-const IS_PRODUCTION = false; 
+const IS_PRODUCTION = true; 
 
 const getBaseApiUrl = () => {
   if (IS_PRODUCTION) {
