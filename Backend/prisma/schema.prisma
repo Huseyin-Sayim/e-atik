@@ -181,7 +181,7 @@ model Bin {
 model CollectionLog {
   id             String   @id @default(uuid())
   binId          String
-  bin            Bin      @relation(fields: [binId], references: [id])
+  bin            Bin      @relation(fields: [binId], references: [id], onDelete: Cascade)
   employeeId     String
   employee       User     @relation(fields: [employeeId], references: [id])
   emptiedAt      DateTime @default(now())

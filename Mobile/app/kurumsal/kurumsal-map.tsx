@@ -432,6 +432,8 @@ export default function KurumsalMapScreen() {
       if (isFirstLoad.current) {
         setLoading(true);
       }
+
+      // getBins hata fırlatırsa catch bloğuna düşer, setBins çağrılmaz → mevcut marker'lar korunur
       let fetchedBins = await DatabaseService.getBins();
   
       // Evsel atık bildirimlerini de çekelim
@@ -487,9 +489,11 @@ export default function KurumsalMapScreen() {
         };
       });
   
+      // Sadece başarılı veri geldiğinde state'i güncelle
       setBins([...mappedRequests, ...mappedBins]);
     } catch (e) {
-      console.error('❌ Yükleme hatası:', e);
+      // Hata durumunda setBins çağrılmaz → mevcut marker'lar haritada kalır
+      console.error('❌ Kutu yükleme hatası (mevcut marker\'lar korunuyor):', e);
     } finally {
       if (isFirstLoad.current) {
         setLoading(false);
@@ -544,6 +548,18 @@ export default function KurumsalMapScreen() {
         // GÜNCELLEME (DB)
         console.log('🔄 DB Güncelleniyor...', editBin.id);
         await DatabaseService.updateBinItem(editBin.id, payload);
+
+        // Optimistik güncelleme: güncel veriyi state'e hemen yansıt (flicker yok)
+        const updatedBinId = editBin.id;
+        setBins(prev => prev.map(b => b.id === updatedBinId ? {
+          ...b,
+          name: payload.name,
+          latitude: payload.latitude,
+          longitude: payload.longitude,
+          fillPercentage: toFillPercentage(payload.predictedFullness),
+          type: editBin.type || b.type,
+          capacity: payload.capacityVolume,
+        } : b));
       } else {
         // YENİ EKLEME (DB)
         console.log('➕ DB ye Ekleniyor...');
@@ -552,12 +568,12 @@ export default function KurumsalMapScreen() {
 
       // UX: Modalı anında kapat ki kullanıcıya hızlı hissettirsin
       setIsModalVisible(false);
-
-      // Arkada sessizce taze verileri çek
-      await loadBins();
-
       setEditBin(null);
       setSelectedBin(null); // Kartı kapat ki eski ID ile kalmasın
+
+      // Sunucudan taze liste çek (başarısız olursa optimistik güncelleme zaten yapıldı)
+      await loadBins();
+
       Alert.alert('Başarılı', 'Değişiklikler veritabanına kaydedildi.');
 
     } catch (error: any) {
@@ -570,8 +586,14 @@ export default function KurumsalMapScreen() {
     try {
       console.log('🗑️ DB den siliniyor...', id);
       await DatabaseService.deleteBinItem(id);
+      
+      // Optimistik güncelleme: silinen bin'i state'den hemen çıkar (flicker yok)
       setSelectedBin(null);
+      setBins(prev => prev.filter(b => b.id !== id));
+      
+      // Sunucudan taze liste çek (başarısız olursa optimistik güncelleme zaten yapıldı)
       await loadBins();
+      
       if (Platform.OS === 'web') {
         window.alert('Atık Kutusu veritabanından silindi.');
       } else {

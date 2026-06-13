@@ -504,7 +504,7 @@ const DatabaseService = {
       return json;
     } catch (error) {
       console.error('getBins hatası:', error);
-      return [];
+      throw error; // Hata yutulmaz; çağıran katman mevcut marker'ları korumaya devam eder
     }
   },
 

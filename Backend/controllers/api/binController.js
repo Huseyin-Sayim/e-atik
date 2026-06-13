@@ -93,6 +93,9 @@ async function attachFullnessAndSync(bins) {
       prisma.bin.update({
         where: { id: bin.id },
         data: { predictedFullness: bin.predictedFullness },
+      }).catch((err) => {
+        // Silinen veya erişilemeyen kutu güncelleme hataları GET /api/bins'i çökertemez
+        console.warn(`[WARN] Kutu doluluk senkronizasyonu atlandı (bin: ${bin.id}): ${err.message}`);
       })
     )
   );
