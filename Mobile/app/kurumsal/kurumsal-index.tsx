@@ -586,8 +586,15 @@ export default function KurumsalIndexScreen() {
       // 2. Çöp kutularını doluluk oranına göre azalan (yüksekten düşüğe) sırala
       const sortedBins = [...filteredBins].sort((a, b) => b.fillPercentage - a.fillPercentage);
 
-      // Nihai listeyi birleştir (Önce bölge atık kutuları, sonra evsel atık talepleri)
-      let combined: any[] = [...sortedBins, ...domesticRequests];
+      // Öncelik Algoritması:
+      // 1. %75 ve üzeri doluluk oranına sahip kutular
+      // 2. Evsel Atık Talepleri
+      // 3. %75 altı doluluk oranına sahip kutular
+      const highPriorityBins = sortedBins.filter(b => b.fillPercentage >= 75);
+      const normalPriorityBins = sortedBins.filter(b => b.fillPercentage < 75);
+
+      // Nihai listeyi birleştir
+      let combined: any[] = [...highPriorityBins, ...domesticRequests, ...normalPriorityBins];
 
       // Öncelikli bildirimler listesi - Panoda en fazla 4 bildirim gösterilir
       const sliced = combined.slice(0, 4);

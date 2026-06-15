@@ -156,11 +156,11 @@ export default function KurumsalNotificationsScreen() {
       }
 
       // Öncelik Sıralaması:
-      // 1. Seçilen Bölgenin Atık Kutuları (Azalan doluluk oranına göre)
-      // 2. Evsel Atık Talepleri (Bölgeden bağımsız, en eski gelen üstte)
+      // 1. Evsel Atık Talepleri (Bölgeden bağımsız, en eski gelen üstte)
+      // 2. Seçilen Bölgenin Atık Kutuları (Azalan doluluk oranına göre)
       let combined: any[] = [
-        ...sortedBins,
-        ...domesticRequests
+        ...domesticRequests,
+        ...sortedBins
       ];
 
       setNotifications(combined);

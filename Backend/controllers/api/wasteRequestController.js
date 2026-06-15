@@ -80,9 +80,11 @@ const createWasteRequest = async (req, res) => {
 const mapRequestsForLegacyMobile = (requests) => {
   return requests.map(req => {
     const mapped = { ...req };
-    if (mapped.wasteType && typeof mapped.wasteType === 'object') {
+    if (mapped.wasteType !== null && typeof mapped.wasteType === 'object') {
       mapped.wasteTypeDetails = mapped.wasteType;
       mapped.wasteType = mapped.wasteType.legacyEnum || 'DOMESTIC';
+    } else if (!mapped.wasteType) {
+      mapped.wasteType = 'DOMESTIC';
     }
     return mapped;
   });
