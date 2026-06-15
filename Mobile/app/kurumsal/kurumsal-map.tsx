@@ -85,6 +85,7 @@ interface TrashBin {
   status?: string;
   qrCode?: string;
   barCode?: string;
+  addressLine?: string;
 }
 
 function getFillLevel(percentage: number): FillLevel {
@@ -483,6 +484,7 @@ export default function KurumsalMapScreen() {
           lastUpdated: 'Şimdi',
           isRequest: true,
           note: req.note,
+          addressLine: req.addressLine,
           userFullName: req.user ? `${req.user.name} ${req.user.surname || ''}` : 'Kullanıcı',
           wasteType: req.wasteType,
           status: req.status
@@ -827,8 +829,8 @@ export default function KurumsalMapScreen() {
               // Evsel Atık Talebi Kart İçeriği
               <View style={{ marginBottom: 10 }}>
                 <View style={styles.infoSectionMap}>
-                  <Text style={[styles.infoSectionTitleMap, currentTheme === 'dark' && { color: '#64748b' }]}>AÇIK ADRES / NOT</Text>
-                  <Text style={[styles.infoSectionValueMap, currentTheme === 'dark' && { color: '#f8fafc' }]}>{selectedBin.note || 'Belirtilmedi'}</Text>
+                  <Text style={[styles.infoSectionTitleMap, currentTheme === 'dark' && { color: '#94a3b8' }]}>AÇIK ADRES / NOT</Text>
+                  <Text style={[styles.infoSectionValueMap, currentTheme === 'dark' && { color: '#f8fafc' }]}>{selectedBin.addressLine || selectedBin.note || 'Belirtilmedi'}</Text>
                 </View>
 
                 <View style={styles.infoSectionMap}>
@@ -1058,7 +1060,7 @@ export default function KurumsalMapScreen() {
                     <Ionicons name="location" size={20} color="#2563eb" />
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.listItemName, currentTheme === 'dark' && { color: '#fff' }]} numberOfLines={1}>{bin.name}</Text>
-                      <Text style={[styles.listItemCoords, { fontSize: 12, color: '#64748b' }]} numberOfLines={1}>{bin.note || 'Açıklama yok'}</Text>
+                      <Text style={[styles.listItemCoords, { fontSize: 12, color: '#64748b' }]} numberOfLines={1}>{bin.addressLine || bin.note || 'Açıklama yok'}</Text>
                     </View>
                   </View>
                   <View style={[
@@ -1437,6 +1439,8 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 13,
     fontWeight: 'bold',
+    textAlign: 'center',
+    flexShrink: 1,
   },
   cardQrBtn: {
     width: 44,

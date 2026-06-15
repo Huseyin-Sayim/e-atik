@@ -33,6 +33,7 @@ interface TrashBin {
   note?: string;
   userFullName?: string;
   wasteType?: string;
+  addressLine?: string;
 }
 
 export default function KurumsalNotificationsScreen() {
@@ -113,6 +114,7 @@ export default function KurumsalNotificationsScreen() {
             id: 'req_' + req.id,
             name: `${catName} (${req.user ? req.user.name : 'Vatandaş'})`,
             note: req.note,
+            addressLine: req.addressLine,
             userFullName: req.user ? `${req.user.name} ${req.user.surname || ''}` : 'Kullanıcı',
             fillPercentage: 100, // En yüksek öncelik
             latitude: parseFloat(req.latitude),
@@ -321,7 +323,7 @@ export default function KurumsalNotificationsScreen() {
 
                 <View style={styles.infoSection}>
                   <Text style={[styles.infoSectionTitle, currentTheme === 'dark' && { color: '#64748b' }]}>Açık Adres</Text>
-                  <Text style={[styles.infoSectionValue, currentTheme === 'dark' && { color: '#fff' }]}>{selectedItem.note || 'Belirtilmedi'}</Text>
+                  <Text style={[styles.infoSectionValue, currentTheme === 'dark' && { color: '#fff' }]}>{selectedItem.addressLine || selectedItem.note || 'Belirtilmedi'}</Text>
                 </View>
 
                 <View style={styles.infoSection}>
