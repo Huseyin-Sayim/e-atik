@@ -473,14 +473,32 @@ const DatabaseService = {
   async updateWasteRequestStatus(id: string, status: string, earnedCoins?: number, weight?: number): Promise<any> {
     try {
       const token = await AsyncStorage.getItem('accessToken');
-      const response = await fetch(`${BASE_API_URL}/waste-requests/${id}/status`, {
-        method: 'PUT',
+
+      // COLLECTED durumu için /collect endpoint'i kullan (kurumsal + personel erişebilir)
+      if (status === 'COLLECTED') {
+        const response = await fetch(`${BASE_API_URL}/waste-requests/${id}/collect`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : '',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({ weight: weight || null })
+        });
+        const json = await this.safeParseJson(response);
+        if (!response.ok) throw new Error(json.message || 'Talep tamamlanamadı.');
+        return json.data || json;
+      }
+
+      // Diğer durum güncellemeleri (ON_ROUTE vb.) için PATCH /:id kullan
+      const response = await fetch(`${BASE_API_URL}/waste-requests/${id}`, {
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': token ? `Bearer ${token}` : '',
           'Accept': 'application/json'
         },
-        body: JSON.stringify({ status, earnedCoins, weight })
+        body: JSON.stringify({ status })
       });
       const json = await this.safeParseJson(response);
       if (!response.ok) throw new Error(json.message || 'Durum güncellenemedi.');
