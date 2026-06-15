@@ -623,7 +623,11 @@ export default function KisiselIndexScreen() {
     } catch (err: any) {
       setIsSubmitting(false);
       console.error('Evsel atık bildirimi gönderilemedi:', err);
-      showWasteToast('error', 'Hata', err.message || 'Bildirim sunucuya gönderilirken bir hata oluştu.');
+      let friendlyError = 'İşleminiz sırasında bir hata oluştu. Lütfen bağlantınızı kontrol edip tekrar deneyiniz.';
+      if (err && err.message && err.message.toLowerCase().includes('location')) {
+        friendlyError = 'Konum bilgisi alınamadı. Lütfen cihazınızın konum (GPS) özelliğinin açık olduğundan emin olunuz.';
+      }
+      showWasteToast('error', 'Hata', friendlyError);
     }
   };
 
@@ -997,7 +1001,7 @@ export default function KisiselIndexScreen() {
             <Animated.View
               style={{
                 position: 'absolute',
-                top: 10,
+                top: 50,
                 left: 12,
                 right: 12,
                 zIndex: 999,
