@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Akıllı Kova",
-    "slug": "Mobile",
+    "slug": "akilli-kova",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/akilli-kova-icon.png",
@@ -89,7 +89,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "ddcfb1ae-a9fa-4d3b-951e-2206b4647ff9"
+        "projectId": "3578e58e-c9e5-4920-a72d-bbea1d6f058b"
       }
     }
   }

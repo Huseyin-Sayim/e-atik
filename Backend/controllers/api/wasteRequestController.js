@@ -18,6 +18,7 @@ const wasteRequestInclude = {
       id: true,
       name: true,
       slug: true,
+      legacyEnum: true,
       coinRewardMode: true,
       coinRewardValue: true,
       parent: { select: { id: true, name: true } },
@@ -37,9 +38,6 @@ const createWasteRequest = async (req, res) => {
 
     const { wasteTypeId, latitude, longitude, addressLine, city, district, note } = req.body;
     const campus = assertPointInCampus(latitude, longitude);
-    if (!campus.ok) {
-      return res.status(400).json({ message: campus.message });
-    }
 
     const typeCheck = await validateLeafWasteTypeId(wasteTypeId);
     if (!typeCheck.ok) {
@@ -60,7 +58,7 @@ const createWasteRequest = async (req, res) => {
         addressLine: addressLine.trim(),
         city: (city && String(city).trim()) || user?.city || null,
         district: (district && String(district).trim()) || user?.district || null,
-        parcelKey: campus.parcelKey,
+        parcelKey: campus.ok ? campus.parcelKey : null,
         note: note || null,
         status: 'PENDING',
       },
@@ -79,6 +77,17 @@ const createWasteRequest = async (req, res) => {
   }
 };
 
+const mapRequestsForLegacyMobile = (requests) => {
+  return requests.map(req => {
+    const mapped = { ...req };
+    if (mapped.wasteType && typeof mapped.wasteType === 'object') {
+      mapped.wasteTypeDetails = mapped.wasteType;
+      mapped.wasteType = mapped.wasteType.legacyEnum || 'DOMESTIC';
+    }
+    return mapped;
+  });
+};
+
 const getMyWasteRequests = async (req, res) => {
   try {
     const userId = req.user?.userId;
@@ -87,7 +96,7 @@ const getMyWasteRequests = async (req, res) => {
       orderBy: { createdAt: 'desc' },
       include: wasteRequestInclude,
     });
-    res.status(200).json(requests);
+    res.status(200).json(mapRequestsForLegacyMobile(requests));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -99,7 +108,7 @@ const getAllWasteRequests = async (req, res) => {
       orderBy: { createdAt: 'desc' },
       include: wasteRequestInclude,
     });
-    res.status(200).json(requests);
+    res.status(200).json(mapRequestsForLegacyMobile(requests));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
