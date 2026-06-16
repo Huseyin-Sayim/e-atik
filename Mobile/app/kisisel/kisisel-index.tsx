@@ -535,25 +535,34 @@ export default function KisiselIndexScreen() {
     if (unreadRequests.length > 0) {
       const userId = await AsyncStorage.getItem('currentUserId');
       
-      const unreadsInfo = unreadRequests.map(r => `• Konum: ${r.addressLine || r.note || 'Belirtilmedi'}\n  Talep No: ${r.id.substring(0,6)}...`).join('\n\n');
-      
-      Alert.alert(
-        'Talebiniz Tamamlandı! 🎉',
-        `Ekiplerimiz evsel atık taleplerinizi başarıyla topladı:\n\n${unreadsInfo}`,
-        [
-          {
-            text: 'Tamam',
-            onPress: async () => {
-              const readIdsStr = await AsyncStorage.getItem(`readCollectedRequests_${userId}`);
-              const readIds = readIdsStr ? JSON.parse(readIdsStr) : [];
-              const newReadIds = [...readIds, ...unreadRequests.map(r => r.id)];
-              await AsyncStorage.setItem(`readCollectedRequests_${userId}`, JSON.stringify(newReadIds));
-              setUnreadRequests([]); 
-              setWasteModalVisible(true);
-            }
-          }
-        ]
-      );
+      const showNextAlert = async (index: number) => {
+        if (index < unreadRequests.length) {
+          const r = unreadRequests[index];
+          Alert.alert(
+            'Talebiniz Tamamlandı! 🎉',
+            `Ekiplerimiz evsel atık talebinizi başarıyla topladı:\n\n• Konum: ${r.addressLine || r.note || 'Belirtilmedi'}\n  Talep No: ${r.id.substring(0,6)}...`,
+            [
+              {
+                text: 'Tamam',
+                onPress: async () => {
+                  const readIdsStr = await AsyncStorage.getItem(`readCollectedRequests_${userId}`);
+                  const readIds = readIdsStr ? JSON.parse(readIdsStr) : [];
+                  if (!readIds.includes(r.id)) {
+                    const newReadIds = [...readIds, r.id];
+                    await AsyncStorage.setItem(`readCollectedRequests_${userId}`, JSON.stringify(newReadIds));
+                  }
+                  showNextAlert(index + 1);
+                }
+              }
+            ]
+          );
+        } else {
+          setUnreadRequests([]); 
+          setWasteModalVisible(true);
+        }
+      };
+
+      showNextAlert(0);
     } else {
       setWasteModalVisible(true);
     }

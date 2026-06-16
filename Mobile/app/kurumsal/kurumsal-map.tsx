@@ -868,8 +868,13 @@ export default function KurumsalMapScreen() {
                         }
                       }}
                     >
-                      <Ionicons name="navigate" size={16} color="#fff" style={{ marginRight: 6 }} />
-                      <Text style={styles.btnTextMap}>Yol Tarifi Al (Rota Çiz)</Text>
+                      <View style={{ alignItems: 'center' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Ionicons name="navigate" size={16} color="#fff" style={{ marginRight: 4 }} />
+                          <Text style={styles.btnTextMap}>Yol Tarifi Al</Text>
+                        </View>
+                        <Text style={styles.btnTextMap}>(Rota Çiz)</Text>
+                      </View>
                     </TouchableOpacity>
                   )}
 
@@ -898,8 +903,13 @@ export default function KurumsalMapScreen() {
                       }
                     }}
                   >
-                    <Ionicons name="checkmark-circle" size={16} color="#fff" style={{ marginRight: 6 }} />
-                    <Text style={styles.btnTextMap}>Atığı Topladım (Tamamla)</Text>
+                    <View style={{ alignItems: 'center' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Ionicons name="checkmark-circle" size={16} color="#fff" style={{ marginRight: 4 }} />
+                        <Text style={styles.btnTextMap}>Atığı Topladım</Text>
+                      </View>
+                      <Text style={styles.btnTextMap}>(Tamamla)</Text>
+                    </View>
                   </TouchableOpacity>
                 </View>
               </View>

@@ -965,8 +965,13 @@ export default function KurumsalIndexScreen() {
                         }
                       }}
                     >
-                      <Ionicons name="navigate" size={20} color="#fff" style={{ marginRight: 8 }} />
-                      <Text style={styles.btnText}>Yol Tarifi Al (Rota Çiz)</Text>
+                      <View style={{ alignItems: 'center' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Ionicons name="navigate" size={20} color="#fff" style={{ marginRight: 6 }} />
+                          <Text style={styles.btnText}>Yol Tarifi Al</Text>
+                        </View>
+                        <Text style={styles.btnText}>(Rota Çiz)</Text>
+                      </View>
                     </TouchableOpacity>
                   )}
 
@@ -978,8 +983,13 @@ export default function KurumsalIndexScreen() {
                       setCompleteModalVisible(true);
                     }}
                   >
-                    <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
-                    <Text style={styles.btnText}>Atığı Topladım (Tamamla)</Text>
+                    <View style={{ alignItems: 'center' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 6 }} />
+                        <Text style={styles.btnText}>Atığı Topladım</Text>
+                      </View>
+                      <Text style={styles.btnText}>(Tamamla)</Text>
+                    </View>
                   </TouchableOpacity>
                 </View>
               </ScrollView>
