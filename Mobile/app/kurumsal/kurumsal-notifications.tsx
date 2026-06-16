@@ -368,8 +368,13 @@ export default function KurumsalNotificationsScreen() {
                       }
                     }}
                   >
-                    <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
-                    <Text style={styles.btnText}>Atığı Topladım (Tamamla)</Text>
+                    <View style={{ alignItems: 'center' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 6 }} />
+                        <Text style={styles.btnText}>Atığı Topladım</Text>
+                      </View>
+                      <Text style={styles.btnText}>(Tamamla)</Text>
+                    </View>
                   </TouchableOpacity>
                 </View>
               </ScrollView>
